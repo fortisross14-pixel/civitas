@@ -9,10 +9,10 @@ function town(seed=9,type='river'){return seedTown(makeCity('Construction',type,
 function pick(city,card){return selectTurningPoint({...city,turning:{...city.turning,pending:{index:city.turning.choices.length,year:city.year,options:[card]}}},card);}
 function buildAnywhere(city,id){let last='';for(let y=2;y<H-2;y++)for(let x=2;x<W-2;x++){const result=placeConstruction(city,id,x,y);if(!result.error)return result;last=result.error;}throw Error(`No build site: ${id}: ${last}`);}
 
-test('two ordinary civic buildings per era; there are no arbitrary extraordinary buildings',()=>{
- assert.equal(BASIC_BUILDINGS.length,12);
+test('three ordinary civic buildings per era; extraordinary buildings remain distinct',()=>{
+ assert.equal(BASIC_BUILDINGS.length,18);
  for(const year of [1300,1500,1750,1850,1950,2000]){
-  const basics=basicsForYear(year);assert.equal(basics.length,2,`year ${year}`);
+  const basics=basicsForYear(year);assert.equal(basics.length,3,`year ${year}`);
   assert.ok(basics.every(b=>b.start<=year&&b.end>=year));
  }
  assert.ok(!BASIC_BUILDINGS.some(b=>['university','port','monument','monastery'].includes(b.kind)));

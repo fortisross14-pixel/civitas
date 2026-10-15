@@ -12,6 +12,7 @@ export const CARDS=[
  card('urban_expansion','Urban Expansion','population','common','permanent','New district development +40%.',{development:.40},{scorePulse:{infrastructure:30}}),
  card('housing_revolution','Housing Revolution','population','rare','permanent','New residential buildings house 50% more people.',{newHousing:.50}),
  card('metropolitan_magnet','Metropolitan Magnet','population','rare','scaling','Each major institution increases migration attraction by 5%.',{migrationPerLandmark:.05}),
+ card('charter_districts','Charter Districts','population','uncommon','permanent','Planned districts add housing capacity and civic resilience.',{housing:.18,services:.10}),
  // industry (7)
  card('industrial_expansion','Industrial Expansion','industry','common','permanent','Workshop development +30%; manufacturing output +10%.',{industrialDevelopment:.30,industry:.10}),
  card('master_craftsmen','Master Craftsmen','industry','common','permanent','Manufacturing productivity +25%.',{industry:.25}),
@@ -20,6 +21,7 @@ export const CARDS=[
  card('factory_town','Factory Town','industry','rare','scaling','Each 1,000 manufacturing jobs increases sector output by 3%.',{industryPerThousand:.03}),
  card('trading_empire','Trading Empire','industry','uncommon','permanent','Trading infrastructure increases commerce output +40%.',{trade:.40}),
  card('economic_miracle','Economic Miracle','industry','rare','temporary','GDP +25% for the next three Turning Point intervals.',{gdp:.25},{durationPoints:3,repeatable:true,scorePulse:{economy:40}}),
+ card('clean_foundries','Clean Foundries','industry','uncommon','permanent','Modern manufacturing grows with lower pollution.',{industry:.20,pollution:-.22},{minYear:1850}),
  // arts, culture & tourism (8)
  card('hire_artists','Hire Artists','culture','common','landmark','Unlock an artists’ workshop project. Place it on the map to gain +30% artistic production.',{arts:.30},{building:'workshop'}),
  card('cultural_boom','Cultural Boom','culture','uncommon','synergy','Artists generate +50% Cultural Prestige.',{arts:.50},{requiresAny:['hire_artists','grand_workshops','patron_arts'],scorePulse:{culture:38}}),
@@ -29,6 +31,7 @@ export const CARDS=[
  card('cultural_renaissance','Cultural Renaissance','culture','epic','synergy','Multiply all artistic institution bonuses by 2.',{artsMultiplier:1},{requiresAny:['hire_artists','patron_arts','grand_workshops']}),
  card('world_heritage','World Heritage','culture','uncommon','permanent','Historic buildings generate +50% more cultural appeal.',{heritage:.50}),
  card('tourist_paradise','Tourist Paradise','culture','rare','synergy','Turn historic prestige into modern tourism income.',{tourismIncome:.75},{minYear:1800,requiresAny:['hire_artists','patron_arts','world_heritage','city_monuments','grand_workshops']}),
+ card('festival_calendar','Festival Calendar','culture','common','permanent','Seasonal festivals strengthen arts and visitor spending.',{arts:.24,tourismIncome:.14},{minYear:1500}),
  // religion (7)
  card('spiritual_awakening','Spiritual Awakening','religion','common','permanent','Religious influence +40%.',{faith:.40},{scorePulse:{faith:36}}),
  card('monastic_tradition','Monastic Tradition','religion','uncommon','landmark','Unlock a monastery project. Place it to improve faith and education.',{faith:.20,faithEducation:.25},{building:'monastery'}),
@@ -45,20 +48,23 @@ export const CARDS=[
  card('knowledge_economy','Knowledge Economy','education','epic','scaling','Each university increases high-value productivity by 8%.',{knowledgePerUniversity:.08},{requiresAny:['free_university','great_scholars'],minYear:1650}),
  card('civic_reform','Civic Reform','education','common','permanent','Public services become 25% more effective.',{services:.25},{scorePulse:{infrastructure:30}}),
  card('admin_excellence','Administrative Excellence','education','uncommon','permanent','Municipal treasury revenue +30%.',{treasury:.30}),
+ card('public_works_academy','Public Works Academy','education','uncommon','permanent','Educated civic engineers strengthen services and transport.',{education:.18,services:.12,transport:.10},{minYear:1700}),
  // trade, transport & planning (7)
- card('great_port','Great Port','trade','rare','landmark','Unlock a grand port project; place it beside water to improve commerce.',{trade:.25},{building:'port',geographies:['river','coast'],minYear:1400}),
+ card('great_port','Great Port','trade','rare','landmark','Unlock a grand port project; place it beside water to improve commerce.',{trade:.25},{building:'port',geographies:['river','coast','estuary','lake'],minYear:1400}),
  card('commercial_revolution','Commercial Revolution','trade','common','permanent','Commercial sector output +35%.',{trade:.35},{scorePulse:{economy:34}}),
  card('grand_boulevard','Grand Boulevard','trade','uncommon','landmark','Unlock a grand boulevard project. Place its starting point to construct the avenue.',{transport:.12},{building:'boulevard',minYear:1700}),
  card('transport_network','Transport Network','trade','common','permanent','Connectivity and development attraction +30%.',{transport:.30},{scorePulse:{infrastructure:34}}),
  card('merchant_republic','Merchant Republic','trade','rare','synergy','Strong commerce also attracts immigrants.',{merchantMigration:.30},{requiresAny:['commercial_revolution','great_port','trading_empire']}),
  card('urban_renewal','Urban Renewal','trade','uncommon','permanent','Urban redevelopment and reconstruction +40%.',{renewal:.40},{minYear:1750}),
  card('golden_age','Golden Age','trade','rare','temporary','GDP, prosperity and immigration improve for two intervals.',{gdp:.20,migration:.20,prosperity:6},{durationPoints:2,repeatable:true}),
+ card('canal_exchange','Canal Exchange','trade','uncommon','permanent','Waterborne exchange improves commerce and infrastructure.',{trade:.22,transport:.12},{geographies:['river','coast','estuary','lake'],minYear:1500}),
  // wildcards (5)
  card('great_migration','Great Migration','wildcard','uncommon','instant','Immediately gain 20% residents, causing housing pressure.',{popInstant:.20},{repeatable:true}),
  card('ruthless_industry','Ruthless Industrialization','wildcard','rare','permanent','Industrial output +75% at the cost of heavy pollution.',{industry:.75,pollution:.35},{minYear:1750}),
  card('grand_patronage','Grand Patronage','wildcard','rare','permanent','Cultural and religious projects gain +70% power.',{arts:.35,faith:.35},{minYear:1400}),
  card('monumental_ambition','Monumental Ambition','wildcard','rare','landmark','Unlock two monument projects you must place; increases upkeep.',{treasury:-.10},{building:'double_monument'}),
- card('city_reinvention','City of Reinvention','wildcard','epic','permanent','Redevelopment +60%, but historic preservation suffers.',{renewal:.60,heritage:-.30},{minYear:1800})
+ card('city_reinvention','City of Reinvention','wildcard','epic','permanent','Redevelopment +60%, but historic preservation suffers.',{renewal:.60,heritage:-.30},{minYear:1800}),
+ card('world_exposition','World Exposition','wildcard','rare','temporary','A global fair boosts culture, commerce and prosperity for three choices.',{arts:.18,trade:.18,prosperity:5},{durationPoints:3,minYear:1850})
 ];
 export const CARD_INDEX=Object.fromEntries(CARDS.map(c=>[c.id,c]));
 export const SYNERGIES=[
@@ -145,7 +151,7 @@ export function generateOffers(city,index,reroll=0,extra=[]){
    if(slot===1&&['population','education','trade'].includes(c.domain))weight*=1.4;
    if(slot===2&&leading&&c.domain!==leading)weight*=1.4;
    // Basic geographical relevance, not a guaranteed build or a prescribed victory.
-   if(c.domain==='trade'&&city.type==='coast')weight*=1.15;
+   if(c.domain==='trade'&&['coast','estuary','lake'].includes(city.type))weight*=1.15;
    return weight;
   });
   if(item){selected.add(item.id);slots.push(item.id);}

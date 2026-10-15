@@ -16,8 +16,8 @@ function placeAwarded(city,kind=null){
 function selectForced(city,cardId){assert.ok(getOpportunity(cardId));const pending={index:city.turning.choices.length+(city.turning.skipped||0),year:city.year,options:[cardId]};return selectTurningPoint({...city,turning:{...city.turning,pending}},cardId);}
 function complete(c,mode='first'){let loops=0;while(c.year<2030&&loops++<70){const old=c.year;c=advance(c,1000);if(c.turning.pending){const id=mode==='last'?c.turning.pending.options.at(-1):c.turning.pending.options[0];c=selectTurningPoint(c,id);}if(c.year===old)throw new Error('Stalled');}assert.equal(c.year,2030);return c;}
 
-test('card catalogue has exactly 48 unique, complete, playable opportunities and 10 synergies',()=>{
- assert.equal(CARDS.length,48);assert.equal(new Set(CARDS.map(c=>c.id)).size,48);
+test('card catalogue has 54 unique, complete, playable opportunities and 10 synergies',()=>{
+ assert.equal(CARDS.length,54);assert.equal(new Set(CARDS.map(c=>c.id)).size,54);
  assert.equal(SYNERGIES.length,10);
  for(const c of CARDS){assert.ok(c.name&&c.description&&DOMAINS[c.domain]);assert.ok(Object.keys(c.effects).length);assert.ok(['common','uncommon','rare','epic'].includes(c.rarity));assert.ok(['instant','permanent','scaling','synergy','landmark','temporary'].includes(c.kind));}
  for(const combo of SYNERGIES){assert.ok(combo.needs.length>=3);assert.ok(combo.needs.every(id=>CARD_INDEX[id]));}

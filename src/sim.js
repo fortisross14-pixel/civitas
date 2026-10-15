@@ -28,9 +28,11 @@ export function terrain(type,x,y){
   if(!within(x,y))return 'outside';
   if(type==='river'){const center=53+Math.sin(y*.095)*8+Math.sin(y*.033)*5;return Math.abs(x-center)<2.8?'water':'land';}
   if(type==='coast')return x>75+Math.sin(y*.1)*4.5+Math.sin(y*.039)*3.5?'water':'land';
+  if(type==='estuary'){const coast=x>77+Math.sin(y*.09)*3?'water':'land',mouth=47+Math.sin(y*.12)*7;return coast==='water'||(y>36&&Math.abs(x-mouth)<Math.max(3,(y-32)*.13))?'water':'land';}
+  if(type==='lake'){const dx=x-64,dy=y-36;return dx*dx/150+dy*dy/105<1?'water':'land';}
   return 'land';
 }
-export function makeCity(name='New Valdoria',type='river',seed=23451){return {schema:8,development:{...INITIAL_DEVELOPMENT},productivityStock:720,culturalCapital:0,sacredCapital:0,knowledgeCapital:0,projects:[],nextProjectId:1,turning:{choices:[],pending:null,skipped:0,rerollsUsed:0},figures:[],legacyBonuses:{},landmarks:[],id:`${Date.now()}-${(seed>>>0).toString(36)}`,name:String(name).trim().slice(0,40)||'Unnamed City',type:['river','plain','coast'].includes(type)?type:'river',seed:seed|0,year:FIRST_YEAR,turns:0,zones:[],buildings:[],roads:[],history:[],events:[],sites:[],snapshots:[],nextBuildingId:1,policies:{},momentumUntil:0,momentum:0,funds:400,residents:120,finished:false};}
+export function makeCity(name='New Valdoria',type='river',seed=23451){return {schema:8,development:{...INITIAL_DEVELOPMENT},productivityStock:720,culturalCapital:0,sacredCapital:0,knowledgeCapital:0,projects:[],nextProjectId:1,turning:{choices:[],pending:null,skipped:0,rerollsUsed:0},figures:[],legacyBonuses:{},landmarks:[],id:`${Date.now()}-${(seed>>>0).toString(36)}`,name:String(name).trim().slice(0,40)||'Unnamed City',type:['river','plain','coast','estuary','lake'].includes(type)?type:'river',seed:seed|0,year:FIRST_YEAR,turns:0,zones:[],buildings:[],roads:[],history:[],events:[],sites:[],snapshots:[],nextBuildingId:1,policies:{},momentumUntil:0,momentum:0,funds:400,residents:120,finished:false};}
 // A zone plan is immutable between player edits: cache its raster and area counts.
 // Full campaigns previously rebuilt 7,200 tile lookups for every single stats call.
 const zoningCache=new WeakMap();
@@ -101,13 +103,13 @@ const ageCapacity=year=>year<1750?8:year<1850?14:year<1950?27:year<2000?45:58;
 const ageJobs=(year,type)=>type==='hotel'?(year<1900?15:year<1950?28:48):type==='farm'?6: type==='civic'?10:type==='trade'?year<1850?11:year<1950?22:38:year<1850?16:year<1950?32:52;
 export function stats(city){
   const m=cityEffects(city);
-  const z=density(city);let housing=120*(1+(m.housing||0)),jobs=55,civic=0,farms=0,commerce=0,industry=0,developedHousing=0;
+  const legacyCapacity=Math.max(0,Number(m.legacyCapacity)||0);const z=density(city);let housing=120*(1+(m.housing||0))*(1+legacyCapacity),jobs=55,civic=0,farms=0,commerce=0,industry=0,developedHousing=0;
   const sectorJobs={base:55,farm:0,trade:0,craft:0,civic:0,hotel:0};let heritage=0,protectedCount=0,oldest=Infinity,hotels=0;
   for(const b of city.buildings){
     if(city.year-(b.born||city.year)>=120)heritage++;
     if(b.protected)protectedCount++;
     oldest=Math.min(oldest,b.born||city.year);
-    if(b.type==='res'){housing+=(b.capacity||8)*(1+(m.housing||0));developedHousing++;}
+    if(b.type==='res'){housing+=(b.capacity||8)*(1+(m.housing||0))*(1+legacyCapacity);developedHousing++;}
     if(b.type!=='res'){const work=b.jobs||4;jobs+=work;sectorJobs[b.type]+=work;}
     if(b.type==='trade')commerce++;
     if(b.type==='craft')industry++;
@@ -129,7 +131,7 @@ export function stats(city){
   // Per-worker productivity is a game model, not a historical GDP estimate.
   // Actual productivity is a durable city-specific stock, not a calendar lookup.
   // Earlier eras are approximated only for migrated v0.7 save files.
-  const productPerWorker=Math.max(200,Number(city.productivityStock)||720);
+  const productPerWorker=Math.max(200,(Number(city.productivityStock)||720)*(1+Math.max(0,Number(m.legacyProductivity)||0)));
   const momentum=developmentOf(city);
   const tradeValue=city.year<1850?1.16:city.year<1950?1.24:1.38;
   const craftValue=city.year>=1850&&city.year<1950?1.30:1.09;
@@ -264,7 +266,7 @@ function localEvent(city,year){
   const r=rand(hash(city.seed,year,93421));
   if(r()>=.028)return;
   const possible=['fire','epidemic','boom'];
-  if(city.type==='river'||city.type==='coast')possible.push('flood');
+  if(['river','coast','estuary','lake'].includes(city.type))possible.push('flood');
   const kind=possible[Math.floor(r()*possible.length)];
   if(kind==='fire'||kind==='flood'){
     const center=city.buildings[Math.floor(r()*city.buildings.length)];
@@ -453,7 +455,9 @@ export function placeConstruction(city,kindOrProject,x,y){
   if(city.funds<basic.cost)return {city,error:`Need ${basic.cost.toLocaleString()} treasury to build ${basic.name}`};
  }
  const kind=project?.kind||basic.kind;
- if(kind==='port'&&!['river','coast'].includes(city.type))return {city,error:'This geography has no navigable shore'};
+ if(kind==='port'&&!['river','coast','estuary','lake'].includes(city.type))return {city,error:'This geography has no navigable shore'};
+ if(basic?.requiresMegacity&&!city.legacyBonuses?.megacityCharter)return {city,error:'Requires the 50-city Megacity Charter Legacy tier'};
+ if(basic?.requiresPopulation&&stats(city).population<basic.requiresPopulation)return {city,error:`Requires a thriving city of ${basic.requiresPopulation.toLocaleString()} residents`};
  const issue=placementIssue(city,kind,x,y);
  if(issue)return {city,error:issue};
  const next={...city,buildings:[...city.buildings],landmarks:[...(city.landmarks||[])],roads:[...city.roads],events:[...city.events],projects:[...(city.projects||[])]};
@@ -557,7 +561,7 @@ export function advance(city,years=5){
 export function seedTown(city){
   // A coherent starting neighborhood on the western shore of a winding river.
   // Different layouts are chosen on coastal and plain terrain.
-  const sx=city.type==='plain'?39:city.type==='coast'?39:26,sy=27;
+  const sx=city.type==='plain'?39:city.type==='coast'?39:city.type==='estuary'?31:city.type==='lake'?33:26,sy=27;
   let c=addZone(city,sx,sy,19,16,'res');
   c=addZone(c,sx+5,sy+5,7,5,'trade');
   c=addZone(c,sx-9,sy-3,9,18,'farm');

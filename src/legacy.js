@@ -6,7 +6,7 @@ export const LOCKED_CARDS=[
  'grand_workshops','cultural_renaissance','tourist_paradise','city_monuments',
  'great_pilgrimage','sacred_city','holy_scholars','religious_golden_age',
  'knowledge_economy','enlightenment','great_port','merchant_republic',
- 'city_reinvention','monumental_ambition'
+ 'city_reinvention','monumental_ambition','charter_districts','clean_foundries','festival_calendar','public_works_academy','canal_exchange','world_exposition'
 ];
 export const ACHIEVEMENT_REQUIREMENTS={
  tourist_paradise:{id:'cultural_rebirth',label:'Cultural Rebirth (120 cultural prestige)'},
@@ -28,16 +28,19 @@ export const FIGURES=[
  figure('trade_envoy','Trade Envoy','trade','uncommon',1300,2030,'Commerce and migration attraction +20%.',{trade:.20,migration:.20},{generic:true}),
  figure('ibn_khaldun','Ibn Khaldun','education','rare',1300,1499,'Administration and scholarly institutions strengthen prosperity.',{education:.35,treasury:.20}),
  figure('ibn_battuta','Ibn Battuta','trade','rare',1300,1499,'Trade routes improve economic output and migration.',{trade:.45,migration:.18}),
+ figure('ibn_sina','Ibn Sina','education','rare',1300,1499,'Medicine and learning make public institutions more capable.',{education:.42,services:.18}),
  figure('bach','Johann Sebastian Bach','culture','rare',1500,1749,'Music and local institutions enhance cultural prestige.',{arts:.60},{building:'monument'}),
  figure('wren','Christopher Wren','culture','rare',1500,1749,'Monumental architecture and civic rebuilding flourish.',{arts:.30,renewal:.35},{building:'monument'}),
  figure('florence_nightingale','Florence Nightingale','education','epic',1850,1949,'Public health and civic services dramatically improve.',{services:.70,prosperity:12,migration:.18}),
  figure('gaudi','Antoni Gaudí','culture','epic',1850,1949,'Visionary monuments make the city a cultural destination.',{arts:.85,heritage:.55,tourismIncome:.40},{building:'monument'}),
  figure('ada_lovelace','Ada Lovelace','education','epic',1800,1949,'Science and innovation transform future productivity.',{education:.70,innovation:.55}),
+ figure('olmsted','Frederick Law Olmsted','culture','epic',1850,1949,'Public landscapes improve prosperity, heritage and civic life.',{arts:.35,services:.25,heritage:.32}),
  figure('john_rockefeller','John D. Rockefeller','industry','epic',1850,1949,'Industrial investment raises GDP but increases pollution.',{industry:.95,treasury:.35,pollution:.25}),
  figure('michelangelo','Michelangelo','culture','legend',1450,1749,'Legendary masterpieces: art production +150%, major monuments and worldwide prestige.',{arts:1.50,artsMultiplier:.50,tourismIncome:.55},{building:'double_monument',requires:'epic_artist'}),
  figure('leonardo','Leonardo da Vinci','education','legend',1450,1749,'Renaissance genius: art, engineering and education reinforce one another.',{arts:.90,education:1.0,innovation:.70},{building:'workshop'}),
  figure('brunel','Isambard Kingdom Brunel','trade','legend',1800,1949,'Engineering visionary: commerce, industry and transport combine.',{transport:.90,development:.45,industry:.55},{building:'port',geographies:['river','coast']}),
- figure('tesla','Nikola Tesla','education','legend',1850,1949,'Revolutionary innovation improves scientific and economic output.',{education:.80,innovation:1.30})
+ figure('tesla','Nikola Tesla','education','legend',1850,1949,'Revolutionary innovation improves scientific and economic output.',{education:.80,innovation:1.30}),
+ figure('jane_jacobs','Jane Jacobs','trade','legend',1950,2030,'Lively mixed districts make a great city more resilient and productive.',{trade:.38,services:.34,renewal:.28,prosperity:8})
 ];
 export const FIGURE_INDEX=Object.fromEntries(FIGURES.map(f=>[f.id,f]));
 export const MARKET_UPGRADES=[
@@ -51,7 +54,8 @@ export const MARKET_UPGRADES=[
  {id:'rerolls',name:'Historical Insight',domain:'wildcard',description:'One extra Turning Point reroll per campaign and rank.',effect:{extraRerolls:1},max:2,baseCost:140}
 ];
 export const UPGRADE_INDEX=Object.fromEntries(MARKET_UPGRADES.map(u=>[u.id,u]));
-export function emptyLegacy(){return {version:1,points:0,unlockedCards:[],unlockedFigures:[],upgrades:{},completed:[],achievements:[],lifetimePoints:0};}
+export function legacyCityProgress(completed=0){const cities=Math.max(0,Math.floor(Number(completed)||0)),settle=1-Math.exp(-cities/14),civic=1-Math.exp(-Math.max(0,cities-18)/22),capacity=.34*settle+.30*civic,productivity=.16*(1-Math.exp(-cities/11))+.28*civic;return {cities,tier:cities>=70?'Global Civilization':cities>=50?'Megacity Charter':cities>=35?'World City':cities>=25?'Regional Capital':cities>=12?'Established Civilization':cities>=4?'Chartered Cities':'Founding Lineage',capacity,productivity,featuredSlots:cities>=35?7:cities>=12?6:5,megacity:cities>=50};}
+export function emptyLegacy(){return {version:2,points:0,unlockedCards:[],unlockedFigures:[],upgrades:{},completed:[],achievements:[],lifetimePoints:0};}
 export function normalizeLegacy(raw){const base=emptyLegacy();if(!raw||typeof raw!=='object')return base;
  return {...base,points:Math.max(0,Math.floor(Number(raw.points)||0)),unlockedCards:Array.from(new Set((raw.unlockedCards||[]).filter(k=>LOCKED_CARDS.includes(k)))),unlockedFigures:Array.from(new Set((raw.unlockedFigures||[]).filter(k=>FIGURE_INDEX[k]&&!FIGURE_INDEX[k].generic))),upgrades:Object.fromEntries(Object.entries(raw.upgrades||{}).filter(([k,v])=>UPGRADE_INDEX[k]&&Number.isInteger(v)&&v>=0).map(([k,v])=>[k,Math.min(v,UPGRADE_INDEX[k].max)])),completed:Array.from(new Set((raw.completed||[]).filter(x=>typeof x==='string'))),achievements:Array.from(new Set((raw.achievements||[]).filter(x=>typeof x==='string'))),lifetimePoints:Math.max(0,Math.floor(Number(raw.lifetimePoints)||0))};
 }
@@ -73,8 +77,8 @@ export function buyLegacy(legacy,type,id){const l=normalizeLegacy(legacy),check=
 }
 export function runModifiersFromLegacy(l){const result={};for(const u of MARKET_UPGRADES){const rank=l.upgrades[u.id]||0;for(const [k,v] of Object.entries(u.effect))result[k]=(result[k]||0)+v*rank;}return result;}
 export function startRunProfile(legacy,loadout){const l=normalizeLegacy(legacy);
- const selected=Array.from(new Set((loadout||[]).filter(id=>l.unlockedFigures.includes(id)))).slice(0,5);
- return {cardPool:[...BASE_CARDS,...l.unlockedCards],figurePool:[...l.unlockedFigures],featuredFigures:selected,legacyBonuses:runModifiersFromLegacy(l)};
+ const progression=legacyCityProgress(l.completed.length),selected=Array.from(new Set((loadout||[]).filter(id=>l.unlockedFigures.includes(id)))).slice(0,progression.featuredSlots);
+ return {cardPool:[...BASE_CARDS,...l.unlockedCards],figurePool:[...l.unlockedFigures],featuredFigures:selected,progression,legacyBonuses:{...runModifiersFromLegacy(l),legacyCapacity:progression.capacity,legacyProductivity:progression.productivity,megacityCharter:progression.megacity?1:0}};
 }
 export function scoreCity(city,stats){
  // Reward scale, prosperity, and specializations. High population keeps earning
