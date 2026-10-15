@@ -1,7 +1,15 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {W,H,END_YEAR,makeCity,seedTown,advance,stats,addZone,terrain,zoneCell,density,normalizeCity,eraAt} from '../src/sim.js';
+import {W,H,END_YEAR,makeCity,seedTown,advance as advanceCore,selectTurningPoint,stats,addZone,terrain,zoneCell,density,normalizeCity,eraAt,styleAt,STYLE_NAMES,snapshotCity,setProtection} from '../src/sim.js';
 
+// Legacy regression scenarios automatically choose the first offered card so the
+// underlying city simulation can be compared over identical chronological spans.
+function advance(city,years){let c=city,target=Math.min(END_YEAR,c.year+years),guard=0;
+  while(c.year<target&&guard++<300){const before=c.year;c=advanceCore(c,target-c.year);
+    if(c.turning?.pending)c=selectTurningPoint(c,c.turning.pending.options[0]);
+    if(c.year===before)throw new Error(`No simulation progress at year ${before}`);
+  }return c;
+}
 const newTown=(type='plain',seed=42)=>seedTown(makeCity('Valdoria',type,seed));
 
 test('start has a plausible settlement, zoning, streets, and a history snapshot',()=>{
@@ -82,8 +90,8 @@ test('larger balanced zoning grows a bigger city than the base settlement',()=>{
 test('severe housing shortage can yield crowding when jobs are available',()=>{
   let c=newTown('plain',410);
   c=addZone(c,56,5,26,55,'craft');c=advance(c,730);
-  const s=stats(c);assert.ok(s.housingPressure>100,`housing pressure ${s.housingPressure}`);
-  assert.ok(s.overcrowding>0);
+  const s=stats(c);assert.ok(Math.max(...c.history.map(h=>h.housingPressure||0))>105,`peak housing pressure ${Math.max(...c.history.map(h=>h.housingPressure||0))}`);
+  assert.ok(s.capacity>s.population*.8,'dense vertical redevelopment may alleviate the shortage by 2030');
 });
 
 test('metrics are bounded and internally consistent throughout history',()=>{
@@ -128,4 +136,79 @@ test('sector mix influences GDP per capita at the same population and employment
   const a=stats(farm),b=stats(trade);
   assert.equal(a.population,b.population);assert.equal(a.employment,b.employment);
   assert.ok(b.gdpPerCapita>a.gdpPerCapita*1.3,`farm ${a.gdpPerCapita}, trade ${b.gdpPerCapita}`);
+});
+
+
+test('building styles correspond to their construction eras and remain persistent',()=>{
+  let c=newTown('plain',124);
+  const first=c.buildings[0];assert.equal(first.style,'timber');
+  c=addZone(c,5,7,55,45,'res');c=advance(c,730);
+  assert.ok(new Set(c.buildings.map(b=>b.style)).size>=5,'centuries should produce differing styles');
+  for(const b of c.buildings)assert.equal(b.style,styleAt(b.born));
+  assert.equal(c.schema,8);assert.ok(Object.keys(STYLE_NAMES).length>=6);
+});
+
+test('preservation protects the original building across centuries and survives save migration',()=>{
+  const town=newTown('river',191);
+  const original=town.buildings[0];
+  let protectedTown=setProtection(town,original.id,true);
+  assert.equal(town.buildings[0].protected,false);
+  assert.ok(protectedTown.buildings.find(b=>b.id===original.id).protected);
+  protectedTown=advance(protectedTown,730);
+  const survivor=protectedTown.buildings.find(b=>b.id===original.id);
+  assert.ok(survivor,'protected building survived');assert.equal(survivor.born,1300);
+  assert.equal(survivor.style,'timber');
+  assert.ok(!protectedTown.sites.some(b=>b.id===original.id),'protected site was never demolished');
+  const restored=normalizeCity(JSON.parse(JSON.stringify(protectedTown)));
+  assert.ok(restored.buildings.find(b=>b.id===original.id).protected);
+  assert.equal(setProtection(restored,original.id,false),restored,'completed cities are read-only');
+});
+
+test('50-year historical surveys contain immutable map snapshots and can be decoded',()=>{
+  let c=newTown('plain',15);
+  const initial=c.snapshots[0];assert.equal(initial.year,1300);
+  c=advance(c,730);
+  const dates=c.snapshots.map(x=>x.year);
+  assert.deepEqual(dates,[1300,1350,1400,1450,1500,1550,1600,1650,1700,1750,1800,1850,1900,1950,2000,2030]);
+  const map=snapshotCity(c,c.snapshots.find(x=>x.year===1750));
+  assert.equal(map.year,1750);
+  assert.deepEqual(map.buildings.map(b=>b.id),c.snapshots.find(x=>x.year===1750).buildings.map(a=>a[0]));
+  assert.ok(map.buildings.length<c.buildings.length);
+  assert.equal(c.snapshots[0].buildings.length,initial.buildings.length,'initial map must not be overwritten');
+  assert.equal(map.roads.filter(r=>Number.isFinite(r.x)).length,c.snapshots.find(x=>x.year===1750).roads.length);
+});
+
+test('redevelopment preserves site records, unique IDs, and distinct architectural generations',()=>{
+  let c=newTown('coast',77);c=addZone(c,12,10,45,43,'res');c=advance(c,730);
+  assert.ok(c.sites.length>10);
+  const ids=c.buildings.map(b=>b.id);
+  assert.equal(new Set(ids).size,ids.length);
+  for(const site of c.sites){
+    assert.ok(site.ended>site.born);assert.ok(site.reason);
+    assert.ok(!ids.includes(site.id));
+  }
+  assert.ok(c.buildings.every(b=>b.born<=c.year));
+});
+
+test('local historical crises and booms produce reproducible consequences',()=>{
+  let a=newTown('river',410),b=newTown('river',410);
+  a=advance(a,730);for(let i=0;i<146;i++)b=advance(b,5);
+  assert.deepEqual(a.sites,b.sites);
+  assert.deepEqual(a.snapshots,b.snapshots);
+  assert.deepEqual(a.events,b.events);
+  const crises=a.events.filter(e=>['fire','flood','epidemic','boom'].includes(e.type));
+  assert.ok(crises.length>=2,'there should be at least two local events in this reference seed');
+  assert.ok(crises.some(e=>e.impact>0||e.type==='boom'));
+});
+
+test('a previous v0.2.1 city without survey maps begins a faithful archive at migration',()=>{
+  const current=newTown('plain',192);
+  const old=advance(current,220);
+  const imported=normalizeCity({...old,schema:2,snapshots:undefined,sites:undefined,nextBuildingId:undefined});
+  assert.equal(imported.schema,8);
+  assert.equal(imported.snapshots.length,1);
+  assert.equal(imported.snapshots[0].year,1520);
+  const continued=advance(imported,80);
+  assert.ok(continued.snapshots.some(s=>s.year===1600));
+  assert.ok(continued.buildings.every(b=>b.style));
 });

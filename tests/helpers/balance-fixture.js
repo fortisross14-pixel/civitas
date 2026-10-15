@@ -1,0 +1,12 @@
+import {makeCity,seedTown,addZone,advance,selectTurningPoint,placeConstruction,stats,W,H} from '../../src/sim.js';
+import {emptyLegacy,startRunProfile,scoreCity} from '../../src/legacy.js';
+const strategies={compact:c=>addZone(addZone(addZone(c,11,14,29,35,'res'),11,49,22,14,'trade'),40,17,17,34,'craft'),balanced:c=>addZone(addZone(addZone(addZone(c,4,4,52,55,'res'),5,60,50,10,'trade'),59,5,25,40,'craft'),62,46,22,19,'farm'),sprawl:c=>addZone(addZone(addZone(addZone(c,3,3,90,62,'res'),3,64,75,7,'trade'),10,4,15,10,'craft'),65,10,25,14,'farm'),industrial:c=>addZone(addZone(addZone(addZone(c,15,15,26,32,'res'),8,52,45,14,'craft'),54,8,29,42,'craft'),13,5,22,8,'trade')};
+const focused={culture:['patron_arts','hire_artists','grand_workshops','cultural_renaissance','city_monuments','world_heritage'],industry:['industrial_expansion','master_craftsmen','factory_town','industrial_revolution','abundant_resources','trading_empire'],population:['fertile_families','urban_expansion','dense_living','housing_revolution','land_opportunity']};
+const upgraded=emptyLegacy();upgraded.upgrades={admin:3,urban:3,merchant:3,patron:3,migration:3,civic:3,luck:3,rerolls:2};
+function placePending(city){for(const p of [...city.projects]){outer:for(let y=2;y<H-2;y++)for(let x=2;x<W-2;x++){const a=placeConstruction(city,p.id,x,y);if(!a.error){city=a.city;break outer;}}}return city;}
+export function campaign(seed,plan='balanced',focus='default',boost=false,type='plain'){
+ let city=seedTown(makeCity('Balance '+seed,type,seed));city=strategies[plan](city);
+ if(boost){const r=startRunProfile(upgraded,[]);city.turning={...city.turning,cardPool:r.cardPool,figurePool:r.figurePool,featuredFigures:r.featuredFigures};city.legacyBonuses=r.legacyBonuses;}
+ let n=0;while(city.year<2030 && n++<45){city=advance(city,800);if(city.turning?.pending){let selection=city.turning.pending.options[0];const next=focused[focus]?.[city.turning.choices.length];if(next){selection=next;city.turning={...city.turning,pending:{...city.turning.pending,options:[next]}};}city=selectTurningPoint(city,selection);city=placePending(city);}}
+ const s=stats(city);return {population:s.population,gdpPC:s.gdpPerCapita,gdp:s.gdp,culture:s.culturalPrestige,religion:s.religiousInfluence,quality:s.prosperity,unemp:s.unemployment,pressure:s.housingPressure,efficiency:s.infrastructureEfficiency,treasury:s.treasury,buildings:s.buildings,choices:city.turning.choices.length,year:city.year,legacyReward:scoreCity(city,s).points,city};
+}
