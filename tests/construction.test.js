@@ -83,7 +83,7 @@ test('old v0.4 card-placed buildings keep their bonuses and are not duplicated o
  let old=town(12);old=pick(old,'hire_artists');old=buildAnywhere(old,old.projects[0].id).city;
  old={...old,schema:4,projects:undefined,landmarks:old.landmarks.map(({source,...l})=>l)};
  const migrated=normalizeCity(old);
- assert.equal(migrated.schema,8);assert.equal(migrated.projects.length,0);
+ assert.equal(migrated.schema,10);assert.equal(migrated.projects.length,0);
  assert.equal(migrated.landmarks[0].source,'choice:0');assert.ok(modifiers(migrated).arts>=.30);
  assert.equal(migrated.buildings.filter(b=>b.special==='workshop').length,1);
 });

@@ -18,7 +18,7 @@ export const BASIC_BUILDINGS=[
  {id:'museum',name:'City Museum',era:'Metropolitan',start:1950,end:1999,cost:1180,kind:'museum',domain:'culture',description:'Heritage and cultural prestige become a civic asset.'},
  {id:'research_center',name:'Research Center',era:'Contemporary',start:2000,end:2030,cost:1750,kind:'research_center',domain:'education',description:'Education and innovation improve.'},
  {id:'transit_hub',name:'Transit Hub',era:'Contemporary',start:2000,end:2030,cost:1900,kind:'transit_hub',domain:'trade',description:'Transport and commerce improve.'},
- {id:'metropolis_charter',name:'Metropolis Charter',era:'Contemporary',start:2000,end:2030,cost:2800,kind:'metropolis_charter',domain:'education',requiresMegacity:true,requiresPopulation:12000,description:'A 50-city Legacy unlock. With a thriving population, it scales a world city into a megacity.'}
+ {id:'metropolis_charter',name:'Metropolis Charter',era:'Contemporary',start:2000,end:2030,cost:2800,kind:'metropolis_charter',domain:'education',requiresMegacity:true,requiresPopulation:144000,description:'A Legacy Market unlock. With a thriving population, it scales a world city into a megacity.'}
 ];
 export const BASIC_INDEX=Object.fromEntries(BASIC_BUILDINGS.map(b=>[b.id,b]));
 export const SPECIAL_BUILDINGS={

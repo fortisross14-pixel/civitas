@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {W,H,END_YEAR,makeCity,seedTown,advance as advanceCore,selectTurningPoint,stats,addZone,terrain,zoneCell,density,normalizeCity,eraAt,styleAt,STYLE_NAMES,snapshotCity,setProtection} from '../src/sim.js';
+import {POP_SCALE,W,H,END_YEAR,makeCity,seedTown,advance as advanceCore,selectTurningPoint,stats,addZone,terrain,zoneCell,density,normalizeCity,eraAt,styleAt,STYLE_NAMES,snapshotCity,setProtection} from '../src/sim.js';
 
 // Legacy regression scenarios automatically choose the first offered card so the
 // underlying city simulation can be compared over identical chronological spans.
@@ -16,7 +16,7 @@ test('start has a plausible settlement, zoning, streets, and a history snapshot'
   const city=newTown('plain');const s=stats(city);
   assert.equal(city.year,1300);assert.equal(city.history[0].year,1300);
   assert.ok(city.buildings.length>=12);assert.ok(city.roads.length>0);
-  assert.equal(s.population,120);assert.ok(s.capacity>=s.population);
+  assert.equal(s.population,120*POP_SCALE);assert.ok(s.capacity>=s.population);
 });
 
 test('zone edits are immutable and only on land',()=>{
@@ -77,19 +77,27 @@ test('completion stops at 2030, remains immutable, and closes chronicle once',()
   assert.equal(advance(c,100),c);
 });
 
-test('larger balanced zoning grows a bigger city than the base settlement',()=>{
+test('a zoned workshop district gives a town the industry it would not grow on its own',()=>{
+  // Since v1.1 an unzoned town grows organically (homes, shops, fields, parishes),
+  // and since v1.3 its size depends mostly on demand rather than on how much land
+  // is zoned. Zoning steers WHAT grows: workshops need a district (or an
+  // already-industrial character) to appear at all.
   let base=newTown('plain',410),bigger=newTown('plain',410);
   bigger=addZone(bigger,12,8,35,50,'res');bigger=addZone(bigger,10,60,70,8,'craft');bigger=addZone(bigger,16,5,42,7,'trade');
   base=advance(base,730);bigger=advance(bigger,730);
   const a=stats(base),b=stats(bigger);
-  assert.ok(b.population>a.population*2,`actual populations: ${a.population} vs ${b.population}`);
-  assert.ok(b.gdp>a.gdp);assert.ok(b.buildings>a.buildings);
+  assert.equal(a.industry,0,'no workshops without a workshop district');
+  assert.ok(b.industry>20,`zoned workshops: ${b.industry}`);
+  assert.ok(b.population>a.population*.5,`actual populations: ${a.population} vs ${b.population}`);
+  assert.ok(b.sectorJobs.craft>a.sectorJobs.craft);
   assert.ok(b.gdpPerCapita>0&&a.gdpPerCapita>0);
 });
 
 test('severe housing shortage can yield crowding when jobs are available',()=>{
+  // Every free acre is zoned for workshops except the original residential
+  // district, so informal housing has nowhere to go (v1.1 organic growth).
   let c=newTown('plain',410);
-  c=addZone(c,56,5,26,55,'craft');c=advance(c,730);
+  c=addZone(c,1,1,W-2,H-2,'craft');c=addZone(c,39,27,19,16,'res');c=advance(c,730);
   const s=stats(c);assert.ok(Math.max(...c.history.map(h=>h.housingPressure||0))>105,`peak housing pressure ${Math.max(...c.history.map(h=>h.housingPressure||0))}`);
   assert.ok(s.capacity>s.population*.8,'dense vertical redevelopment may alleviate the shortage by 2030');
 });
@@ -145,7 +153,7 @@ test('building styles correspond to their construction eras and remain persisten
   c=addZone(c,5,7,55,45,'res');c=advance(c,730);
   assert.ok(new Set(c.buildings.map(b=>b.style)).size>=5,'centuries should produce differing styles');
   for(const b of c.buildings)assert.equal(b.style,styleAt(b.born));
-  assert.equal(c.schema,8);assert.ok(Object.keys(STYLE_NAMES).length>=6);
+  assert.equal(c.schema,10);assert.ok(Object.keys(STYLE_NAMES).length>=6);
 });
 
 test('preservation protects the original building across centuries and survives save migration',()=>{
@@ -205,7 +213,7 @@ test('a previous v0.2.1 city without survey maps begins a faithful archive at mi
   const current=newTown('plain',192);
   const old=advance(current,220);
   const imported=normalizeCity({...old,schema:2,snapshots:undefined,sites:undefined,nextBuildingId:undefined});
-  assert.equal(imported.schema,8);
+  assert.equal(imported.schema,10);
   assert.equal(imported.snapshots.length,1);
   assert.equal(imported.snapshots[0].year,1520);
   const continued=advance(imported,80);

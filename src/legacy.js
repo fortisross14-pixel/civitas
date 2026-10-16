@@ -1,6 +1,7 @@
 // CIVITAS v0.5: persistent Legacy Market and historical figures.
 // No payment system, in-app purchases or external data dependencies.
 import {CARDS,CARD_INDEX} from './turningPoints.js';
+import {POP_SCALE} from './geo.js';
 export const LOCKED_CARDS=[
  'housing_revolution','metropolitan_magnet','industrial_revolution','factory_town',
  'grand_workshops','cultural_renaissance','tourist_paradise','city_monuments',
@@ -14,7 +15,7 @@ export const ACHIEVEMENT_REQUIREMENTS={
  sacred_city:{id:'sacred_heritage',label:'Sacred Heritage (100 religious influence)'},
  knowledge_economy:{id:'knowledge_city',label:'Knowledge City (construct a university)'},
  industrial_revolution:{id:'industrial_hub',label:'Industrial Hub (25 workshops)'},
- metropolitan_magnet:{id:'pop_10k',label:'Growing Metropolis (10,000 population)'}
+ metropolitan_magnet:{id:'pop_10k',label:'Growing Metropolis (120,000 population)'}
 };
 export const BASE_CARDS=CARDS.filter(c=>!LOCKED_CARDS.includes(c.id)).map(c=>c.id);
 const figure=(id,name,domain,rarity,from,to,description,effects,extra={})=>({id,name,domain,rarity,kind:'figure',minYear:from,maxYear:to,description,effects,cost:({common:0,uncommon:100,rare:220,epic:600,legend:1100}[rarity]||0),...extra});
@@ -50,11 +51,15 @@ export const MARKET_UPGRADES=[
  {id:'patron',name:'Cultural Patronage',domain:'culture',description:'Cultural production +10% per rank.',effect:{arts:.10},max:3,baseCost:110},
  {id:'migration',name:'Migration Networks',domain:'population',description:'Migration attraction +10% and new housing capacity +3% per rank.',effect:{migration:.10,newHousing:.03},max:3,baseCost:110},
  {id:'civic',name:'Civic Institutions',domain:'religion',description:'Service efficiency +10% per rank.',effect:{services:.10},max:3,baseCost:100},
+ {id:'infrastructure',name:'Enduring Infrastructure',domain:'trade',description:'Future cities begin with +8% housing capacity per rank.',effect:{legacyCapacity:.08},max:6,baseCost:150},
+ {id:'innovation',name:'Accumulated Know-how',domain:'education',description:'Future cities begin with +7% productive know-how per rank.',effect:{legacyProductivity:.07},max:6,baseCost:170},
+ {id:'reputation',name:'Civic Reputation',domain:'culture',description:'One additional featured historical figure slot per rank.',effect:{featuredSlots:1},max:2,baseCost:260},
+ {id:'metropolis',name:'Metropolitan Charter',domain:'education',description:'Unlock the Metropolis Charter for a thriving contemporary city.',effect:{megacityCharter:1},max:1,baseCost:2200},
  {id:'luck',name:'Fortunate Encounters',domain:'wildcard',description:'Higher rarity chances in Turning Point offers.',effect:{rareLuck:.25},max:3,baseCost:150},
  {id:'rerolls',name:'Historical Insight',domain:'wildcard',description:'One extra Turning Point reroll per campaign and rank.',effect:{extraRerolls:1},max:2,baseCost:140}
 ];
 export const UPGRADE_INDEX=Object.fromEntries(MARKET_UPGRADES.map(u=>[u.id,u]));
-export function legacyCityProgress(completed=0){const cities=Math.max(0,Math.floor(Number(completed)||0)),settle=1-Math.exp(-cities/14),civic=1-Math.exp(-Math.max(0,cities-18)/22),capacity=.34*settle+.30*civic,productivity=.16*(1-Math.exp(-cities/11))+.28*civic;return {cities,tier:cities>=70?'Global Civilization':cities>=50?'Megacity Charter':cities>=35?'World City':cities>=25?'Regional Capital':cities>=12?'Established Civilization':cities>=4?'Chartered Cities':'Founding Lineage',capacity,productivity,featuredSlots:cities>=35?7:cities>=12?6:5,megacity:cities>=50};}
+export function legacyInvestmentProgress(legacy){const l=normalizeLegacy(legacy),bonuses=runModifiersFromLegacy(l),ranks=Object.values(l.upgrades).reduce((sum,n)=>sum+n,0),round=n=>Math.round(n*10000)/10000;return {ranks,capacity:round(bonuses.legacyCapacity||0),productivity:round(bonuses.legacyProductivity||0),featuredSlots:5+(bonuses.featuredSlots||0),megacity:!!bonuses.megacityCharter};}
 export function emptyLegacy(){return {version:2,points:0,unlockedCards:[],unlockedFigures:[],upgrades:{},completed:[],achievements:[],lifetimePoints:0};}
 export function normalizeLegacy(raw){const base=emptyLegacy();if(!raw||typeof raw!=='object')return base;
  return {...base,points:Math.max(0,Math.floor(Number(raw.points)||0)),unlockedCards:Array.from(new Set((raw.unlockedCards||[]).filter(k=>LOCKED_CARDS.includes(k)))),unlockedFigures:Array.from(new Set((raw.unlockedFigures||[]).filter(k=>FIGURE_INDEX[k]&&!FIGURE_INDEX[k].generic))),upgrades:Object.fromEntries(Object.entries(raw.upgrades||{}).filter(([k,v])=>UPGRADE_INDEX[k]&&Number.isInteger(v)&&v>=0).map(([k,v])=>[k,Math.min(v,UPGRADE_INDEX[k].max)])),completed:Array.from(new Set((raw.completed||[]).filter(x=>typeof x==='string'))),achievements:Array.from(new Set((raw.achievements||[]).filter(x=>typeof x==='string'))),lifetimePoints:Math.max(0,Math.floor(Number(raw.lifetimePoints)||0))};
@@ -77,21 +82,21 @@ export function buyLegacy(legacy,type,id){const l=normalizeLegacy(legacy),check=
 }
 export function runModifiersFromLegacy(l){const result={};for(const u of MARKET_UPGRADES){const rank=l.upgrades[u.id]||0;for(const [k,v] of Object.entries(u.effect))result[k]=(result[k]||0)+v*rank;}return result;}
 export function startRunProfile(legacy,loadout){const l=normalizeLegacy(legacy);
- const progression=legacyCityProgress(l.completed.length),selected=Array.from(new Set((loadout||[]).filter(id=>l.unlockedFigures.includes(id)))).slice(0,progression.featuredSlots);
- return {cardPool:[...BASE_CARDS,...l.unlockedCards],figurePool:[...l.unlockedFigures],featuredFigures:selected,progression,legacyBonuses:{...runModifiersFromLegacy(l),legacyCapacity:progression.capacity,legacyProductivity:progression.productivity,megacityCharter:progression.megacity?1:0}};
+ const progression=legacyInvestmentProgress(l),selected=Array.from(new Set((loadout||[]).filter(id=>l.unlockedFigures.includes(id)))).slice(0,progression.featuredSlots);
+ return {cardPool:[...BASE_CARDS,...l.unlockedCards],figurePool:[...l.unlockedFigures],featuredFigures:selected,progression,legacyBonuses:runModifiersFromLegacy(l)};
 }
 export function scoreCity(city,stats){
  // Reward scale, prosperity, and specializations. High population keeps earning
  // meaningful Legacy Points above the old ~17,500-person saturation point.
- const populationScore=Math.min(325,Math.sqrt(Math.max(0,stats.population))*1.45);
+ const populationScore=Math.min(325,Math.sqrt(Math.max(0,stats.population)/POP_SCALE)*1.45);
  const economicScore=Math.min(100,Math.max(0,stats.gdpPerCapita)/1300);
  const qualityScore=Math.max(0,Math.min(60,(stats.prosperity-35)*1.1));
  const points=Math.round(75+populationScore+economicScore+qualityScore+
    Math.min(75,stats.culturalPrestige*.10)+Math.min(70,stats.religiousInfluence*.14)+Math.min(70,stats.educationIndex*.16));
  const achievements=[];
  if(city.year>=2030)achievements.push('centuries_complete');
- if(stats.population>=10000)achievements.push('pop_10k');
- if(stats.population>=50000)achievements.push('pop_50k');
+ if(stats.population>=10000*POP_SCALE)achievements.push('pop_10k');
+ if(stats.population>=50000*POP_SCALE)achievements.push('pop_50k');
  if(stats.culturalPrestige>=120)achievements.push('cultural_rebirth');
  if(stats.religiousInfluence>=100)achievements.push('sacred_heritage');
  if(stats.universities>=1)achievements.push('knowledge_city');

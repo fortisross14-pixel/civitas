@@ -2,7 +2,6 @@ import React,{useEffect,useMemo,useRef,useState} from 'react';
 import {BookOpen,Landmark,Clock3,ChartNoAxesCombined,Trophy,ArrowLeft,Layers3,Share2,Users,Filter,GitCompareArrows,ExternalLink} from 'lucide-react';
 import {W,H,terrain,ZONES,snapshotCity,stats} from './sim.js';
 import {METRICS,numberText,metricSeries,cityRecords,identityOf,timelineItems,periodSummary,atlasRecords,compareAt,HISTORICAL_CITIES,shareSummary} from './chronicle.js';
-import {getOpportunity} from './turningPoints.js';
 
 const MAIN_METRICS=['economyScore','technologyScore','cultureScore','faithScore','infrastructureScore','attractionScore','population','gdp','gdpPerCapita','culturalPrestige','tourismAppeal','religiousInfluence','educationIndex','densityPerZone','heritage','prosperity','infrastructureEfficiency','unemployment'];
 function Selector({value,onChange,options,label}){return <label className="chronSelect">{label&&<span>{label}</span>}<select value={value} onChange={e=>onChange(e.target.value)}>{options.map(o=><option key={o.value} value={o.value}>{o.label}</option>)}</select></label>;}
@@ -31,7 +30,7 @@ function HistoryRecords({city}){
  <div className="chronRecord"><span>Lost / redeveloped buildings</span><b>{numberText(r.lost)}</b><small>Tracked sites</small></div>
  </div>;
 }
-export function ChroniclePanel({city,archiveYear,onArchiveYear,onOpenBuild}){
+export function ChroniclePanel({city,archiveYear,onArchiveYear,onOpenBuild,onTimelapse}){
  const [view,setView]=useState('overview'),[metric,setMetric]=useState('population'),[eventFilter,setEventFilter]=useState('all'),[showEvents,setShowEvents]=useState(30);
  const records=useMemo(()=>cityRecords(city),[city]);const timeline=useMemo(()=>timelineItems(city),[city]);
  const snapshots=city.snapshots||[];
@@ -46,7 +45,7 @@ export function ChroniclePanel({city,archiveYear,onArchiveYear,onOpenBuild}){
   <div className="chronPills"><span>{city.finished?'COMPLETE':'IN PROGRESS'}</span><span>{records.turningPoints} / 20 decisions</span><span>{records.snapshots} survey maps</span></div>
   <div className="chronTabs">{[['overview','Overview'],['timeline','Timeline'],['records','Records']].map(([key,title])=><button key={key} className={view===key?'sel':''} onClick={()=>setView(key)}>{title}</button>)}</div>
   {view==='overview'&&<>
-   <h3>HISTORICAL MAP SURVEYS</h3><p className="muted">Inspect the actual archived streets and footprints. Earlier maps are read-only; the present is editable.</p>
+   {onTimelapse&&<button className="primary wide timelapseLaunch" onClick={onTimelapse} disabled={(city.snapshots||[]).length<1}>▶ Play timelapse · one map every 50 years</button>}<h3>HISTORICAL MAP SURVEYS</h3><p className="muted">Inspect the actual archived streets and footprints. Earlier maps are read-only; the present is editable.</p>
    <select className="archiveSelect" value={archiveYear??''} onChange={e=>onArchiveYear(e.target.value===''?null:Number(e.target.value))}>
      <option value="">Present · {city.year}</option>{snapshots.slice().reverse().map(snap=><option key={snap.year} value={snap.year}>{snap.year} · {numberText(snap.population)} residents</option>)}
    </select>

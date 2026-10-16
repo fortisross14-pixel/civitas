@@ -40,7 +40,7 @@ test('comparison ranks player and recorded historical population but no historic
 });
 test('record book calculates peaks and oldest surviving structures',()=>{
  const c=sampleCity('Oldtown','old');c.year=1700;
- c.history.push({year:1500,population:300,gdp:900},{year:1550,population:200,gdp:1500000000});
+ c.history.push({year:1500,population:3600,gdp:900},{year:1550,population:2400,gdp:1500000000});
  c.buildings.push({id:'test',x:1,y:1,type:'res',born:1450});
  const records=cityRecords(c);
  assert.equal(records.population.year,1500);assert.equal(records.gdp.year,1550);

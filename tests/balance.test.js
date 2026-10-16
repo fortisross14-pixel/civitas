@@ -23,9 +23,15 @@ test('campaign always finishes with twenty choices, legitimate maps and finite e
   assert.equal(run.city.snapshots.length,16);
  }
 });
-test('resident-focused city can exceed an industrial build in population but loses livability',()=>{
- assert.ok(population.population>industrial.population*1.4);
- assert.ok(population.quality<industrial.quality);
+test('resident-focused city can exceed an industrial build in population',()=>{
+ // v1.3: industrial cities now also draw workers (jobs, informal workshops),
+ // so the gap narrowed from 1.4× to about 1.3×.
+ assert.ok(population.population>industrial.population*1.2,`population ${population.population} vs industrial ${industrial.population}`);
+});
+// v1.2: density cards (Dense Living, Housing Revolution, Vertical Metropolis)
+// carry an explicit crowding cost to prosperity.
+test('resident-focused city loses livability compared with an industrial build',()=>{
+ assert.ok(population.quality<industrial.quality,`population ${population.quality} vs industrial ${industrial.quality}`);
 });
 test('an industry-oriented card build substantially improves productivity',()=>{
  assert.ok(industrial.gdpPC>compact.gdpPC*1.20);
@@ -33,8 +39,10 @@ test('an industry-oriented card build substantially improves productivity',()=>{
 test('cultural synergies can create dramatically higher artistic prestige',()=>{
  assert.ok(cultural.culture>industrial.culture*1.8);
 });
-test('sprawl expands population while sacrificing infrastructure efficiency',()=>{
- assert.ok(spread.population>compact.population);
+// v1.2: zoning the whole map no longer buys a bigger city. Idle zoned land and
+// far-flung streets cost upkeep, and the budget squeeze slows growth.
+test('sprawl sacrifices efficiency and treasury without buying a bigger city',()=>{
+ assert.ok(spread.population<compact.population*1.1,`sprawl ${spread.population} vs compact ${compact.population}`);
  assert.ok(spread.efficiency<compact.efficiency-7);
  assert.ok(spread.treasury/spread.population<compact.treasury/compact.population);
 });

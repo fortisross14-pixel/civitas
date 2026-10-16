@@ -68,3 +68,168 @@
 .momentumMetric{margin:8px 0 12px}.momentumName{display:flex;justify-content:space-between;align-items:center;gap:10px;font-size:12px;color:var(--ink,#41453e)}.momentumName strong{font-variant-numeric:tabular-nums}.momentumTrack{height:7px;margin-top:5px;border-radius:8px;overflow:hidden;background:#ded8cb}.momentumTrack>div{height:100%;border-radius:8px;transition:width .2s ease}
 
 .momentumHint{display:block;font-style:normal;font-size:10px;font-weight:750;margin-top:8px;padding:6px 7px;border-left:2px solid #7e9983;background:#e8eee5;color:#45634c;line-height:1.4}
+
+/* ── v1.0.1 Phase 0 fixes ─────────────────────────────────────────────── */
+/* The global `input{display:block}` rule must never reveal hidden inputs. */
+[hidden]{display:none!important}
+/* Grid rows default to content height; pin the game body to the viewport so the
+   side panels scroll internally instead of pushing the whole page down. */
+.gamebody{grid-template-rows:minmax(0,1fr)}
+.gamebody>.sidebar,.gamebody>.center,.gamebody>.inspector{min-height:0}
+
+/* Shared mini-panel header (Urban Demand, City Evolution). */
+.panelMiniHead{display:flex;align-items:baseline;justify-content:space-between;gap:8px;margin-bottom:10px}
+.panelMiniHead span{font-size:10px;font-weight:700;letter-spacing:1.8px;color:#94836d}
+.panelMiniHead small{font-size:10px;color:#a0937d}
+.panelMiniHead button{font-size:10px;padding:5px 8px;gap:4px}
+.liveHistory{margin:4px 0 18px}
+.liveHistory select{width:100%;padding:8px;border:1px solid #d5c9b5;background:#fffdf8;border-radius:5px;font-size:12px;margin-bottom:8px}
+.liveHistory>small{display:block;font-size:10px;line-height:1.5;color:#8d806c;margin-top:6px}
+
+/* Urban Demand panel. */
+.demandPanel{margin-top:16px;padding:12px 11px;background:#fbf8f1;border:1px solid #e3d9c6;border-radius:6px}
+.demandRow{padding:7px 0;border-top:1px solid #ece4d4}
+.demandRow:first-of-type{border-top:0;padding-top:2px}
+.demandRow>div:first-child{display:flex;justify-content:space-between;align-items:baseline;gap:6px}
+.demandRow b{font-size:12px;font-weight:700;color:#4a4236}
+.demandRow>div:first-child span{font-size:9px;font-weight:700;letter-spacing:1.2px;text-transform:uppercase;color:#8f846f}
+.demandTrack{height:5px;border-radius:3px;background:#e7dfcf;margin:6px 0 5px;overflow:hidden}
+.demandTrack i{display:block;height:100%;border-radius:3px;background:#8fa58a}
+.demandTrack i.needed{background:#c4a15e}
+.demandTrack i.urgent{background:#b8705c}
+.demandRow small{display:block;font-size:10px;line-height:1.4;color:#857965}
+
+/* Planned basic building preview. */
+.buildPreview{margin-top:10px;padding:11px;background:#fffdf8;border:1px solid #dccfb6;border-left:3px solid #b0925a;border-radius:6px;font-size:11px}
+.buildPreview>div:first-child{display:flex;flex-direction:column;gap:3px}
+.buildPreview .eyebrow{font-size:9px;letter-spacing:1.5px}
+.buildPreview b{font:14px 'Libre Baskerville',serif;color:#3f382d}
+.buildPreview p{margin:7px 0;color:#6f6553;line-height:1.45}
+.buildEffects{display:flex;flex-wrap:wrap;gap:4px;margin-bottom:7px}
+.buildEffects span{font-size:10px;padding:3px 6px;border-radius:3px;background:#e6ecdf;color:#3f6450}
+.buildPreview small{display:flex;align-items:center;gap:5px;color:#8a7b62;font-size:10px}
+
+/* Map key swatches that previously rendered empty, and the key toggle. */
+.legend-road{background:#f5ecd9;border:1px solid #9d8f79;height:4px!important;margin:3px 0}
+.legend-landmark{background:#4a4438;outline:1.5px solid #fff0ce;outline-offset:-3px}
+.legend-water{background:#a6c5c8}
+.mapzoom .keyToggle{font-size:10px;font-weight:700;letter-spacing:.6px;padding:6px 0}
+.mapzoom .keyToggle.on{background:#e1e7da;color:#385a46}
+
+/* Phones: the map gets the screen, tools stay in one horizontal strip. */
+@media(max-width:760px){
+  .gamebody{grid-template-rows:minmax(0,1fr) auto}
+  .sidebar{max-height:58px}
+  .sidebar .demandPanel,.sidebar .constructionHint,.sidebar .buildPreview,.sidebar .sidebarProjectCount{display:none}
+  .sidebar button{flex:0 0 auto}
+  .maplegend{bottom:auto;top:10px;left:10px;max-width:46vw;padding:8px 10px}
+  .mapzoom{right:10px;bottom:10px}
+  .bottom{padding:7px 10px}
+}
+@media(max-width:760px){.topbar .legacyQuick{display:none}}
+
+/* ── v1.1 Living City ─────────────────────────────────────────────────── */
+.taxPanel{margin-top:16px;padding:12px 11px;background:#fbf8f1;border:1px solid #e3d9c6;border-radius:6px}
+.taxRow{padding:7px 0 8px;border-top:1px solid #ece4d4}
+.taxRow:first-of-type{border-top:0;padding-top:2px}
+.taxHead{display:flex;justify-content:space-between;align-items:baseline}
+.taxHead b{font-size:12px;color:#4a4236}
+.taxHead span{font-size:10px;color:#4f7461;font-variant-numeric:tabular-nums}
+.taxLevels{display:grid;grid-template-columns:repeat(4,1fr);gap:2px;margin:6px 0 4px;background:#ebe3d3;border-radius:5px;padding:2px}
+.sidebar .taxLevels button,.inspector .taxLevels button,.taxLevels button{width:auto;justify-content:center;margin:0;padding:5px 0;font-size:10px;border:0;border-radius:4px;background:transparent;color:#6f6553}
+.taxLevels button.sel{background:#fffdf8;color:#2f5a46;font-weight:700;box-shadow:0 1px 2px #5a4a3c22}
+.taxRow small{display:block;font-size:10px;line-height:1.35;color:#857965}
+.budgetLine{display:flex;justify-content:space-between;gap:6px;font-size:10px;color:#7b6f5c;padding:4px 0;border-top:1px dashed #e3d9c6}
+.budgetLine b{font-variant-numeric:tabular-nums;color:#4a4236}
+.budgetLine.net{font-size:11px;font-weight:700;color:#4a4236}
+.budgetLine.net b{color:#2f6a4f}
+.budgetLine.net.neg b{color:#a2513f}
+.controls .undoButton{padding:9px 10px}
+.controls .pauseButton{background:#e8eee3;color:#2f5a46;font-weight:700}
+.legend-main{background:#efe2c4;border:1.5px solid #7e6d54;height:5px!important;margin:2px 0}
+.legend-wall{background:#6f5b45;height:4px!important;margin:3px 0}
+.legend-informal{background:#977b60;opacity:.6}
+@media(max-width:760px){
+  .sidebar .taxPanel{display:none}
+  .controls .undoButton{padding:7px}
+}
+
+.mobileOnly{display:none}
+@media(max-width:760px){.mobileOnly{display:block}}
+
+/* ── v1.2 economy ───────────────────────────────────────────────────── */
+.legend-vacant{background:#d9cfb7;border:1px dashed #7d705e}
+.budgetWarning{margin:8px 0 0;padding:7px 8px;border-radius:5px;background:#f6e2db;color:#8a3f2e;font-size:10px;line-height:1.4}
+.budgetWarning.soft{background:#f4ecd9;color:#7b5d2a}
+.topstats span.crisis b{color:#a2513f}
+.topstats span em{font-style:normal;font-size:9px;color:#a2513f;letter-spacing:0}
+.turncard .impactHint{display:block;margin-top:8px;padding:6px 8px;background:#e9efe4;border-left:3px solid #6b9880;font-style:normal;font-size:11px;color:#3e5c4b}
+.turncard .durationHint,.turncard .crowdingHint{display:block;margin-top:6px;font-style:normal;font-size:11px;color:#8a6d3b}
+.buildchoice small.tempActive{color:#3f6450;font-weight:700;margin-top:3px}
+.buildchoice small.tempExpired{color:#a0927c;margin-top:3px}
+
+/* ── v1.3 identity ───────────────────────────────────────────────────── */
+.inspector .tabs button{padding:14px 2px;font-size:11px}
+.districtRow{display:flex;gap:9px;align-items:flex-start;padding:9px 0;border-bottom:1px solid #e5dece}
+.districtRow>i{flex:0 0 10px;height:10px;border-radius:2px;margin-top:4px}
+.districtRow b{font:13px 'Libre Baskerville',serif;color:#3f382d}
+.districtRow small{display:block;font-size:10px;color:#857965;line-height:1.45;margin-top:2px}
+.linkButton{margin-top:8px;font-size:11px;padding:6px 9px}
+.policyRow{display:flex;gap:10px;align-items:flex-start;justify-content:space-between;padding:10px 0;border-bottom:1px solid #e5dece}
+.policyRow b{font-size:12px;color:#3f382d}
+.policyRow small{display:block;font-size:10px;line-height:1.45;color:#7b6f5c;margin-top:3px}
+.policyRow .policyMeta{color:#a0927c}
+.policyRow.on b{color:#2f5a46}
+.switch{flex:0 0 34px;width:34px;height:20px;padding:0;border-radius:10px;background:#ddd4c2;border:0;position:relative;justify-content:flex-start}
+.switch span{position:absolute;left:3px;top:3px;width:14px;height:14px;border-radius:50%;background:#fffdf8;box-shadow:0 1px 2px #0003;transition:left .15s}
+.switch.on{background:#5f8f74}
+.switch.on span{left:17px}
+.turningFooter{flex-wrap:wrap}
+.inspector .tabs{flex-wrap:nowrap}
+.inspector .tabs button{flex:1 1 0;min-width:0;flex-direction:column;gap:3px;padding:10px 1px 9px;font-size:10px;white-space:nowrap}
+@media(max-width:760px){.inspector .tabs{flex-wrap:nowrap}.inspector .tabs button{flex:1 1 0;min-width:0;padding:9px 1px 8px;font-size:10px}}
+.inspector .tabs{grid-template-columns:repeat(5,minmax(0,1fr))}
+
+/* ── v1.4 cartography ─────────────────────────────────────────────── */
+.legend-landmark{background:#cbb995!important;outline:1px solid #6c5945!important;outline-offset:-1px!important}
+.legend-redroof{background:linear-gradient(90deg,#5d4636 0 60%,#94473a 60%)}
+.legend-main{background:#f2e7cd;border:1.5px solid #705e46}
+.legend-wall{background:#5f4c3a}
+.coord{left:auto!important;right:60px;top:12px}
+
+/* v1.4 historical events */
+.eventBackdrop{background:rgba(52,40,26,.42)}
+.eventWindow{background:#f6efdc;border:1px solid #b9a37a;box-shadow:0 18px 50px rgba(40,28,12,.35),inset 0 0 60px rgba(160,130,80,.18);border-radius:6px;max-width:560px;width:calc(100% - 32px);padding:28px 30px 22px;font-family:Georgia,'Times New Roman',serif;color:#3b2c1c;max-height:calc(100vh - 40px);overflow:auto}
+.eventWindow .eyebrow{color:#8a3b28;letter-spacing:.18em}
+.eventWindow h2{font-size:30px;font-weight:400;margin:6px 0 8px;font-style:italic}
+.eventText{font-size:16px;line-height:1.5;margin:0 0 18px}
+.eventChoices{display:grid;gap:10px}
+.eventChoices button{display:grid;justify-items:start;gap:4px;text-align:left;padding:13px 16px;border:1px solid #c7b48c;background:#fbf7ec;border-radius:5px;cursor:pointer;font:inherit;color:inherit;transition:background .15s,border-color .15s}
+.eventChoices button:hover,.eventChoices button:focus-visible{background:#f1e5c8;border-color:#8a3b28}
+.eventChoices strong{font-size:16px}
+.eventChoices span{font-family:Inter,system-ui,sans-serif;font-size:13px;color:#6b5a43}
+.eventWindow .muted{margin:14px 0 0;font-size:12px}
+/* v1.4 timelapse */
+.timelapseQuick{display:flex;align-items:center;gap:6px}
+.timelapseLaunch{margin:4px 0 14px}
+.timelapseBackdrop{position:fixed;inset:0;z-index:60;background:rgba(36,28,18,.72);display:flex;align-items:center;justify-content:center;padding:16px}
+.timelapseWindow{background:#f4ecd8;border:1px solid #b9a37a;border-radius:8px;width:min(1180px,100%);height:min(900px,100%);display:flex;flex-direction:column;padding:14px 18px 14px;gap:8px;box-shadow:0 20px 60px rgba(0,0,0,.4)}
+.timelapseHead{display:flex;justify-content:space-between;align-items:flex-start}
+.timelapseHead h2{margin:2px 0 0;font-family:Georgia,serif;font-weight:400;font-size:24px}
+.iconbutton{border:1px solid #cdbd99;background:#fbf7ec;border-radius:6px;padding:6px;cursor:pointer;display:flex}
+.timelapseStage{flex:1;min-height:0;position:relative;overflow:hidden}
+.timelapseStage canvas{position:absolute;inset:0}
+.timelapseStage canvas{border:1px solid #c7b48c;box-shadow:0 4px 16px rgba(60,40,10,.18);max-width:100%}
+.timelapseInfo{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;font-family:Georgia,serif;min-height:26px}
+.timelapseInfo b{font-size:22px;font-weight:400}
+.timelapseInfo span{font-size:13px;color:#6b5a43}
+.timelapseInfo em{color:#6a2f22;font-size:14px}
+.timelapseYears{display:flex;gap:2px;overflow-x:auto;padding-bottom:2px}
+.timelapseYears button{flex:1;min-width:34px;border:0;background:none;cursor:pointer;display:grid;justify-items:center;gap:3px;padding:2px 0;color:#8b7a5f}
+.timelapseYears i{display:block;height:4px;width:100%;border-radius:2px;background:#ddd0b0}
+.timelapseYears .past i{background:#b79b6a}.timelapseYears .sel i{background:#8a3b28}.timelapseYears .sel{color:#3b2c1c;font-weight:600}
+.timelapseYears small{font-size:10px}
+.timelapseControls{display:flex;gap:8px;justify-content:center;flex-wrap:wrap}
+.timelapseControls button{display:flex;align-items:center;gap:6px}
+.timelapseControls .recording{background:#8a3b28;color:#fff;border-color:#8a3b28}
+@media (max-width:760px){.timelapseQuick span{display:none}.timelapseWindow{padding:10px}.eventWindow{padding:20px 18px}.eventWindow h2{font-size:24px}}

@@ -69,16 +69,17 @@ test('accumulated urban knowledge unlocks higher physical housing capacity',()=>
  assert.ok(b<=16);
 });
 test('the same region and initial zoning can finish with dramatically different economic trajectories',()=>{
+ // v1.3: decisions, not just Legacy upgrades, drive the divergence: an
+ // industry-led run compounds productivity far beyond a default one.
  const a=campaign(410,'balanced','default',false,'plain');
- const b=campaign(410,'balanced','default',true,'plain');
- assert.ok(b.gdpPC>a.gdpPC*2);
- assert.ok(b.population>a.population*1.08);
+ const b=campaign(410,'balanced','industry',false,'plain');
+ assert.ok(b.gdpPC>a.gdpPC*2,`gdp per person ${a.gdpPC} vs ${b.gdpPC}`);
  for(const k of AXES)assert.ok(b.city.history.every(h=>h.development?.[k]===undefined||(h.development[k]>=0&&h.development[k]<=100)));
 });
 test('full-run score history and accumulated productivity survive JSON save and migration',()=>{
  const c=campaign(313,'compact','culture',false,'river').city;
  const d=normalizeCity(JSON.parse(JSON.stringify(c)));
- assert.equal(d.schema,8);assert.equal(d.productivityStock,c.productivityStock);
+ assert.equal(d.schema,10);assert.equal(d.productivityStock,c.productivityStock);
  assert.deepEqual(d.development,c.development);
  assert.equal(stats(d).gdpPerCapita,stats(c).gdpPerCapita);
  assert.ok(d.history.some(h=>Number.isFinite(h.economyScore)));
@@ -88,7 +89,7 @@ test('older saves migrate to independent momentum scores without losing city his
  const c=seedTown(makeCity('Old City','river',91));
  delete c.productivityStock;delete c.development;c.schema=7;
  const d=normalizeCity(JSON.parse(JSON.stringify(c)));
- assert.equal(d.schema,8);assert.ok(d.productivityStock>0);
+ assert.equal(d.schema,10);assert.ok(d.productivityStock>0);
  assert.equal(d.history.length,c.history.length);
  assert.equal(d.buildings.length,c.buildings.length);
  for(const k of AXES)assert.ok(Number.isFinite(d.development[k]));

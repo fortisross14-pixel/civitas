@@ -139,7 +139,7 @@ test('complete campaigns contain exactly twenty decisions, archives, and finite 
  const c=complete(town(100));assert.equal(c.turning.choices.length,20);assert.equal(c.turning.pending,null);
  assert.ok(c.snapshots.some(s=>s.year===1850));assert.equal(c.snapshots.at(-1).year,2030);
  const s=stats(c);for(const k of ['gdp','gdpPerCapita','culturalPrestige','tourismAppeal','religiousInfluence','touristVisits'])assert.ok(Number.isFinite(s[k]),k);
- const raw=JSON.stringify(c),restored=normalizeCity(JSON.parse(raw));assert.equal(restored.turning.choices.length,20);assert.equal(restored.schema,8);
+ const raw=JSON.stringify(c),restored=normalizeCity(JSON.parse(raw));assert.equal(restored.turning.choices.length,20);assert.equal(restored.schema,10);
  assert.deepEqual(restored.turning.choices,c.turning.choices);
  assert.equal(advance(c,100),c);
 });
@@ -174,13 +174,16 @@ test('temporary bonuses measure expiration across figure choices, not just card 
  c=selectForced(c,'dense_living');assert.equal(modifiers(c).gdp,undefined);
 });
 
-test('tourism district is gated behind an achievement and a permanent Legacy purchase',()=>{
+test('tourism district is gated behind an achievement, a Legacy purchase and choosing the card',()=>{
  let l=normalizeLegacy({...emptyLegacy(),points:2000});
  assert.equal(canBuy(l,'card','tourist_paradise').ok,false);
  assert.match(canBuy(l,'card','tourist_paradise').reason,/Cultural Rebirth/);
  l.achievements.push('cultural_rebirth');assert.equal(canBuy(l,'card','tourist_paradise').ok,true);
  l=buyLegacy(l,'card','tourist_paradise');
  let c=town(100,'plain',startRunProfile(l,[]));
+ // Owning the card makes it eligible to be offered; zoning opens once it is chosen.
+ assert.equal(addZone(c,10,10,8,10,'hotel'),c);
+ c={...c,turning:{...c.turning,choices:[...c.turning.choices,{index:0,year:c.year,cardId:'tourist_paradise'}]}};
  const expanded=addZone(c,10,10,8,10,'hotel');assert.notEqual(expanded,c);
  assert.equal(expanded.zones.at(-1).type,'hotel');
  const noTourism=town(100,'plain',startRunProfile(emptyLegacy(),[]));
@@ -189,6 +192,7 @@ test('tourism district is gated behind an achievement and a permanent Legacy pur
 test('hotels physically develop on zoned land in the modern era and contribute tourism income',()=>{
  const l=normalizeLegacy({...emptyLegacy(),unlockedCards:['tourist_paradise']});
  let c=town(87,'plain',startRunProfile(l,[]));
+ c={...c,turning:{...c.turning,choices:[{index:0,year:c.year,cardId:'tourist_paradise'}]}};
  c=addZone(c,12,6,40,44,'hotel');c=addZone(c,10,54,40,10,'res');
  c=complete(c);
  assert.ok(c.buildings.some(b=>b.type==='hotel'),`built ${stats(c).hotels} hotels`);

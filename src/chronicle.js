@@ -51,19 +51,19 @@ export function identityOf(city){
   ['The Artistic City',Number(row.culturalPrestige||0)/70+Number(row.tourismAppeal||0)/120,'culture'],
   ['The Sacred City',Number(row.religiousInfluence||0)/70,'religion'],
   ['The Knowledge City',Number(row.educationIndex||0)/75,'education'],
-  ['The Great Metropolis',Number(row.population||0)/12000,'population'],
+  ['The Great Metropolis',Number(row.population||0)/144000,'population'],
   ['The Prosperous City',Number(row.gdpPerCapita||0)/42000,'economy'],
   ['The Historic Town',Number(row.heritage||0)/90,'heritage']
  ].sort((a,b)=>b[1]-a[1]);
  if(!city?.finished&&city?.year<1450)return 'A New Settlement';
- if((s?.population?.value||0)<2000&&city?.year>=1800)return 'The Quiet Town';
+ if((s?.population?.value||0)<24000&&city?.year>=1800)return 'The Quiet Town';
  return scores[0][1]>=.55?scores[0][0]:'The Growing City';
 }
 const EVENT_LABEL={fire:'Fire',flood:'Flood',epidemic:'Epidemic',boom:'Economic boom',redevelopment:'Redevelopment',preservation:'Preservation',card:'Turning Point chosen',turning_point:'Turning Point',synergy:'Synergy',landmark:'Landmark',migration:'Migration',era:'Historical era'};
 export function timelineItems(city){
  const output=[];const seen=new Set();
  const add=(item)=>{const key=`${item.year}|${item.type}|${item.text}`;if(!seen.has(key)){seen.add(key);output.push(item);}};
- for(const e of city?.events||[])if(Number.isFinite(e.year))add({year:e.year,type:e.type||'event',title:EVENT_LABEL[e.type]||'City event',text:String(e.text||''),category:['fire','flood','epidemic'].includes(e.type)?'crisis':['card','turning_point','synergy'].includes(e.type)?'decision':'development'});
+ for(const e of city?.events||[])if(Number.isFinite(e.year))add({year:e.year,type:e.type||'event',title:e.type==='history'?e.title||'Historical event':EVENT_LABEL[e.type]||'City event',text:String(e.text||''),category:['fire','flood','epidemic'].includes(e.type)?'crisis':['card','turning_point','synergy','history'].includes(e.type)?'decision':'development'});
  for(const p of city?.turning?.choices||[])if(Number.isFinite(p.year)&&!(city?.events||[]).some(e=>e.year===p.year&&e.type==='card'))add({year:p.year,type:'pick',title:'Turning Point',text:`A strategic card was chosen: ${p.cardId.replaceAll('_',' ')}.`,category:'decision'});
  for(const f of city?.figures||[])if(Number.isFinite(f.year))add({year:f.year,type:'figure',title:'Historical figure',text:`${f.name} joined the city (${f.rarity}).`,category:'decision'});
  for(const l of city?.landmarks||[])if(Number.isFinite(l.year||l.born))add({year:l.year||l.born,type:'landmark',title:'Landmark',text:`${l.label||l.kind||'Landmark'} was constructed.`,category:'development'});

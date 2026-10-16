@@ -1,3 +1,5 @@
+import {POP_SCALE} from './geo.js';
+import {DOMAIN_AXIS} from './character.js';
 // CIVITAS v0.4 Turning Points. Immutable card catalogue, deterministic offers,
 // and pure run modifiers. All numerical values are provisional balance targets.
 export const TURNING_POINTS=20;
@@ -8,9 +10,9 @@ export const CARDS=[
  card('new_settlers','New Settlers','population','common','instant','Immediately attract 10% more residents.',{popInstant:.10},{repeatable:true}),
  card('fertile_families','Fertile Families','population','common','permanent','Natural population growth +20%.',{births:.20}),
  card('land_opportunity','Land of Opportunity','population','uncommon','permanent','Migration attraction +50%.',{migration:.50},{scorePulse:{attraction:36}}),
- card('dense_living','Dense Living','population','uncommon','permanent','Residential housing capacity +35%.',{housing:.35}),
+ card('dense_living','Dense Living','population','uncommon','permanent','Residential housing capacity +35%; cramped homes cost 3 prosperity.',{housing:.35,crowding:3}),
  card('urban_expansion','Urban Expansion','population','common','permanent','New district development +40%.',{development:.40},{scorePulse:{infrastructure:30}}),
- card('housing_revolution','Housing Revolution','population','rare','permanent','New residential buildings house 50% more people.',{newHousing:.50}),
+ card('housing_revolution','Housing Revolution','population','rare','permanent','New residential buildings house 50% more people; tenements cost 3 prosperity.',{newHousing:.50,crowding:3}),
  card('metropolitan_magnet','Metropolitan Magnet','population','rare','scaling','Each major institution increases migration attraction by 5%.',{migrationPerLandmark:.05}),
  card('charter_districts','Charter Districts','population','uncommon','permanent','Planned districts add housing capacity and civic resilience.',{housing:.18,services:.10}),
  // industry (7)
@@ -18,7 +20,7 @@ export const CARDS=[
  card('master_craftsmen','Master Craftsmen','industry','common','permanent','Manufacturing productivity +25%.',{industry:.25}),
  card('abundant_resources','Abundant Resources','industry','uncommon','permanent','Manufacturing output +30%.',{industry:.30}),
  card('industrial_revolution','Industrial Revolution','industry','epic','synergy','Industrial bonuses are amplified by 50%.',{industrialMultiplier:.50},{requiresAny:['industrial_expansion','master_craftsmen','abundant_resources','factory_town']}),
- card('factory_town','Factory Town','industry','rare','scaling','Each 1,000 manufacturing jobs increases sector output by 3%.',{industryPerThousand:.03}),
+ card('factory_town','Factory Town','industry','rare','scaling','Each 12,000 manufacturing jobs increases sector output by 3%.',{industryPerThousand:.03}),
  card('trading_empire','Trading Empire','industry','uncommon','permanent','Trading infrastructure increases commerce output +40%.',{trade:.40}),
  card('economic_miracle','Economic Miracle','industry','rare','temporary','GDP +25% for the next three Turning Point intervals.',{gdp:.25},{durationPoints:3,repeatable:true,scorePulse:{economy:40}}),
  card('clean_foundries','Clean Foundries','industry','uncommon','permanent','Modern manufacturing grows with lower pollution.',{industry:.20,pollution:-.22},{minYear:1850}),
@@ -71,7 +73,7 @@ export const SYNERGIES=[
  {id:'renaissance',name:'The Renaissance',domain:'culture',needs:['hire_artists','grand_workshops','cultural_renaissance'],effects:{arts:.55,tourismIncome:.25},description:'Masterpieces and academies turn the city into a cultural center.'},
  {id:'industrial_giant',name:'Industrial Giant',domain:'industry',needs:['industrial_expansion','factory_town','transport_network'],effects:{industry:.40,industrialDevelopment:.35},description:'Connected factories produce at extraordinary scale.'},
  {id:'holy_city',name:'Holy City',domain:'religion',needs:['spiritual_awakening','sacred_architecture','great_pilgrimage'],effects:{faith:.75,pilgrimage:.45},description:'Sacred institutions attract pilgrimage from distant regions.'},
- {id:'vertical_metropolis',name:'Vertical Metropolis',domain:'population',needs:['dense_living','housing_revolution','land_opportunity'],effects:{housing:.20,migration:.25},description:'Intense migration supports a high-density metropolis.'},
+ {id:'vertical_metropolis',name:'Vertical Metropolis',domain:'population',needs:['dense_living','housing_revolution','land_opportunity'],effects:{housing:.20,migration:.25,crowding:2},description:'Intense migration supports a high-density metropolis, at a further cost of 2 prosperity.'},
  {id:'knowledge_capital',name:'Knowledge Capital',domain:'education',needs:['free_university','great_scholars','knowledge_economy'],effects:{education:.65,innovation:.50},description:'Universities and scholars create a knowledge powerhouse.'},
  {id:'merchant_empire',name:'Merchant Empire',domain:'trade',needs:['great_port','commercial_revolution','merchant_republic'],effects:{trade:.50,treasury:.25},description:'A thriving international mercantile center.'},
  {id:'heritage_jewel',name:'Heritage Jewel',domain:'culture',needs:['world_heritage','city_monuments','tourist_paradise'],effects:{tourismIncome:.60,heritage:.35},description:'Protected heritage becomes the city’s greatest resource.'},
@@ -120,7 +122,7 @@ export function canDraw(card,city){
  else if(Array.isArray(city.turning?.cardPool)&&!city.turning.cardPool.includes(card.id))return false;
  if(card.geographies&&!card.geographies.includes(city.type))return false;
  if(card.kind==='figure'&&(card.cost||0)>(city.funds||0))return false;
- if(card.effects?.popInstant){const housing=120+(city.buildings||[]).filter(b=>b.type==='res').reduce((n,b)=>n+(b.capacity||8),0);if((city.residents||120)>=housing*1.60)return false;}
+ if(card.effects?.popInstant){const housing=120*POP_SCALE+(city.buildings||[]).filter(b=>b.type==='res').reduce((n,b)=>n+(b.capacity||8*POP_SCALE),0);if((city.residents||120*POP_SCALE)>=housing*1.60)return false;}
  const owned=new Set(resolvedCards(city).map(c=>c.id));
  if(!card.repeatable&&owned.has(card.id))return false;
  if(card.repeatable&&(city.turning?.choices||[]).filter(p=>p.cardId===card.id).length>=2)return false;
@@ -149,6 +151,8 @@ export function generateOffers(city,index,reroll=0,extra=[]){
    if((city.legacyBonuses?.rareLuck||0)>0&&['rare','epic','legend'].includes(c.rarity))weight*=(1+city.legacyBonuses.rareLuck);
    if(slot===0){if(c.requiresAny)weight*=2.3;if(leading&&leading!=='wildcard'&&c.domain===leading)weight*=1.8;}
    if(slot===1&&['population','education','trade'].includes(c.domain))weight*=1.4;
+   // v1.3: the city's character draws matching opportunities.
+   const axis=DOMAIN_AXIS[c.domain];if(axis)weight*=1+1.5*(city.character?.shares?.[axis]||0);
    if(slot===2&&leading&&c.domain!==leading)weight*=1.4;
    // Basic geographical relevance, not a guaranteed build or a prescribed victory.
    if(c.domain==='trade'&&['coast','estuary','lake'].includes(city.type))weight*=1.15;
