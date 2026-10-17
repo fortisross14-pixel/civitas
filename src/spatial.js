@@ -7,6 +7,7 @@
 // The fields shape where each kind of building chooses to grow, and the share of
 // homes and jobs inside them moves prosperity and productivity.
 import {W,H,CELLS,within,key,waterGrid,POP_SCALE} from './geo.js';
+import {townCenterLevel} from './construction.js';
 
 const PRESTIGE={monument:1,museum:1,workshop:.8,garden:.8,university:.7,shrine:.6,monastery:.5,guildhall:.4,town_hall:.4,library:.4,boulevard:.4,research_center:.4};
 const SERVICE={chapel:9,school:9,clinic:9,hospital:11,town_hall:9,library:9,civic_center:11,monastery:9,shrine:8,university:8,waterworks:10,research_center:8};
@@ -31,12 +32,14 @@ export function thawSpatial(city){frozen.delete(city.buildings);}
 export function spatial(city,effects={},policies={}){
   const ice=frozen.get(city.buildings);if(ice)return ice;
   const stampMonth=(city.year||0)*12+(city.month||0),hit=cache.get(city.buildings);
-  if(hit&&hit.len===city.buildings.length&&hit.roads===city.roads.length&&hit.month===stampMonth&&hit.policyKey===policyKey(policies))return hit.value;
+  if(hit&&hit.len===city.buildings.length&&hit.roads===city.roads.length&&hit.month===stampMonth&&hit.policyKey===policyKey(policies)&&hit.center===centerKey(city))return hit.value;
   const value=computeSpatial(city,effects,policies);
-  cache.set(city.buildings,{len:city.buildings.length,month:stampMonth,roads:city.roads.length,policyKey:policyKey(policies),value});
+  cache.set(city.buildings,{len:city.buildings.length,month:stampMonth,roads:city.roads.length,policyKey:policyKey(policies),center:centerKey(city),value});
   return value;
 }
 const policyKey=p=>Object.keys(p||{}).sort().join(',');
+// Upgrading the Town Center changes no building, so it is part of the cache key.
+const centerKey=city=>city.center?`${city.center.x},${city.center.y},${city.center.level}`:'';
 function computeSpatial(city,effects,policies){
   const pollution=new Float32Array(CELLS),prestige=new Float32Array(CELLS),service=new Float32Array(CELLS),trade=new Float32Array(CELLS);
   const water=waterGrid(city.type),year=city.year||1300;
@@ -50,6 +53,12 @@ function computeSpatial(city,effects,policies){
       if(TRADE[b.special])stamp(trade,x,y,TRADE[b.special],1.2);
     }else if(b.type==='civic')stamp(service,x,y,6,1.1);
     if(b.protected&&year-(b.born||year)>=120)stamp(prestige,x,y,2,.15);
+  }
+  // The Town Center serves and lends prestige to the parcels around it, more at each level.
+  const tc=townCenterLevel(city);
+  if(tc&&within(city.center.x,city.center.y)){
+    if(tc.serviceRadius)stamp(service,city.center.x,city.center.y,tc.serviceRadius,1.2);
+    if(tc.prestige)stamp(prestige,city.center.x,city.center.y,tc.prestigeRadius,tc.prestige);
   }
   for(const r of city.roads||[])if(r.cls==='main'&&Number.isFinite(r.x))trade[key(r.x,r.y)]+=.6;
   // Summary: shares of homes and jobs inside each field.

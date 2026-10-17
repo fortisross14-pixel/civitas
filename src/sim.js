@@ -1,6 +1,7 @@
 import {FIGURES,FIGURE_INDEX} from './legacy.js';
 import {INITIAL_DEVELOPMENT,developmentOf,applyPulse,advanceDevelopment,accumulateDevelopment,productivityGrowth,developmentCapacity} from './development.js';
-import {BASIC_INDEX,BASIC_BUILDINGS,BUILDING_EFFECTS,SPECIAL_BUILDINGS,basicsForYear} from './construction.js';
+import {BASIC_INDEX,BASIC_BUILDINGS,BUILDING_EFFECTS,SPECIAL_BUILDINGS,basicsForYear,TOWN_CENTER_LEVELS,TOWN_CENTER_MAX,townCenterLevel} from './construction.js';
+export {TOWN_CENTER_LEVELS,TOWN_CENTER_MAX,townCenterLevel};
 import {maybeEvent,disasterEvent,eventDefinition,eventScale,timedEffects,fireproofed,eventSpot} from './events.js';
 import {CARD_INDEX,TURNING_POINTS,turningYears,generateOffers,modifiers,activeSynergies,resolvedCards,currentTurningIndex} from './turningPoints.js';
 import {W,H,CELLS,DIRS4,clamp,within,key,kx,ky,rand,hash,terrain,waterGrid,footprint,POP_SCALE} from './geo.js';
@@ -202,9 +203,12 @@ export function demand(city){
     jobs:make((s.unemployment-4)*4+(s.jobCoverage<102?(102-s.jobCoverage)*1.6:0),{ok:'The labour market is balanced.',short:'Employment demand is outpacing available work.'})
   };
 }
-// Growth gravitates toward where the town was founded. Saves from before
-// v1.0.1 have no recorded origin and keep their original reference point.
+// Growth gravitates toward the player's Town Center once it is placed, else
+// toward where the town was founded. Saves from before v1.0.1 have no
+// recorded origin and keep their original reference point.
 export function cityOrigin(city){
+  const c=city?.center;
+  if(c&&Number.isFinite(c.x)&&Number.isFinite(c.y))return {x:c.x,y:c.y};
   const o=city?.origin;
   if(o&&Number.isFinite(o.x)&&Number.isFinite(o.y))return o;
   return {x:city?.type==='river'?35:43,y:34};
@@ -267,6 +271,7 @@ export function cityEffects(city){
     else if(w.state==='boulevard'){add('transport',.10);add('prosperity',2);}
   }
   add('transport',Math.min(4,(city.bridges||[]).length)*.03);
+  for(const [k,v] of Object.entries(townCenterLevel(city)?.effects||{}))add(k,v);
   return effects;
 }
 function rememberLoss(city,b,year,reason){
@@ -342,7 +347,7 @@ export function captureSnapshot(city){
     mainRoads:city.roads.filter(r=>Number.isFinite(r.x)&&r.cls==='main').map(r=>key(r.x,r.y)),
     bridgeRoads:city.roads.filter(r=>Number.isFinite(r.x)&&r.cls==='bridge').map(r=>key(r.x,r.y)),
     walls:(city.walls||[]).map(w=>({...w})),bridges:(city.bridges||[]).map(b=>({...b})),routes:(city.routes||[]).length,
-    zones:city.zones.map(z=>({...z}))};
+    zones:city.zones.map(z=>({...z})),center:city.center?{...city.center}:null};
 }
 export function snapshotCity(base,snap){
   if(!snap)return base;
@@ -350,7 +355,9 @@ export function snapshotCity(base,snap){
   return {...base,year:snap.year,
     buildings:snap.buildings.map(a=>({id:a[0],x:a[1],y:a[2],w:a[3],h:a[4],type:ZONE_CODES[a[5]]||'res',born:a[6],level:a[7],protected:!!a[8],modified:a[9],style:styleAt(a[6]),renovations:(a[10]||[]).map(v=>({year:v[0],action:v[1]})),special:a[11]||undefined,label:a[12]||undefined})),
     roads:[...(snap.roads||[]).map(v=>({x:v%W,y:Math.floor(v/W),...(main.has(v)?{cls:'main'}:bridge.has(v)?{cls:'bridge'}:{})})),...(snap.legacyRoads||[])],zones:snap.zones||[],
-    walls:Array.isArray(snap.walls)?snap.walls:[],bridges:Array.isArray(snap.bridges)?snap.bridges:[],routes:Number.isFinite(snap.routes)?(base.routes||[]).slice(0,snap.routes):[]};
+    walls:Array.isArray(snap.walls)?snap.walls:[],bridges:Array.isArray(snap.bridges)?snap.bridges:[],routes:Number.isFinite(snap.routes)?(base.routes||[]).slice(0,snap.routes):[],
+    // Surveys from before v1.5 did not record the Town Center: show it as it is now.
+    center:snap.center===undefined?base.center:snap.center};
 }
 export function setProtection(city,id,value){
   if(city.finished)return city;
@@ -365,7 +372,7 @@ const INFORMAL_LAND=220;
 // v1.1: early centuries build faster so a medieval town visibly grows from the start.
 function eraPaceOf(year){return year>=2000?12:year>=1950?10:year>=1850?7:year>=1750?5:year>=1500?4:3;}
 // How far from the founding point streets and informal building may wander.
-export function cityReach(city,population){return Math.round(9+Math.sqrt(Math.max(0,population)/K)*.32+(city.walls||[]).reduce((m,w)=>Math.max(m,w.r*.6),0));}
+export function cityReach(city,population){return Math.round(9+Math.sqrt(Math.max(0,population)/K)*.32+(city.walls||[]).reduce((m,w)=>Math.max(m,w.r*.6),0)+(townCenterLevel(city)?.reach||0));}
 function growthOptions(city,s){return {origin:cityOrigin(city),reach:cityReach(city,s.population),pattern:patternFor(city.year),year:city.year,walls:(city.walls||[]).filter(w=>w.state==='wall'),allowInformal:true,fields:spatial(city,cityEffects(city),activePolicies(city)),informalCivic:city.year<1850,informalCraft:(city.character?.shares?.industry||0)>=.3};}
 // True when laying streets would open plots for `type`: zoned land of that type
 // without street access, or (for informal types) unzoned land within reach.
@@ -683,19 +690,20 @@ function runMonths(city,months){
 }
 export function advance(city,years=5){
   if(city.finished||!Number.isFinite(years)||years<=0||city.year>=END_YEAR)return city;
-  if(city.turning?.pending||city.event)return city;
+  if(city.turning?.pending||city.event||city.awaitingCenter)return city;
   const milestone=nextMilestoneOf(city);
   const target=Math.min(END_YEAR,city.year+Math.floor(years),milestone??END_YEAR);
   return runMonths(city,(target-city.year)*12-Math.floor(Number(city.month)||0));
 }
 export function advanceMonths(city,months=1){
-  if(city.finished||city.turning?.pending||city.event||!Number.isFinite(months)||months<=0)return city;
+  if(city.finished||city.turning?.pending||city.event||city.awaitingCenter||!Number.isFinite(months)||months<=0)return city;
   return runMonths(city,Math.floor(months));
 }
-export function seedTown(city){
+export function seedTown(city,at=null){
   // A crossroads settlement: country roads meet at the founding point, a few
   // lanes branch off, and the first houses, shops, farms and a church follow.
-  const sx=city.type==='plain'?39:city.type==='coast'?39:city.type==='estuary'?31:city.type==='lake'?33:26,sy=27;
+  // `at` is the player's Town Center; without one the geography picks the spot.
+  const sx=at?at.x-9:city.type==='plain'?39:city.type==='coast'?39:city.type==='estuary'?31:city.type==='lake'?33:26,sy=at?at.y-8:27;
   const origin={x:sx+9,y:sy+8};
   let c=addZone({...city,origin},sx,sy,19,16,'res');
   c=addZone(c,sx+5,sy+5,7,5,'trade');
@@ -740,6 +748,18 @@ export function setPolicy(city,id,on){
   if(on===had)return {city,undo:null,error:null};
   if(on)policies[id]=city.year;else delete policies[id];
   return {city:{...city,policies,events:[...city.events,{year:city.year,type:'policy',text:`${on?'Adopted':'Repealed'}: ${POLICY_INDEX[id].name}.`}]},undo:{kind:'policy',policies:city.policies||{}},error:null};
+}
+// Rename a district. Districts keep their stored record (and so this name)
+// through every later re-survey, exactly as a generated name is kept.
+export const DISTRICT_NAME_MAX=32;
+export function renameDistrict(city,id,name){
+  const list=city.districts||[],d=list.find(v=>v.id===id),clean=String(name??'').replace(/\s+/g,' ').trim();
+  if(!d)return {city,undo:null,error:'That district no longer exists'};
+  if(!clean)return {city,undo:null,error:'A district needs a name'};
+  if(clean.length>DISTRICT_NAME_MAX)return {city,undo:null,error:`Names are at most ${DISTRICT_NAME_MAX} characters`};
+  if(clean===d.name)return {city,undo:null,error:null};
+  if(list.some(v=>v.id!==id&&v.name.toLowerCase()===clean.toLowerCase()))return {city,undo:null,error:`another district is already called ${clean}`};
+  return {city:{...city,districts:list.map(v=>v.id===id?{...v,name:clean,renamed:true}:v),events:[...city.events,{year:city.year,type:'district',text:`${d.name} was renamed ${clean}.`}]},undo:{kind:'districts',districts:list},error:null};
 }
 export function setTax(city,sector,level){
   const taxes=taxesOf(city);
@@ -846,12 +866,64 @@ function linkToNetwork(city,g,p){
   return [];
 }
 function nearestLandOnEdge(type,p){const water=waterGrid(type);for(let off=0;off<30;off++)for(const s of [1,-1]){const q=p.x===0||p.x===W-1?{x:p.x,y:clamp(p.y+off*s,1,H-2)}:{x:clamp(p.x+off*s,1,W-2),y:p.y};if(!water[key(q.x,q.y)])return q;}return null;}
+// ───────────────────────── Town Center ─────────────────────────
+// A new run starts unfounded: the player places the Town Center, the town is
+// seeded around it, and only then can the clock run. Once placed it never moves;
+// afterwards it is upgraded in place (see TOWN_CENTER_LEVELS).
+export function prepareFounding(city){return {...city,awaitingCenter:true};}
+// Founding needs room for the first crossroads town: dry land, away from the
+// map edge, with mostly land around it.
+const FOUND_MARGIN=6;
+function foundingIssue(city,x,y){
+  if(x<FOUND_MARGIN||y<FOUND_MARGIN||x>=W-FOUND_MARGIN||y>=H-FOUND_MARGIN)return 'Too close to the edge of the map to found a town';
+  let land=0;for(let dy=-5;dy<=5;dy++)for(let dx=-5;dx<=5;dx++)if(Math.hypot(dx,dy)<=5&&terrain(city.type,x+dx,y+dy)==='land')land++;
+  return land<55?'Too much water here to found a town':null;
+}
+// Why the Town Center cannot be placed at x, y ('place') or upgraded ('upgrade') now; null when it can.
+export function townCenterIssue(city,action='upgrade',x=0,y=0){
+  if(!city||city.finished)return 'This chronicle is complete';
+  if(action==='place'){
+    if(city.center)return 'The Town Center is already placed and cannot be moved';
+    const xx=Math.floor(Number(x)),yy=Math.floor(Number(y));
+    if(!Number.isFinite(xx)||!Number.isFinite(yy)||!within(xx,yy))return 'Outside the map';
+    if(terrain(city.type,xx,yy)!=='land')return 'The Town Center must stand on dry land';
+    return city.awaitingCenter?foundingIssue(city,xx,yy):null;
+  }
+  if(city.awaitingCenter)return 'Found the town first by placing its Town Center';
+  const now=townCenterLevel(city);if(!now)return 'Place a Town Center first';
+  if(city.turning?.pending)return 'Resolve your current Turning Point first';
+  const next=TOWN_CENTER_LEVELS[now.level];if(!next)return 'The Town Center is fully developed';
+  if(city.year<next.from)return `${next.name} is available from ${next.from}`;
+  if(stats(city).population<next.minPopulation)return `${next.name} needs ${next.minPopulation.toLocaleString('en-US')} residents`;
+  if(city.funds<next.cost)return `Needs ${next.cost.toLocaleString('en-US')} treasury`;
+  return null;
+}
+// Place the Town Center. In a new run this founds the town around it; in an
+// older save it re-anchors future growth. Permanent, so there is no undo.
+export function placeTownCenter(city,x,y){
+  const issue=townCenterIssue(city,'place',x,y);if(issue)return {city,undo:null,error:issue};
+  const xx=Math.floor(x),yy=Math.floor(y),first=TOWN_CENTER_LEVELS[0],center={x:xx,y:yy,level:1,founded:city.year};
+  const event={year:city.year,type:'works',x:xx+.5,y:yy+.5,text:city.awaitingCenter?`${city.name} was founded around its ${first.name} at parcel ${xx}, ${yy}.`:`A ${first.name} now marks the town center at parcel ${xx}, ${yy}; the city will grow around it.`};
+  if(!city.awaitingCenter)return {city:{...city,center,events:[...city.events,event]},undo:null,error:null};
+  const {awaitingCenter:_a,...rest}=city;
+  const next=seedTown({...rest,center},center);
+  next.events=[...next.events,event];
+  return {city:next,undo:null,error:null};
+}
+export function upgradeTownCenter(city){
+  const issue=townCenterIssue(city,'upgrade');if(issue)return {city,undo:null,error:issue};
+  const now=townCenterLevel(city),next=TOWN_CENTER_LEVELS[now.level],{x,y}=city.center;
+  return {city:{...city,funds:city.funds-next.cost,center:{...city.center,level:next.level},
+    events:[...city.events,{year:city.year,type:'works',x:x+.5,y:y+.5,text:`The ${now.name} was rebuilt as the ${next.name}. ${next.description}`}]},
+    undo:{kind:'center',level:now.level,refund:next.cost},error:null,level:next};
+}
 // Undo one edit. Things the city has since built over are left in place.
 export function revertEdit(city,undo){
   if(!undo||city.finished)return city;
   switch(undo.kind){
     case 'zones':return {...city,zones:undo.zones,funds:city.funds+(undo.refund||0)};
     case 'taxes':return {...city,taxes:undo.taxes};
+    case 'districts':{const names=new Map(undo.districts.map(d=>[d.id,d]));return {...city,districts:(city.districts||[]).map(d=>names.has(d.id)?{...d,name:names.get(d.id).name,renamed:names.get(d.id).renamed}:d)};}
     case 'policy':return {...city,policies:undo.policies};
     case 'protect':return setProtection(city,undo.id,undo.value);
     case 'place':{
@@ -867,6 +939,7 @@ export function revertEdit(city,undo){
       return {...city,buildings:[...city.buildings,...restored],landmarks:[...(city.landmarks||[]),...undo.landmarks.filter(l=>ids.has(l.id))],roads:[...city.roads,...roads],sites:(city.sites||[]).filter(s=>!(ids.has(s.id)&&s.reason==='Demolished'))};
     }
     case 'wall':return {...city,walls:(city.walls||[]).filter(w=>w.id!==undo.id),funds:city.funds+undo.refund};
+    case 'center':return city.center?{...city,center:{...city.center,level:undo.level},funds:city.funds+undo.refund}:city;
     case 'convert':{const drop=new Set(undo.roads);return {...city,walls:(city.walls||[]).map(w=>{if(w.id!==undo.id)return w;const {converted:_c,...rest}=w;return {...rest,state:'wall'};}),roads:city.roads.filter(r=>!(roadClass(r)==='ring'&&drop.has(key(r.x,r.y)))),funds:city.funds+undo.refund};}
     case 'bridge':{const drop=new Set(undo.roads);return {...city,bridges:(city.bridges||[]).filter(b=>b.id!==undo.id),roads:city.roads.filter(r=>!(Number.isFinite(r.x)&&drop.has(key(r.x,r.y))&&r.born>=0&&(roadClass(r)==='bridge'||roadClass(r)==='main'))),routes:(city.routes||[]).slice(0,Math.max(0,(city.routes||[]).length-(undo.routes||0))),funds:city.funds+undo.refund};}
     default:return city;
@@ -951,6 +1024,10 @@ export function normalizeCity(input){
   c.lastEventYear=Number(input.lastEventYear)||0;
   c.effectsTimed=Array.isArray(input.effectsTimed)?input.effectsTimed.filter(t=>t&&Number.isFinite(t.until)&&t.effects):[];
   c.event=input.event&&eventDefinition(input.event.id)&&Array.isArray(input.event.options)&&!c.finished?input.event:null;
+  // v1.5 Town Center.
+  const tc=input.center;
+  c.center=tc&&Number.isInteger(tc.x)&&Number.isInteger(tc.y)&&within(tc.x,tc.y)?{x:tc.x,y:tc.y,level:clamp(Math.floor(Number(tc.level)||1),1,TOWN_CENTER_MAX),founded:Number(tc.founded)||c.year}:null;
+  c.awaitingCenter=!!input.awaitingCenter&&!c.center&&!c.finished;
   c.schema=10;
   return c;
 }

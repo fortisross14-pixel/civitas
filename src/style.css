@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Libre+Baskerville:wght@400;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Crimson+Pro:ital,wght@0,400;0,500;0,600;1,400&family=DM+Sans:wght@400;500;600;700&family=Libre+Baskerville:wght@400;700&display=swap');
 :root{font-family:'DM Sans',system-ui,sans-serif;color:#332f27;background:#eee9dd;font-synthesis:none}*{box-sizing:border-box}body{margin:0}button,input,select{font:inherit}button{cursor:pointer;border:1px solid #cec6b4;background:#faf7ef;color:#453d31;border-radius:6px;padding:9px 12px;display:inline-flex;align-items:center;justify-content:center;gap:7px}button:hover{background:#eee8d9}button:disabled{opacity:.4;cursor:not-allowed}.primary{background:#405d52;color:white;border-color:#405d52}.primary:hover{background:#344e45}.wide{width:100%}.app{min-height:100vh}header{height:65px;background:#f9f5ea;border-bottom:1px solid #d8d0be;display:flex;align-items:center;justify-content:space-between;padding:0 23px}.brand{display:flex;align-items:center;gap:11px;border:0;background:transparent;color:#4e5646;padding:0}.brand:hover{background:transparent}.brand span{font:700 22px 'Libre Baskerville',serif;letter-spacing:3px}.brand small{font-size:9px;letter-spacing:1.6px;border-left:1px solid #c6beac;padding-left:13px;color:#887d69}.headerRight{display:flex;align-items:center;gap:16px;font-size:10px;letter-spacing:1.5px;color:#9a8b76}.version{background:#eae4d6;padding:6px 9px;border-radius:5px}.home{max-width:1100px;margin:0 auto;padding:65px 25px}.eyebrow,.sidecaption{font-size:10px;font-weight:700;letter-spacing:2px;color:#927d62}.home h1{font:40px 'Libre Baskerville',serif;margin:15px 0}.intro{font-size:16px;color:#776e60;margin-bottom:42px}.homegrid{display:grid;grid-template-columns:1fr 1fr;gap:18px}.panel{background:#faf7ef;border:1px solid #d8cfbb;border-radius:10px;padding:25px;min-height:285px}.panel h2{font:21px 'Libre Baskerville',serif;margin:0 0 24px}.panel label{display:block;font-size:12px;font-weight:700;margin:15px 0}.panel input,.panel select{display:block;margin-top:7px;width:100%;padding:12px;background:#fffdf8;border:1px solid #d8cfbb;border-radius:5px;color:#42392d}.panel .primary{margin-top:20px}.muted,.hint,.footnote{color:#847a6a;font-size:12px;line-height:1.65}.footnote{margin-top:24px}.warning{color:#872e2e;background:#f8e5e0;padding:12px;border-radius:8px;font-size:13px}.count{font:12px 'DM Sans';color:#877c69}.panelhead{display:flex;align-items:start;justify-content:space-between;gap:10px}.inlinebuttons{display:flex;gap:4px}.inlinebuttons button{padding:6px}.savelist{max-height:340px;overflow:auto}.saveitem{display:flex;align-items:center;border:1px solid #e5ddce;border-radius:6px;margin-bottom:7px;gap:6px;padding-right:5px}.saveopen{flex:1;min-width:0;display:flex;flex-direction:column;align-items:start;gap:5px;text-align:left;border:0;background:transparent;padding:12px}.saveopen strong,.saveopen small{max-width:100%;overflow:hidden;text-overflow:ellipsis}.saveopen small{font-size:11px;color:#8b806e}.savestatus{font-size:10px;color:#5b7668}.delete{padding:8px;border:0;background:transparent;color:#977968}.workspace{height:calc(100vh - 65px);height:calc(100dvh - 65px);display:flex;flex-direction:column}.topbar{min-height:67px;display:flex;align-items:center;gap:16px;background:#f7f2e7;border-bottom:1px solid #d5ccb8;padding:8px 14px}.textbutton{background:transparent;border:0;padding:8px}.cityheading{display:flex;flex-direction:column;min-width:130px}.cityheading strong{font:16px 'Libre Baskerville',serif}.cityheading span{font-size:11px;color:#867b69;margin-top:5px}.topstats{display:flex;gap:19px;margin-left:auto}.topstats span{font-size:9px;color:#867c6d;display:flex;flex-direction:column;gap:4px;letter-spacing:.8px}.topstats b{font-size:14px;color:#3c392f;letter-spacing:0}.controls{display:flex;gap:6px}.controls button{font-size:12px;padding:9px}.mobileInfo{display:none}.gamebody{display:grid;grid-template-columns:188px minmax(0,1fr) 255px;flex:1;min-height:0}.sidebar,.inspector{background:#f9f5eb;overflow:auto}.sidebar{padding:17px 12px;border-right:1px solid #d6ccba}.sidebar h3,.sidecontent h3{font-size:10px;letter-spacing:1.8px;color:#94836d;margin:10px 0 14px}.sidebar button{width:100%;justify-content:flex-start;border:0;background:transparent;font-size:12px;margin-bottom:3px}.sidebar button.active{background:#e1e7da;color:#385a46;font-weight:700}.sidebar i{display:block;width:12px;height:12px;border-radius:2px}.sidecaption{margin:23px 0 10px}.sidebar select{width:100%;padding:10px;border:1px solid #d5c9b5;background:#fffdf8;border-radius:5px;font-size:12px}.hint{background:#efeadd;padding:11px;border-radius:5px;margin-top:20px}.center{min-width:0;display:flex;flex-direction:column;background:#e1d9c4}.mapwrap{position:relative;flex:1;min-height:100px}.mapwrap canvas{display:block;width:100%;height:100%}.mapzoom{position:absolute;right:15px;bottom:18px;display:flex;flex-direction:column;gap:4px}.mapzoom button{padding:4px 10px;font-size:17px;min-width:35px}.coord{position:absolute;left:12px;top:12px;font-size:11px;color:#675f4e;background:#f7f0dff0;padding:6px 10px;border-radius:5px;pointer-events:none}.bottom{display:flex;align-items:center;justify-content:space-between;padding:10px 15px;font-size:10px;color:#746957;background:#f6f0e3;gap:8px}.bottom span{display:flex;align-items:center;gap:6px}.bottom .message{flex:1;justify-content:center;text-align:center}.dot{width:7px;height:7px;border-radius:50%;background:#6a9b78;flex-shrink:0}.inspector{border-left:1px solid #d6ccba}.tabs{display:flex;border-bottom:1px solid #d6ccba}.tabs button{flex:1;border:0;border-radius:0;background:transparent;font-size:12px;padding:16px 5px}.tabs .sel{border-bottom:2px solid #456858;color:#456858;font-weight:700}.sidecontent{padding:20px 16px}.sidecontent h2{font:24px 'Libre Baskerville',serif;margin:8px 0 22px;overflow-wrap:anywhere}.stat{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:11px 0;border-bottom:1px solid #e5dece;font-size:11px}.stat span{color:#776e60}.stat b{text-align:right}.sidecontent h3{margin-top:26px}.historygraph{height:130px;display:flex;align-items:end;gap:1px;border-bottom:1px solid #a99c83;margin:15px 0 5px}.historygraph div{background:#7e988b;flex:1;min-width:1px}.historylabels{display:flex;justify-content:space-between;color:#897d6a;font-size:10px}.event{border-left:2px solid #a7a18a;padding:4px 0 6px 12px;margin:12px 0}.event strong{font-size:12px}.event p{font-size:11px;color:#776e60;line-height:1.5;margin:5px 0}.complete{font-size:12px;background:#e3e9de;padding:12px;border-radius:5px;color:#416351;display:flex;align-items:center;gap:7px}
 @media(max-width:1150px){.topstats{display:none}.gamebody{grid-template-columns:165px minmax(0,1fr) 225px}.brand small,.headerRight>span:first-child{display:none}}
 @media(max-width:760px){header{height:52px;padding:0 12px}.brand span{font-size:18px}.version{font-size:9px}.workspace{height:calc(100dvh - 52px)}.topbar{flex-wrap:wrap;gap:7px;padding:7px;min-height:89px}.cityheading{min-width:110px}.controls{margin-left:auto}.controls button{padding:7px;font-size:11px}.mobileInfo{display:inline-flex;padding:8px}.gamebody{grid-template-columns:1fr;grid-template-rows:minmax(0,1fr) auto;position:relative}.sidebar{grid-row:2;display:flex;overflow-x:auto;align-items:center;gap:4px;padding:6px;border-top:1px solid #d5c9b5}.sidebar h3,.sidebar .sidecaption,.sidebar .hint,.sidebar select{display:none}.sidebar button{white-space:nowrap;width:auto;margin:0;font-size:11px;padding:9px}.center{grid-row:1}.inspector{display:none;position:absolute;z-index:5;right:0;top:0;bottom:56px;width:min(320px,90vw);box-shadow:-8px 0 18px #302b2222}.inspector.showMobile{display:block}.bottom{font-size:9px;flex-wrap:wrap}.bottom .message{order:3;flex-basis:100%}.home{padding:35px 15px}.home h1{font-size:29px}.homegrid{grid-template-columns:1fr}.panel{min-height:0}}
@@ -233,3 +233,240 @@
 .timelapseControls button{display:flex;align-items:center;gap:6px}
 .timelapseControls .recording{background:#8a3b28;color:#fff;border-color:#8a3b28}
 @media (max-width:760px){.timelapseQuick span{display:none}.timelapseWindow{padding:10px}.eventWindow{padding:20px 18px}.eventWindow h2{font-size:24px}}
+
+/* ── v1.5 laptop widths ───────────────────────────────────────────────
+   Browser zoom and OS display scaling put common laptops between 1000 and
+   1320 CSS pixels (1366 @110% = 1242, 1280 @110% = 1164, 1280 @125% = 1024).
+   The topbar is one non-wrapping row; it used to keep every stat until 1150px
+   and grew wider than the window with late-game numbers and a long city name,
+   which scrolled the whole page sideways. Now the controls never shrink, the
+   city name truncates, and the topbar sheds detail step by step instead. */
+.topbar{min-width:0}
+.topbar>*{flex-shrink:0}
+.topbar .cityheading{flex:0 1 auto;min-width:96px;max-width:240px}
+.cityheading strong,.cityheading span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.topstats{flex:0 1 auto;min-width:0;overflow:hidden;justify-content:flex-end}
+.topstats span{white-space:nowrap}
+.legacyQuick{white-space:nowrap}
+.sidebar button{text-align:left}
+@media(max-width:1400px){.backLabel{display:none}.cityheading{max-width:200px}}
+@media(max-width:1320px){
+  .topbar{gap:12px}.topstats{gap:14px}
+  .backLabel,.timelapseQuick span,.legacyQuick small,.topstats .ts-gdppc{display:none}
+  .cityheading{max-width:200px}
+}
+/* The old 1150px step now keeps population and treasury on screen. */
+@media(max-width:1150px){
+  .topstats{display:flex}.topstats .ts-gdp{display:none}
+  .cityheading{max-width:170px}
+  .controls{gap:4px}.controls button{padding:8px 7px}
+}
+/* New step between 1150 and 760: narrower panels, map keeps its share. */
+@media(max-width:980px){
+  .topstats,.legacyQuick{display:none}
+  .gamebody{grid-template-columns:150px minmax(0,1fr) 212px}
+  .sidebar{padding:14px 8px}.sidebar button{font-size:11px;padding:8px 7px;gap:5px}
+  .sidecontent{padding:16px 12px}.sidecontent h2{font-size:21px}
+}
+@media(max-width:760px){.cityheading{max-width:none}.gamebody{grid-template-columns:1fr}.sidebar{padding:6px}.sidebar button{padding:9px}}
+/* v1.5 Town Center */
+.townCenter{margin:0 0 22px;padding:12px 11px;background:#fbf8f1;border:1px solid #e3d9c6;border-left:3px solid #ad8174;border-radius:6px}
+.townCenter h3{font:17px 'Libre Baskerville',serif!important;letter-spacing:0!important;color:#3f382d!important;margin:6px 0 4px!important}
+.townCenter .muted{margin:4px 0 8px}
+.townCenter button{font-size:11px;width:100%}
+.townCenter button.active{background:#dce7d9;border-color:#719178;color:#2f5a46}
+.centerNext{display:flex;flex-direction:column;gap:6px;margin-top:8px;padding-top:9px;border-top:1px dashed #e3d9c6}
+.centerNext b{font-size:12px;color:#4a4236}.centerNext small{font-size:10px;line-height:1.45;color:#857965}
+/* v1.5 sidebar: an icon rail of sections, with one section's details beside it. */
+.gamebody{grid-template-columns:236px minmax(0,1fr) 255px}
+.gamebody.sideCollapsed{grid-template-columns:58px minmax(0,1fr) 255px}
+.sidebar{padding:0;display:grid;grid-template-columns:58px minmax(0,1fr);overflow:hidden}
+.sidebar.collapsed{grid-template-columns:58px}
+.rail{display:flex;flex-direction:column;align-items:stretch;gap:2px;padding:10px 5px;background:#f1ebdd;border-right:1px solid #e0d6c3;overflow-y:auto}
+.sidebar .rail button{position:relative;flex-direction:column;gap:3px;padding:8px 2px 7px;margin:0;font-size:9px;font-weight:600;letter-spacing:.3px;color:#6f6553;justify-content:center;text-align:center;border-radius:6px}
+.sidebar .rail button:hover{background:#e6dfcf}
+.sidebar .rail button.sel{background:#fffdf8;color:#2f5a46;box-shadow:0 1px 3px #5a4a3c26}
+.sidebar .rail button.tool.active{background:#e1e7da;color:#385a46}
+.railRule{display:block;height:1px;background:#ddd2bd;margin:6px 6px}
+.railBadge{position:absolute;top:6px;right:9px;width:7px;height:7px;border-radius:50%;background:#b8705c;box-shadow:0 0 0 2px #f1ebdd}
+.sidepanel{overflow-y:auto;padding:16px 11px 20px;min-width:0}
+.sidepanel>h3{margin:0 0 4px!important}
+.sidepanel .sidecaption.first{margin-top:12px}
+.sidepanel .demandPanel,.sidepanel .taxPanel{margin-top:14px}
+.sidepanel>.taxPanel{margin-top:6px}
+.layerList{display:flex;flex-direction:column;gap:3px;margin-top:10px}
+.sidebar .layerList button{flex-direction:column;align-items:flex-start;gap:2px;padding:8px 9px;margin:0;border:1px solid transparent}
+.sidebar .layerList button b{font-size:12px;font-weight:600}
+.sidebar .layerList button small{margin:0;font-size:10px;color:#8d806c;white-space:normal}
+.sidebar .layerList button.active{background:#e1e7da;border-color:#c3d0bd}
+@media(max-width:1150px){.gamebody{grid-template-columns:214px minmax(0,1fr) 225px}.gamebody.sideCollapsed{grid-template-columns:58px minmax(0,1fr) 225px}}
+@media(max-width:980px){.gamebody{grid-template-columns:200px minmax(0,1fr) 212px}.gamebody.sideCollapsed{grid-template-columns:54px minmax(0,1fr) 212px}.sidebar{grid-template-columns:54px minmax(0,1fr)}.sidebar.collapsed{grid-template-columns:54px}.sidepanel{padding:14px 8px}}
+/* Phones: rail and the open section's buttons share one horizontal strip. */
+@media(max-width:760px){
+  .gamebody,.gamebody.sideCollapsed{grid-template-columns:1fr}
+  .sidebar,.sidebar.collapsed{display:flex;grid-template-columns:none;overflow-x:auto;overflow-y:hidden;padding:4px}
+  .rail{flex-direction:row;padding:0 4px 0 0;background:transparent;border-right:1px solid #e0d6c3;overflow:visible}
+  .sidebar .rail button{flex:0 0 auto;padding:6px 8px}
+  .railRule{width:1px;height:auto;margin:4px 2px}
+  .sidepanel{display:flex;align-items:center;gap:4px;overflow:visible;padding:0 4px}
+  .sidepanel>h3,.sidepanel .sidecaption,.sidepanel .hint,.sidepanel .demandPanel,.sidepanel .taxPanel,.sidepanel .constructionHint,.sidepanel .buildPreview,.sidepanel .sidebarProjectCount,.layerList small{display:none}
+  .layerList{flex-direction:row;margin:0}.sidebar .layerList button{flex:0 0 auto}
+}
+.sidebar .rail .railRule{width:auto;height:1px;border-radius:0}
+.sidepanel button{padding:8px 6px;gap:7px}
+@media(max-width:760px){.sidebar .rail .railRule{width:1px;height:auto}.rail .rail-taxes{display:none}}
+.districtName{display:flex;align-items:center;gap:4px}
+.renameButton{padding:3px;border:0;background:transparent;color:#9a8b76;opacity:.55}
+.districtRow:hover .renameButton,.renameButton:focus-visible{opacity:1}
+.districtInput{width:100%;font:13px 'Libre Baskerville',serif;padding:3px 6px;border:1px solid #9db3a3;border-radius:4px;background:#fffdf8;color:#3f382d}
+
+/* ── Urban Atlas visual system ───────────────────────────────────────────
+   A quiet, printed-map treatment for the game shell.  The game still uses
+   its three working areas; this deliberately changes surface, hierarchy and
+   controls rather than changing how a player moves between them. */
+:root{
+  --paper:#f4eddd;
+  --paper-light:#fbf7eb;
+  --paper-deep:#e8deca;
+  --ink:#28251f;
+  --soft-ink:#756d5e;
+  --rule:#9d947f;
+  --rule-light:#d6cdbb;
+  --moss:#405b49;
+  --moss-dark:#2e4739;
+  --sage:#cbd5aa;
+  --ochre:#c8a867;
+  --clay:#b9795f;
+  font-family:'DM Sans',system-ui,sans-serif;
+  color:var(--ink);
+  background:var(--paper-deep);
+}
+
+body{
+  background-color:var(--paper-deep);
+  background-image:radial-gradient(rgba(70,56,35,.075) .65px,transparent .8px),linear-gradient(120deg,rgba(255,255,255,.36),rgba(209,190,155,.12));
+  background-size:6px 6px,auto;
+}
+button,input,select{border-radius:0}
+button{
+  min-height:34px;
+  border:1px solid var(--rule);
+  background:rgba(251,247,235,.78);
+  color:var(--ink);
+  box-shadow:none;
+  transition:background-color .14s ease,color .14s ease,border-color .14s ease,transform .14s ease;
+}
+button:hover:not(:disabled){background:#ece3cf;border-color:#6c6658}
+button:focus-visible{outline:2px solid #758f78;outline-offset:2px}
+.primary{background:var(--moss);border-color:var(--moss-dark);color:#fffdf1;letter-spacing:1.5px;text-transform:uppercase;font-size:10px;font-weight:700}
+.primary:hover:not(:disabled){background:var(--moss-dark)}
+.eyebrow,.sidecaption{font-size:9px;letter-spacing:2.8px;color:#786b55}
+
+header{
+  position:relative;
+  height:58px;
+  padding:0 28px;
+  background:rgba(248,242,229,.9);
+  border-bottom:3px double var(--rule);
+}
+header::after{content:'';position:absolute;right:0;bottom:-1px;left:0;border-bottom:1px solid rgba(255,255,255,.82)}
+.brand{gap:13px;color:var(--ink)}
+.brand svg{width:17px;height:17px;color:var(--moss)}
+.brand span{font-family:'Libre Baskerville',Georgia,serif;font-size:18px;letter-spacing:6px}
+.brand small{font-size:8px;letter-spacing:2.2px;border-left-color:var(--rule);color:#6f6657}
+.headerRight{font-family:'Crimson Pro',Georgia,serif;font-size:12px;letter-spacing:1.4px;color:#716754}
+.version{padding:4px 8px;border:1px solid var(--rule-light);border-radius:0;background:transparent}
+
+/* Home becomes a folio rather than a dashboard of product cards. */
+.home{max-width:1210px;padding:52px 30px 54px}
+.home>.eyebrow{display:flex;align-items:center;gap:12px}
+.home>.eyebrow::after{content:'';display:block;width:64px;border-top:1px solid var(--rule)}
+.home h1{font:400 48px/1.05 'Crimson Pro',Georgia,serif;letter-spacing:.2px;margin:9px 0 7px;color:var(--ink)}
+.intro{max-width:520px;font:19px/1.35 'Crimson Pro',Georgia,serif;color:#5f594d;margin:0 0 29px}
+.atlasLaunch,.legacyBanner{
+  border:1px solid var(--rule);border-radius:0;background:rgba(248,243,231,.58);box-shadow:inset 0 0 0 3px rgba(255,253,246,.55);
+}
+.atlasLaunch{border-left:4px solid var(--moss);padding:15px 18px;margin:0 0 19px}
+.atlasLaunch strong{font:500 18px 'Crimson Pro',Georgia,serif;letter-spacing:1px;color:var(--ink)}
+.atlasLaunch span{font:14px/1.35 'Crimson Pro',Georgia,serif;color:#615b4e}
+.legacyBanner{padding:14px 18px;margin:0 0 19px;background:#ece5d4}
+.legacyBanner strong{font-family:'Crimson Pro',Georgia,serif;font-size:21px;font-weight:500;color:var(--ink)}
+.legacyBanner small{color:#746b5b}
+.homegrid{gap:0;border:1px solid var(--rule);background:rgba(250,246,236,.48)}
+.panel{position:relative;min-height:0;padding:24px 25px;background:transparent;border:0;border-radius:0}
+.panel+.panel{border-left:1px solid var(--rule)}
+.panel h2{font:400 25px 'Crimson Pro',Georgia,serif;letter-spacing:.3px;margin:0 0 18px;color:var(--ink)}
+.panel h2 .count{font:11px 'DM Sans',sans-serif;letter-spacing:1.5px;color:#786b55}
+.panel label{font-size:10px;letter-spacing:1.3px;text-transform:uppercase;color:#5d5649;margin:13px 0}
+.panel input,.panel select{background:rgba(255,253,246,.74);border-color:#b9ae98;padding:10px;color:var(--ink)}
+.panel .primary{margin-top:16px;min-height:43px}
+.loadout{border-top:1px solid var(--rule-light);margin:18px 0 0;padding-top:13px}
+.loadout>b{font-family:'Crimson Pro',Georgia,serif;font-size:15px;font-weight:600;color:var(--ink)}
+.figurePool{gap:0;border-top:1px solid var(--rule-light);border-left:1px solid var(--rule-light)}
+.figurePool>button{border:0;border-right:1px solid var(--rule-light);border-bottom:1px solid var(--rule-light);border-radius:0;background:rgba(250,247,238,.55)}
+.figurePool>button.selected{background:#dce5d4;border-color:#9ead93}
+.saveitem{margin:0;border:0;border-top:1px solid var(--rule-light);border-radius:0;padding-right:0}
+.saveopen{padding:12px 0}
+.saveopen strong{font:400 19px 'Crimson Pro',Georgia,serif;letter-spacing:.2px}.saveopen small{font-size:10px;letter-spacing:.4px}
+.savestatus{padding:3px 8px;border:1px solid #aab9a5;color:#385643;text-transform:uppercase;letter-spacing:1px;font-size:8px}
+.delete{margin:0 4px;color:#986654}.footnote{font:12px/1.5 'Crimson Pro',Georgia,serif;color:#736a59}
+
+/* Game workbench: thin framed paper panels let the map remain the focus. */
+.workspace{background:var(--paper-deep)}
+.topbar{min-height:72px;padding:8px 18px;background:rgba(247,242,231,.93);border-bottom:3px double var(--rule);gap:18px}
+.textbutton{min-height:30px;padding:5px 7px;border:0;background:transparent;color:#625b4d;font-size:10px;letter-spacing:.8px}.textbutton:hover:not(:disabled){background:transparent;color:var(--moss)}
+.cityheading{padding-left:14px;border-left:1px solid var(--rule-light)}
+.cityheading strong{font:400 22px 'Crimson Pro',Georgia,serif;letter-spacing:.3px;color:var(--ink)}
+.cityheading span{font:10px 'DM Sans',sans-serif;letter-spacing:1px;text-transform:uppercase;color:#7a715f}
+.topstats{gap:0;margin-left:auto;border-left:1px solid var(--rule-light)}
+.topstats span{min-width:88px;padding:1px 14px;border-right:1px solid var(--rule-light);font-size:8px;letter-spacing:1.6px;color:#726958}
+.topstats b{font:400 19px 'Crimson Pro',Georgia,serif;color:var(--ink);letter-spacing:.2px}
+.legacyQuick{border-color:#b8ab91;background:#ece3d0;color:#554c3e;font-size:10px}
+.controls{gap:0;border:1px solid var(--rule)}
+.controls button{min-width:33px;min-height:32px;padding:6px 8px;border:0;border-right:1px solid var(--rule);border-radius:0;background:transparent;font-size:10px}
+.controls button:last-child{border-right:0}.controls button:hover:not(:disabled){background:#e4dcc8}.controls .speedActive,.controls .pauseButton{background:var(--moss);color:#fffdf1!important}
+
+.gamebody{border-bottom:3px double var(--rule)}
+.sidebar,.inspector{background:rgba(248,243,231,.94)}
+.sidebar{border-right:1px solid var(--rule)!important}.inspector{border-left:1px solid var(--rule)!important}
+.rail{padding:8px 4px;background:#e9e0ce;border-right:1px solid var(--rule-light)}
+.sidebar .rail button{min-height:48px;border:1px solid transparent;border-radius:0;color:#5c5549;font-size:8px;letter-spacing:.7px;text-transform:uppercase}
+.sidebar .rail button:hover{background:#e1d8c6}.sidebar .rail button.sel{background:#f9f5e9;color:var(--moss);border-color:#b8ad97;box-shadow:none}
+.sidebar .rail button.tool.active{background:#d8e1d2;color:var(--moss)}
+.railRule{background:#aea38e;margin:5px 8px}.railBadge{background:#b86753;box-shadow:0 0 0 2px #e9e0ce}
+.sidepanel{padding:17px 12px 24px}.sidepanel>h3,.sidebar h3,.sidecontent h3{padding-bottom:8px;border-bottom:1px solid var(--rule);font:600 10px 'DM Sans',sans-serif;letter-spacing:1.9px;color:#5f5749}
+.sidecaption{margin-top:18px;color:#84765e}
+.sidebar button{border-radius:0}.sidepanel>button{min-height:34px;border-bottom:1px solid #ded4c2}
+.sidebar button.active,.sidebar .layerList button.active{background:#dae3d4!important;border-color:#a9b9a1!important;color:#2d493a!important;box-shadow:inset 3px 0 0 var(--moss)}
+.sidebar .layerList button{border-radius:0;border-bottom-color:#ded4c2}.sidebar .layerList button b{font-family:'Crimson Pro',Georgia,serif;font-size:15px;font-weight:500;letter-spacing:.15px}.sidebar .layerList button small{font-size:9px;color:#7a705e}
+.hint,.constructionHint{border-radius:0;background:#ede5d4;border:1px solid #d3c7b0;border-left:3px solid #b89b66;color:#6e6555}
+.demandPanel,.taxPanel,.townCenter,.buildPreview{border-radius:0;background:rgba(252,248,239,.68);border-color:#d5c9b3}
+.demandPanel,.taxPanel{border-top:2px solid #9aaa8b}.demandTrack{border-radius:0;background:#e5dcc9}.demandTrack i{border-radius:0}
+.taxLevels{border-radius:0}.sidebar .taxLevels button,.inspector .taxLevels button,.taxLevels button{border-radius:0}.taxLevels button.sel{background:#fdfaf0;color:var(--moss);box-shadow:inset 0 -2px 0 var(--moss)}
+
+.center{background:#d2c7ad}.mapwrap{margin:10px 10px 0;border:1px solid #6f6758;box-shadow:inset 0 0 0 2px rgba(250,246,235,.72),0 1px 2px rgba(67,53,34,.2)}
+.mapwrap::after{content:'';position:absolute;inset:0;border:5px double rgba(74,65,50,.38);pointer-events:none}
+.mapzoom{right:14px;bottom:14px;gap:0;border:1px solid var(--rule);background:#f6f0e2}.mapzoom button{min-width:33px;min-height:29px;border:0;border-bottom:1px solid var(--rule);border-radius:0;background:transparent;font-size:14px}.mapzoom button:last-child{border-bottom:0}
+.coord{right:13px!important;top:13px;background:rgba(247,240,224,.92);border:1px solid var(--rule);border-radius:0;color:#4f493e;font:12px 'Crimson Pro',Georgia,serif;letter-spacing:.8px}
+.maplegend{left:13px;bottom:13px;border-color:var(--rule);border-radius:0;background:rgba(249,244,232,.93);box-shadow:none}.maplegend b{font-family:'DM Sans',sans-serif;color:#554e43}.maplegend span{font-family:'Crimson Pro',Georgia,serif;font-size:12px;color:#514a3f}
+.bottom{min-height:40px;padding:8px 16px;background:rgba(247,242,231,.93);border-top:1px solid var(--rule);font-size:9px;letter-spacing:.5px;color:#625a4d}.dot{background:#5c8466}
+
+.tabs{border-bottom:3px double var(--rule)}
+.inspector .tabs button{min-height:51px;border:0;border-right:1px solid var(--rule-light);border-radius:0;font-size:9px;letter-spacing:.3px;color:#645c50}.inspector .tabs .sel{background:#eee5d2;border-bottom:3px solid var(--moss);color:#2d4839}
+.sidecontent{padding:21px 16px 30px}.sidecontent h2{font:400 29px 'Crimson Pro',Georgia,serif;letter-spacing:.2px;color:var(--ink);margin:7px 0 15px}.stat{padding:8px 0;border-bottom-color:#d9cfbc;font-size:10px}.stat span{color:#6d6557}.stat b{font:500 14px 'Crimson Pro',Georgia,serif;color:#312d26}.historygraph{border-bottom-color:var(--rule)}.historygraph div{background:#718b72}.event{border-left-color:#aa8f63}.complete{border-radius:0;background:#dfe8d8;color:#37523d}
+.momentumTrack{border-radius:0!important;background:#e5ddca!important}.momentumTrack div{border-radius:0!important}
+
+/* All overlays use the same folio language instead of rounded app dialogs. */
+.turningBackdrop{background:rgba(41,37,29,.68);backdrop-filter:blur(2px)}
+.turningWindow,.eventWindow,.timelapseWindow{border-radius:0;border:3px double var(--rule);background:#f7f0e0;box-shadow:0 24px 70px rgba(32,25,14,.45),inset 0 0 40px rgba(169,137,79,.11)}
+.turningHeading h2,.eventWindow h2{font-family:'Crimson Pro',Georgia,serif;font-weight:400;color:var(--ink)}
+.turncard{border-radius:0;background:#fbf7eb;border-color:#c9bda7;box-shadow:none}.turncard:hover,.turncard:focus-visible{background:#fffdf5;box-shadow:0 8px 18px rgba(64,48,26,.18)}.cardart{border-radius:0}.cardname{font-family:'Crimson Pro',Georgia,serif;font-size:20px}.eventChoices button,.iconbutton{border-radius:0}
+
+@media(max-width:760px){
+  header{height:50px;padding:0 14px}.brand span{font-size:15px;letter-spacing:4px}.brand small,.headerRight>span:first-child{display:none}
+  .home{padding:28px 14px 32px}.home h1{font-size:39px}.intro{font-size:17px;margin-bottom:22px}.atlasLaunch,.legacyBanner{align-items:flex-start;flex-direction:column}.homegrid{grid-template-columns:1fr}.panel{padding:20px 17px}.panel+.panel{border-left:0;border-top:1px solid var(--rule)}
+  .topbar{min-height:62px;padding:6px 8px;gap:7px}.cityheading{padding-left:8px}.cityheading strong{font-size:19px}.topstats{display:none}.controls{margin-left:auto}.controls .timelapseQuick{display:none}
+  .gamebody{border-bottom:0}.sidebar,.sidebar.collapsed{background:#f5efdf;border-top:1px solid var(--rule)}.rail{background:transparent;border-right:1px solid var(--rule-light)}.sidebar .rail button{min-height:42px;border:1px solid transparent}.sidebar .rail button.sel{border-color:#b8ad97}.sidepanel{padding:0 4px}.sidepanel>button{border:1px solid var(--rule-light)}
+  .center{background:#d2c7ad}.mapwrap{margin:7px 7px 0}.mapwrap::after{border-width:3px}.maplegend{left:10px;top:10px}.mapzoom{right:10px;bottom:10px}.bottom{padding:7px 10px}
+  .inspector{box-shadow:-8px 0 22px rgba(45,36,23,.25)}
+}

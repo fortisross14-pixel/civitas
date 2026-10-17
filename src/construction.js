@@ -41,3 +41,19 @@ export function basicsForYear(year){return BASIC_BUILDINGS.filter(x=>year>=x.sta
 export function eraNameForYear(year){if(year<500)return 'Antiquity';if(year<1500)return 'Medieval';if(year<1750)return 'Early modern';if(year<1850)return 'Enlightenment';if(year<1950)return 'Industrial';if(year<2000)return 'Metropolitan';return 'Contemporary';}
 export function figureEraEligible(fig,year){return year>=(fig.minYear??-Infinity)&&year<=(fig.maxYear??Infinity);}
 export function projectLabel(project){return project.label||SPECIAL_BUILDINGS[project.kind]?.name||BASIC_INDEX[project.kind]?.name||project.kind;}
+// v1.5 Town Center: placed once by the player before the clock first runs (it
+// is where the town is founded and the point it grows around), then rebuilt
+// grander over the centuries. It is not a parcel-occupying building; it is the
+// civic heart drawn over the founding crossroads. Level 1 is the founding and
+// carries no bonus; each upgrade widens its service and prestige reach (land
+// value), lets the town spread further from it, and adds a city-wide effect.
+export const TOWN_CENTER_LEVELS=[
+ {level:1,name:'Market Cross',cost:0,from:1300,minPopulation:0,serviceRadius:0,prestige:0,prestigeRadius:0,reach:0,effects:{},description:'A cross at the crossroads where the first market is held. The town grows around it.'},
+ {level:2,name:'Town Square',cost:250,from:1300,minPopulation:3000,serviceRadius:6,prestige:.3,prestigeRadius:4,reach:2,effects:{prosperity:1,migration:.02},description:'A paved square with a well and a weekly market.'},
+ {level:3,name:'Civic Piazza',cost:800,from:1500,minPopulation:10000,serviceRadius:8,prestige:.5,prestigeRadius:5,reach:4,effects:{prosperity:2,migration:.04,trade:.04},description:'An arcaded piazza with a fountain; the town’s address of choice.'},
+ {level:4,name:'Grand Plaza',cost:3000,from:1750,minPopulation:30000,serviceRadius:10,prestige:.7,prestigeRadius:6,reach:6,effects:{prosperity:3,migration:.06,trade:.06,services:.05},description:'A monumental plaza ringed with trees and public buildings.'},
+ {level:5,name:'Metropolitan Core',cost:8000,from:1900,minPopulation:80000,serviceRadius:12,prestige:.9,prestigeRadius:7,reach:8,effects:{prosperity:4,migration:.08,trade:.08,services:.10,transport:.05},description:'The civic core of a metropolis: plaza, tower and transit at its heart.'}
+];
+export const TOWN_CENTER_MAX=TOWN_CENTER_LEVELS.length;
+// Level data for a city's Town Center, or null when it has none.
+export function townCenterLevel(city){const c=city?.center;if(!c)return null;return TOWN_CENTER_LEVELS[Math.max(1,Math.min(TOWN_CENTER_MAX,c.level|0))-1];}
