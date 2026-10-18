@@ -1,11 +1,14 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {W,H,makeCity,seedTown,advance,advanceMonths,selectTurningPoint,stats,terrain,normalizeCity,revertEdit,cityOrigin,cityEffects,cityFields,cityReach,captureSnapshot,snapshotCity,
-  prepareFounding,placeTownCenter,upgradeTownCenter,townCenterIssue,townCenterLevel,TOWN_CENTER_LEVELS,renameDistrict,DISTRICT_NAME_MAX} from '../src/sim.js';
-import {roofTone,USE_ROOF,drawCity,buildingPlan} from '../src/render.js';
+import {W,H,makeCity,seedTown,addZone,advance,advanceMonths,selectTurningPoint,stats,terrain,normalizeCity,revertEdit,cityOrigin,cityEffects,cityFields,cityReach,captureSnapshot,snapshotCity,
+  prepareFounding,placeTownCenter,upgradeTownCenter,townCenterIssue,townCenterLevel,TOWN_CENTER_LEVELS,renameDistrict,DISTRICT_NAME_MAX,
+  constructionSite,placeConstruction,growthPull,buildWall} from '../src/sim.js';
+import {footprint} from '../src/geo.js';
+import {roofTone,USE_ROOF,drawCity,buildingPlan,frontOf,mapWarp,WARP_AMPLITUDE} from '../src/render.js';
 
 // v1.5 (Phase 5) roofs that show land use, the player's Town Center,
-// renamable districts and varied civic buildings.
+// renamable districts, varied civic buildings, 2×2 landmarks, growth pull
+// from markets, parishes and walls, and the warped, street-facing map.
 const STYLES=['timber','stone','classical','brick','modernist','contemporary'];
 const USES=['res','trade','craft','civic','farm'];
 const rgb=hex=>[1,3,5].map(i=>parseInt(hex.slice(i,i+2),16));
@@ -160,7 +163,7 @@ test('the map draws a grander Town Center at each level, and surveys remember it
   const c=founded(24,36,'river',42);let last=0;
   for(let level=1;level<=TOWN_CENTER_LEVELS.length;level++){
     const {ctx,arcs}=recorder();drawCity(ctx,{...c,center:{...c.center,level}},800,600,{layer:'urban',cartouche:false});
-    const size=Math.max(...arcs.filter(a=>Math.abs(a.x-24.5)<.01&&Math.abs(a.y-36.5)<.01).map(a=>a.r));
+    const [cx,cy]=mapWarp(c)(24.5,36.5),size=Math.max(...arcs.filter(a=>Math.abs(a.x-cx)<.01&&Math.abs(a.y-cy)<.01).map(a=>a.r));
     assert.ok(size>last,`level ${level} drawn larger (${size} vs ${last})`);last=size;
   }
   const snap=captureSnapshot(c),up={...c,center:{...c.center,level:3}};
@@ -196,4 +199,59 @@ test('civic blocks are halls, courtyards and schools, not a row of identical chu
   assert.ok(!blocks.filter(b=>b.born>=1850).some(isChurch),'modern civic blocks are not churches');
   // Plans are deterministic, so a building looks the same every frame.
   assert.deepEqual(buildingPlan(blocks[3]),buildingPlan({...blocks[3]}));
+});
+
+// ── landmarks, growth pull and the drawn map ──
+function siteNear(c,id,x0,y0,size=2){for(let d=0;d<14;d++)for(let y=y0-d;y<=y0+d;y++)for(let x=x0-d;x<=x0+d;x++){const s=constructionSite(c,id,x,y);if(!s.error&&s.size===size)return s;}return null;}
+test('civic works and landmarks take a 2×2 site, falling back to one parcel only where nothing larger fits',()=>{
+  const c={...founded(40,36,'plain',5),funds:5000};
+  const site=siteNear(c,'market',46,30);assert.ok(site,'a 2×2 site');
+  const r=placeConstruction(c,'market',site.x,site.y);assert.equal(r.error,null);
+  const f=footprint(r.placed);assert.deepEqual([f.x,f.y,f.w,f.h],[site.x,site.y,2,2]);
+  assert.match(placeConstruction(r.city,'chapel',site.x+1,site.y+1).error,/occupies/,'all four parcels are taken');
+  // A lone free parcel ringed by buildings still takes a (squeezed) chapel.
+  const x=site.x+5,y=site.y,ring=[];for(let dy=-1;dy<=1;dy++)for(let dx=-1;dx<=1;dx++)if(dx||dy)ring.push({id:'r'+dx+dy,x:x+dx+.08,y:y+dy+.08,w:.7,h:.7,type:'res',born:1300});
+  const crowded={...r.city,roads:r.city.roads.filter(q=>Math.hypot(q.x-x,q.y-y)>1.5),buildings:[...r.city.buildings.filter(b=>Math.hypot(b.x-x,b.y-y)>1.6),...ring]};
+  assert.deepEqual(constructionSite(crowded,'chapel',x,y),{x,y,size:1,error:null});
+  assert.equal(footprint(placeConstruction(crowded,'chapel',x,y).placed).w,1);
+});
+test('markets draw shops, parishes draw homes, and a wall draws both to the land inside it',()=>{
+  let c={...grow(founded(40,36,'plain',5),1450),funds:1e5};
+  const before=cityFields(c),m=siteNear(c,'market',48,30),withMarket=placeConstruction(c,'market',m.x,m.y).city,k=(m.y+3)*W+m.x;
+  assert.ok(cityFields(withMarket).shopPull[k]>before.shopPull[k]+.3,'shops are drawn near the market');
+  const ch=siteNear(c,'chapel',30,42),withChapel=placeConstruction(c,'chapel',ch.x,ch.y).city,kc=(ch.y+3)*W+ch.x;
+  assert.ok(cityFields(withChapel).homePull[kc]>before.homePull[kc]+.3,'homes are drawn near the parish');
+  assert.ok(growthPull(withMarket).trade>growthPull(c).trade&&growthPull(withChapel).res>growthPull(c).res,'and they shift the city-wide mix');
+  const walled=buildWall(c);assert.equal(walled.error,null);
+  const w=walled.city.walls[0],o=c.center,ko=o.y*W+o.x;
+  assert.ok(cityFields(walled.city).homePull[ko]>=before.homePull[ko]+.85&&cityFields(walled.city).shopPull[ko]>=before.shopPull[ko]+.85,'inside the wall');
+  assert.equal(cityFields(walled.city).homePull[2*W+2],before.homePull[2*W+2],'not outside it');
+  assert.ok(growthPull(walled.city).res>growthPull(c).res&&growthPull(walled.city).trade>growthPull(c).trade);
+  void w;
+});
+test('of two commercial zones, the one beside a market fills first',()=>{
+  // Two equal commercial districts either side of the town; a market goes next to the east one.
+  let base=founded(40,36,'plain',5);base=addZone(addZone(base,24,33,6,6,'trade'),52,33,6,6,'trade');base={...grow(base,1340),funds:5000};
+  const m=siteNear(base,'market',59,34);assert.ok(m);
+  const inZone=(c,x0)=>c.buildings.filter(b=>b.type==='trade'&&!b.special&&b.x>=x0&&b.x<x0+6&&b.y>=33&&b.y<39).length;
+  const control=grow(base,1500),market=grow(placeConstruction(base,'market',m.x,m.y).city,1500);
+  const [cw,ce,mw,me]=[inZone(control,24),inZone(control,52),inZone(market,24),inZone(market,52)];
+  assert.ok(Math.abs(cw-ce)<=1,`without a market the zones fill alike (${cw}/${ce})`);
+  assert.ok(me>=3&&me>=mw+3,`beside the market ${me} shops, the far zone ${mw}`);
+});
+test('buildings turn to face the nearest street, even from a backlot',()=>{
+  const roads=new Set([10*W+14]),none=new Set();
+  assert.deepEqual(frontOf({x:10.08,y:10.08},roads,none).d,{dx:1,dy:0},'street four parcels east');
+  assert.deepEqual(frontOf({x:10.08,y:10.08},new Set([7*W+10]),none).d,{dx:0,dy:-1},'street three parcels north');
+  const big=frontOf({x:10.07,y:10.07,w:1.86},new Set([12*W+11]),none,2).d;assert.deepEqual([big.dx,big.dy],[0,1],'a 2×2 block faces the street along its side');
+});
+test('the map warp bends streets and buildings smoothly, and leaves the shoreline in place',()=>{
+  const c=founded(24,36,'river',42),warp=mapWarp(c);
+  let moved=0,maxStep=0;
+  for(let y=20;y<50;y+=.5)for(let x=10;x<45;x+=.5){const [a,b]=warp(x,y),[a2,b2]=warp(x+.05,y);
+    moved=Math.max(moved,Math.hypot(a-x,b-y));assert.ok(Math.hypot(a-x,b-y)<=WARP_AMPLITUDE*Math.SQRT2+1e-9);
+    maxStep=Math.max(maxStep,Math.hypot(a2-a-.05,b2-b));}
+  assert.ok(moved>.15,`the core is bent (${moved.toFixed(2)})`);
+  assert.ok(maxStep<.02,`continuous: a 0.05 step moves at most ${maxStep.toFixed(3)}`);
+  for(let y=5;y<H-5;y++)for(let x=1;x<W-1;x++)if(terrain('river',x,y)==='water'){const [a,b]=warp(x+.5,y+.5);assert.ok(Math.hypot(a-x-.5,b-y-.5)<1e-9,'water does not move');}
 });

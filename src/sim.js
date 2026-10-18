@@ -395,6 +395,15 @@ function growthGrids(city){
   const entry={roads:city.roads,b:city.buildings.length,r:city.roads.length,type:city.type,g:buildGrids(city)};
   gridCache.set(city.buildings,entry);return entry;
 }
+// v1.5: what the city has built shifts the mix of what grows next. Markets,
+// guild halls, stations and ports raise demand for shops; parishes and
+// churches raise demand for homes; a standing wall raises both.
+const SHOP_ANCHORS=new Set(['market','guildhall','station','transit_hub','port']),HOME_ANCHORS=new Set(['chapel','monastery','shrine']);
+export function growthPull(city){
+  let shops=0,homes=0;for(const b of city.buildings)if(b.special&&!b.vacant){if(SHOP_ANCHORS.has(b.special))shops++;else if(HOME_ANCHORS.has(b.special))homes++;}
+  const walled=(city.walls||[]).some(w=>w.state==='wall')?1.2:1;
+  return {res:(1+.1*Math.min(3,homes))*walled,trade:(1+.15*Math.min(3,shops))*walled};
+}
 // One month of growth: new streets, new buildings, migration and cash flow.
 function monthTick(city){
   const year=city.year,month=city.month||0;
@@ -423,12 +432,12 @@ function monthGrowth(city,year,r,perks){
   const roadActions=need+(r()<(open<wanted?.45:unserved>0?.22:.03)?1:0);
   if(roadActions)growRoads(city,g,zg,r,roadActions,o);
   city.roadNeed=0;
-  const workforceDemand=s.population*.44,cycle=businessCycle(city);
+  const workforceDemand=s.population*.44,cycle=businessCycle(city),pull=growthPull(city);
   for(let i=0;i<builds;i++){
     const needsHousing=s.population/Math.max(1,s.capacity)>=.83,needsJobs=s.jobs<workforceDemand*1.1;
     const weights=[
-      ['res',needsHousing?5*taxDemand(city,'res'):0],
-      ['trade',needsJobs?2.1*taxDemand(city,'trade')*(1+cycle*2)*(1+.5*(city.character?.shares?.trade||0)):0],
+      ['res',needsHousing?5*taxDemand(city,'res')*pull.res:0],
+      ['trade',needsJobs?2.1*taxDemand(city,'trade')*(1+cycle*2)*(1+.5*(city.character?.shares?.trade||0))*pull.trade:0],
       ['craft',needsJobs?1.75*Math.max(.2,1+(perks.industrialDevelopment||0))*taxDemand(city,'craft')*(1+cycle*2)*(1+.5*(city.character?.shares?.industry||0)):0],
       ['farm',s.farms<Math.max(2,Math.floor(s.population/(900*K)))?1:0],
       // Civic buildings follow population, and parishes spring up where homes lack services.
@@ -571,11 +580,31 @@ export function placementIssue(city,kind,x,y){
  if(kind==='port'&&![[1,0],[-1,0],[0,1],[0,-1]].some(([dx,dy])=>terrain(city.type,xx+dx,yy+dy)==='water'))return 'Ports need a parcel directly beside water';
  return null;
 }
-function constructAt(city,kind,x,y,source='basic',label=null){
+// v1.5: civic works and landmarks take a 2×2 site, so a market square or a
+// parish church reads larger than a block of houses. The clicked parcel is
+// part of the site; when no 2×2 site around it is free, the building is
+// squeezed into that one parcel instead (as in a crowded medieval core).
+const SINGLE_PARCEL=new Set(['boulevard']);
+const siteCells=(x0,y0,size)=>{const out=[];for(let dy=0;dy<size;dy++)for(let dx=0;dx<size;dx++)out.push([x0+dx,y0+dy]);return out;};
+export function constructionSite(city,kindOrProject,x,y){
+ const kind=(city.projects||[]).find(p=>p.id===kindOrProject)?.kind||BASIC_INDEX[kindOrProject]?.kind||kindOrProject;
+ const xx=Math.floor(Number(x)),yy=Math.floor(Number(y));
+ const single=placementIssue(city,kind,xx,yy);
+ if(single||SINGLE_PARCEL.has(kind))return {x:xx,y:yy,size:1,error:single};
+ const taken=occupiedMap(city),streets=roadMap(city);
+ const free=([cx,cy])=>within(cx,cy)&&terrain(city.type,cx,cy)==='land'&&!taken.has(key(cx,cy))&&!streets.has(key(cx,cy));
+ for(const [ox,oy] of [[0,0],[-1,0],[0,-1],[-1,-1]]){
+  const cells=siteCells(xx+ox,yy+oy,2);if(!cells.every(free))continue;
+  if(kind==='port'&&!cells.some(([cx,cy])=>DIRS4.some(([dx,dy])=>terrain(city.type,cx+dx,cy+dy)==='water')))continue;
+  return {x:xx+ox,y:yy+oy,size:2,error:null};
+ }
+ return {x:xx,y:yy,size:1,error:null};
+}
+function constructAt(city,kind,x,y,source='basic',label=null,size=1){
  const definition=BASIC_INDEX[kind]||SPECIAL_BUILDINGS[kind];
  const name=label||definition?.name||'Civic Building';
  const [xx,yy]=[Math.floor(x),Math.floor(y)];
- const b={id:`b${city.nextBuildingId++}`,x:xx+.07,y:yy+.07,w:.86,h:.86,born:city.year,
+ const b={id:`b${city.nextBuildingId++}`,x:xx+.07,y:yy+.07,w:size-.14,h:size-.14,born:city.year,
   type:kind==='port'||kind==='market'||kind==='station'||kind==='transit_hub'?'trade':'civic',
   jobs:K*(kind==='university'||kind==='research_center'?38:kind==='port'?50:kind==='workshop'?15:kind==='market'?18:10),
   capacity:0,level:1,style:styleAt(city.year),protected:true,renovations:[],special:kind,label:name};
@@ -588,7 +617,7 @@ function constructAt(city,kind,x,y,source='basic',label=null){
    city.roads.push({x:rx,y:ry,born:city.year,pattern:'boulevard'});streets.add(key(rx,ry));
   }
  }
- city.events.push({year:city.year,type:'landmark',x:xx+.5,y:yy+.5,text:`${name} constructed at parcel ${xx}, ${yy} — ${source==='basic'?'a civic investment': 'a Turning Point commission'}.`});
+ city.events.push({year:city.year,type:'landmark',x:xx+size/2,y:yy+size/2,text:`${name} constructed at parcel ${xx}, ${yy} — ${source==='basic'?'a civic investment': 'a Turning Point commission'}.`});
  return b;
 }
 // Return explicit errors so the player can choose a different site without losing a project.
@@ -606,12 +635,12 @@ export function placeConstruction(city,kindOrProject,x,y){
  if(kind==='port'&&!['river','coast','estuary','lake'].includes(city.type))return {city,error:'This geography has no navigable shore'};
  if(basic?.requiresMegacity&&!city.legacyBonuses?.megacityCharter)return {city,error:'Requires the Metropolitan Charter upgrade in the Legacy Market'};
  if(basic?.requiresPopulation&&stats(city).population<basic.requiresPopulation)return {city,error:`Requires a thriving city of ${basic.requiresPopulation.toLocaleString()} residents`};
- const issue=placementIssue(city,kind,x,y);
- if(issue)return {city,error:issue};
+ const site=constructionSite(city,kind,x,y);
+ if(site.error)return {city,error:site.error};
  const next={...city,buildings:[...city.buildings],landmarks:[...(city.landmarks||[])],roads:[...city.roads],events:[...city.events],projects:[...(city.projects||[])]};
  if(project)next.projects=next.projects.filter(p=>p.id!==project.id);
  else next.funds-=basic.cost;
- const placed=constructAt(next,kind,x,y,project?.source||'basic',project?.kind?null:basic.name);
+ const placed=constructAt(next,kind,site.x,site.y,project?.source||'basic',project?.kind?null:basic.name,site.size);
  const projectPulse={university:{education:.48,innovation:.25},research_center:{innovation:.38,education:.20},port:{trade:.35,transport:.16},workshop:{arts:.43},monument:{arts:.27,heritage:.18},monastery:{faith:.50,education:.10},shrine:{faith:.45},boulevard:{transport:.36},school:{education:.20},chapel:{faith:.22},hospital:{services:.25,prosperity:4}}[kind];
  if(projectPulse)next.development=applyPulse(next,projectPulse,'uncommon').development;
  const last=next.history.at(-1);

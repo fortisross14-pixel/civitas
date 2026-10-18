@@ -30,6 +30,17 @@ export function historyAt(city,year){
 export function metricAt(city,year,metric){const h=historyAt(city,year);return metricValue(h,metric);}
 export function currentSample(city){return historyAt(city,city?.year??2030);}
 export function metricSeries(city,metric){return (city?.history||[]).filter(h=>Number.isFinite(h.year)&&metricValue(h,metric)!==null).map(h=>({year:h.year,value:metricValue(h,metric)})).sort((a,b)=>a.year-b.year);}
+// Shared period and axes, with a live endpoint. Never extend an unfinished city
+// into the future or invent observations outside the chosen period.
+export function comparisonSeries(cities,metric,from,to,samples=new Map()){
+ return cities.map(city=>{
+  const byYear=new Map(metricSeries(city,metric).filter(p=>p.year<=city.year).map(p=>[p.year,p]));
+  const current=metricValue(samples.get(city.id),metric);
+  if(current!==null)byYear.set(city.year,{year:city.year,value:current});
+  const points=[...byYear.values()].filter(p=>p.year>=from&&p.year<=to).sort((a,b)=>a.year-b.year);
+  return {id:city.id,name:city.name,points};
+ });
+}
 export function peakRecord(city,metric){const series=metricSeries(city,metric);if(!series.length)return null;return series.reduce((best,x)=>x.value>best.value?x:best,series[0]);}
 export function cityRecords(city){
  const buildings=city?.buildings||[],events=city?.events||[],history=city?.history||[];

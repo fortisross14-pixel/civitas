@@ -1,7 +1,8 @@
 import React,{useEffect,useMemo,useRef,useState} from 'react';
+import {drawCity} from './render.js';
 import {BookOpen,Landmark,Clock3,ChartNoAxesCombined,Trophy,ArrowLeft,Layers3,Share2,Users,Filter,GitCompareArrows,ExternalLink} from 'lucide-react';
 import {W,H,terrain,ZONES,snapshotCity,stats} from './sim.js';
-import {METRICS,numberText,metricSeries,cityRecords,identityOf,timelineItems,periodSummary,atlasRecords,compareAt,HISTORICAL_CITIES,shareSummary} from './chronicle.js';
+import {METRICS,numberText,metricSeries,cityRecords,identityOf,timelineItems,periodSummary,comparisonSeries,historyAt,shareSummary} from './chronicle.js';
 
 const MAIN_METRICS=['economyScore','technologyScore','cultureScore','faithScore','infrastructureScore','attractionScore','population','gdp','gdpPerCapita','culturalPrestige','tourismAppeal','religiousInfluence','educationIndex','densityPerZone','heritage','prosperity','infrastructureEfficiency','unemployment'];
 function Selector({value,onChange,options,label}){return <label className="chronSelect">{label&&<span>{label}</span>}<select value={value} onChange={e=>onChange(e.target.value)}>{options.map(o=><option key={o.value} value={o.value}>{o.label}</option>)}</select></label>;}
@@ -72,46 +73,73 @@ export function ChroniclePanel({city,archiveYear,onArchiveYear,onOpenBuild,onTim
   <p className="chronDisclaimer">GDP, GDP per capita, and cultural indices are simulated game metrics, not historical economic datasets.</p>
  </div>;
 }
-function AtlasThumbnail({city,year,width=280,height=165}){
- const cv=useRef(null);
- useEffect(()=>{
-  const canvas=cv.current;if(!canvas)return;const ratio=Math.min(2,window.devicePixelRatio||1);canvas.width=width*ratio;canvas.height=height*ratio;
-  const ctx=canvas.getContext('2d');ctx.scale(ratio,ratio);ctx.fillStyle='#e0d5bc';ctx.fillRect(0,0,width,height);
-  const snap=(city.snapshots||[]).filter(s=>s.year<=year).at(-1);const map=year>city.year?null:(year===city.year?city:(snap?snapshotCity(city,snap):null));
-  const sx=width/W,sy=height/H;
-  ctx.fillStyle='#a7c5c8';for(let y=0;y<H;y++)for(let x=0;x<W;x++)if(terrain(city.type,x,y)==='water')ctx.fillRect(x*sx,y*sy,sx+.2,sy+.2);
-  ctx.fillStyle='#fbf2dd';for(const r of map?.roads||[])if(Number.isFinite(r.x)&&Number.isFinite(r.y))ctx.fillRect((r.x+.32)*sx,(r.y+.32)*sy,sx*.39,sy*.39);
-  for(const b of map?.buildings||[]){ctx.fillStyle=ZONES[b.type]?.color||'#a88768';ctx.fillRect(b.x*sx,b.y*sy,Math.max(1,(b.w||.7)*sx),Math.max(1,(b.h||.7)*sy));}
-  ctx.fillStyle='#f6f0e4d9';ctx.fillRect(6,height-25,66,18);ctx.fillStyle='#554938';ctx.font='11px Georgia';ctx.fillText(map?String(map.year):year>city.year?'Not yet':'No survey',12,height-12);
- },[city,year,width,height]);
- return <canvas className="atlasMiniMap" ref={cv} style={{width:'100%',height:'auto',aspectRatio:`${width}/${height}`}} aria-label={`${city.name} map archive for selected year ${year}, showing the last available survey when present`}/>;
+
+const CITY_COLORS=['#42674f','#ad6851','#547f95','#957644','#807092','#577c75','#9b5570','#6c7443'];
+const PERIOD_OPTIONS=[['all','All recorded years',1300,2030],['medieval','Medieval',1300,1499],['early','Early modern',1500,1749],['industrial','Industrial transition',1750,1899],['modern','Modern city',1900,2030]];
+function YearInput({label,ariaLabel,value,min,max,onCommit}){
+ const [draft,setDraft]=useState(String(value));
+ useEffect(()=>setDraft(String(value)),[value]);
+ const commit=()=>{const n=Number(draft),next=draft.trim()&&Number.isFinite(n)?Math.round(Math.max(min,Math.min(max,n))):value;setDraft(String(next));onCommit(next);};
+ return <label className="comparisonYear"><span>{label}</span><input type="number" aria-label={ariaLabel} min={min} max={max} value={draft} onChange={e=>setDraft(e.target.value)} onBlur={commit} onKeyDown={e=>{if(e.key==='Enter')e.currentTarget.blur();if(e.key==='Escape'){setDraft(String(value));}}}/></label>;
 }
-const COMPARE_YEARS=[1300,1400,1500,1600,1700,1800,1850,1900,1950,2000,2030];
-export function UrbanAtlas({cities,onBack,onOpen}){
- const [metric,setMetric]=useState('population'),[year,setYear]=useState(1900),[selected,setSelected]=useState(null),[onlyFinished,setOnlyFinished]=useState(false),[historical,setHistorical]=useState(true),[mapPair,setMapPair]=useState([null,null]);
- const chosen=useMemo(()=>cities.filter(c=>(selected===null||selected.includes(c.id))&&(!onlyFinished||c.finished)),[cities,selected,onlyFinished]);
- const rows=useMemo(()=>compareAt(chosen,year,metric,{includeHistorical:historical}),[chosen,year,metric,historical]);
- const max=Math.max(1,...rows.map(r=>r.value));
- const records=useMemo(()=>atlasRecords(cities),[cities]);
- const cards=[['Largest population','largest','population'],['Wealthiest per person','richest','gdpPerCapita'],['Cultural champion','cultural','culturalPrestige'],['Religious center','religious','religiousInfluence'],['Tourism leader','tourism','tourismAppeal'],['Historic preservation','heritage','heritage']];
- return <main className="atlasPage">
- <div className="atlasHead"><button onClick={onBack}><ArrowLeft size={16}/> Home</button><div className="eyebrow">YOUR WORLD OF CITIES</div><h1>Urban Atlas</h1><p>Compare your own civilizations across the centuries and measure their population against selected historical benchmarks.</p></div>
- <div className="atlasSummary"><span><b>{cities.length}</b> cities founded</span><span><b>{cities.filter(c=>c.finished).length}</b> completed chronicles</span><span><b>{cities.reduce((n,c)=>n+(c.turning?.choices?.length||0),0)}</b> strategic decisions</span><span><b>{cities.reduce((n,c)=>n+(c.figures?.length||0),0)}</b> historical figures</span></div>
- {cities.length===0?<p className="muted">You haven't founded any cities yet. Begin a new city on the home screen; its history will appear here.</p>:<>
- <h2>Your cities</h2><div className="atlasCities">{cities.map(c=><article className="atlasCity" key={c.id}><AtlasThumbnail city={c} year={year}/><div className="atlasCityInfo"><span className="eyebrow">{c.finished?'COMPLETE':'IN PROGRESS'} · {c.year}</span><h3>{c.name}</h3><small>{identityOf(c)} · {c.type}</small><p>{numberText(cityRecords(c).population?.value)} peak residents</p><button onClick={()=>onOpen(c.id)}><BookOpen size={14}/> Open Chronicle</button></div></article>)}</div>
- {cities.length>=2&&<><h2>Two-city map comparison</h2><p className="muted">Same year, different histories. The thumbnails display actual saved surveys, not recreated past buildings. Change the year in the comparison controls below to synchronize both maps.</p><div className="atlasCompareBar"><Selector value={String(year)} onChange={v=>setYear(Number(v))} label="Compare maps in" options={COMPARE_YEARS.map(y=>({value:String(y),label:String(y)}))}/>{[0,1].map(index=><Selector key={index} label={`City ${index+1}`} value={mapPair[index]||cities[index%cities.length].id} onChange={id=>setMapPair(p=>p.map((old,i)=>i===index?id:old))} options={cities.map(c=>({value:c.id,label:c.name}))}/>)}</div><div className="atlasMapPair">{[0,1].map(index=>{const c=cities.find(v=>v.id===(mapPair[index]||cities[index%cities.length].id))||cities[index];const h=c.year>=year?c.history.filter(r=>r.year<=year).at(-1):null;return <div key={index}><strong>{c.name}</strong><AtlasThumbnail city={c} year={year}/><small>{h?`${numberText(h.population)} residents · modeled GDP/person ${numberText(h.gdpPerCapita)}`:c.year<year?'City has not reached the selected year.':'No historical survey for this date.'}</small></div>;})}</div></>}
- <h2>Personal records</h2><div className="atlasRecordGrid">{cards.map(([label,key,metricId])=>{const r=records[key];return <div className="atlasRecordCard" key={key}><small>{label}</small><strong>{numberText(r?.peak?.value)}</strong><span>{r?.city?.name||'No data yet'} · {r?.peak?.year||'—'}</span></div>;})}</div>
- </>}
- <h2>Compare cities by year</h2>
- <div className="atlasCompareBar">
-  <Selector label="Historical year" value={String(year)} onChange={v=>setYear(Number(v))} options={COMPARE_YEARS.map(y=>({label:String(y),value:String(y)}))}/>
-  <Selector label="Measure" value={metric} onChange={setMetric} options={MAIN_METRICS.map(k=>({label:METRICS[k].name,value:k}))}/>
-  <label className="atlasToggle"><input type="checkbox" checked={historical} onChange={e=>setHistorical(e.target.checked)}/> Historical population benchmarks</label>
-  <label className="atlasToggle"><input type="checkbox" checked={onlyFinished} onChange={e=>setOnlyFinished(e.target.checked)}/> Completed cities only</label>
- </div>
- {cities.length>1&&<div className="atlasChips"><span>Choose cities:</span>{cities.map(c=><label key={c.id}><input type="checkbox" checked={selected===null||selected.includes(c.id)} onChange={e=>setSelected(prev=>{const current=prev===null?cities.map(q=>q.id):prev;const next=e.target.checked?[...new Set([...current,c.id])]:current.filter(x=>x!==c.id);return next.length===cities.length?null:next;})}/>{c.name}</label>)}<button onClick={()=>setSelected(null)}>All</button></div>}
- <div className="atlasGraph"><div className="eyebrow">{METRICS[metric].name.toUpperCase()} · {year}</div>{rows.length?rows.map((r,i)=><div className="atlasBarRow" key={r.id}><div className="atlasBarTop"><span><b>{i+1}.</b> {r.name} {r.kind==='historical'&&<small>Historical · {r.year}</small>}{r.kind==='player'&&<small>Simulation · as of {r.year}</small>}</span><strong>{numberText(r.value)}</strong></div><div className="atlasBarTrack"><div className={r.kind==='historical'?'historicBar':'cityBar'} style={{width:`${Math.max(.5,r.value/max*100)}%`}}/></div></div>):<p className="muted">No comparable records for this year. Select a different year, metric, or set of cities.</p>}
- <p className="chronDisclaimer">Simulated-city values are game model outputs (and may reflect the last recorded year before {year}). Historical values are census or official estimates for the stated observation year, within 13 years of your selection; they are not interpolated. Historical populations refer to differing administrative boundaries. No real-world GDP values are inferred. {metric!=='population'?'Only your cities are ranked for this metric.':''}</p></div>
- <h2>Historical data sources</h2><div className="atlasSources">{HISTORICAL_CITIES.map(c=><div key={c.id}><strong>{c.name}</strong><small>{c.definition}</small><a href={c.url} target="_blank" rel="noreferrer">{c.source} <ExternalLink size={12}/></a></div>)}</div>
+function AtlasThumbnail({city,year,width=560,height=345}){
+ const cv=useRef(null);
+ const snap=(city.snapshots||[]).filter(s=>s.year<=year).sort((a,b)=>a.year-b.year).at(-1);
+ const map=year>city.year?null:year===city.year?city:snap?snapshotCity(city,snap):null;
+ useEffect(()=>{
+  const canvas=cv.current;if(!canvas||!map)return;
+  const ratio=Math.min(2,window.devicePixelRatio||1);canvas.width=width*ratio;canvas.height=height*ratio;
+  const ctx=canvas.getContext('2d');ctx.setTransform(ratio,0,0,ratio,0,0);
+  drawCity(ctx,map,width,height,{layer:'urban',population:historyAt(city,map.year)?.population||0,archiveYear:map.year});
+ },[city,year,width,height]);
+ if(!map)return <div className="comparisonMapEmpty">{year>city.year?`Reached ${city.year}; no map for ${year} yet.`:'No survey saved for this date.'}</div>;
+ return <div className="surveyMap"><canvas ref={cv} style={{width:'100%',height:'auto',aspectRatio:`${width}/${height}`}} aria-label={`${city.name}, actual map survey from ${map.year}`}/><small>{year===city.year?'Present map':`Saved survey · ${map.year}`}{map.year!==year?` · last available before ${year}`:''}</small></div>;
+}
+export function ComparisonChart({series,metric,from,to,year,colors}){
+ const values=series.flatMap(s=>s.points.map(p=>p.value)),minimum=Math.min(0,...values),maximum=Math.max(1,...values);
+ const x=v=>76+(v-from)/Math.max(1,to-from)*890;
+ const y=v=>286-(v-minimum)/(maximum-minimum)*250;
+ const years=[...new Set(Array.from({length:5},(_,i)=>Math.round(from+(to-from)*i/4)))];
+ const label=v=>Math.abs(v)>=1e9?`${(v/1e9).toFixed(1)}b`:Math.abs(v)>=1e6?`${(v/1e6).toFixed(1)}m`:Math.abs(v)>=1e3?`${(v/1e3).toFixed(1)}k`:numberText(v);
+ if(!values.length)return <div className="comparisonEmpty">No recorded {METRICS[metric].name.toLowerCase()} in this period. Choose another period or city.</div>;
+ return <div className="comparisonPlot"><svg viewBox="0 0 1000 330" role="img" aria-label={`${METRICS[metric].name} comparison from ${from} to ${to} for ${series.map(s=>s.name).join(', ')}`}>
+  <title>{`${METRICS[metric].name} · ${from}–${to}`}</title>
+  {Array.from({length:5},(_,i)=>{const value=minimum+(maximum-minimum)*i/4;return <g key={i}><line x1="76" x2="966" y1={y(value)} y2={y(value)} stroke="#d7ccba" strokeWidth="1" strokeDasharray={i?'3 5':undefined}/><text x="63" y={y(value)+4} textAnchor="end">{label(value)}</text></g>;})}
+  {years.map(value=><g key={value}><line x1={x(value)} x2={x(value)} y1="286" y2="292" stroke="#9d947f"/><text x={x(value)} y="314" textAnchor="middle">{value}</text></g>)}
+  <line x1={x(year)} x2={x(year)} y1="25" y2="286" stroke="#9d947f" strokeDasharray="4 5"/>
+  {series.map((s,index)=><g key={s.id} style={{color:colors.get(s.id)||CITY_COLORS[index%CITY_COLORS.length]}}><polyline points={s.points.map(p=>`${x(p.year)},${y(p.value)}`).join(' ')} fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinejoin="round" vectorEffect="non-scaling-stroke"/>{s.points.map(p=><circle key={p.year} cx={x(p.year)} cy={y(p.value)} r={s.points.length===1?4:2.5} fill="currentColor"><title>{`${s.name} · ${p.year}: ${numberText(p.value)}`}</title></circle>)}</g>)}
+ </svg></div>;
+}
+export function UrbanAtlas({cities,onBack,onOpen,backLabel='Home',activeCityId}){
+ const latest=Math.max(1300,...cities.map(c=>c.year));
+ const [metric,setMetric]=useState('population'),[from,setFrom]=useState(1300),[to,setTo]=useState(latest),[selected,setSelected]=useState(null),[surveyYear,setSurveyYear]=useState(latest);
+ const samples=useMemo(()=>new Map(cities.map(c=>[c.id,stats(c)])),[cities]);
+ const chosen=useMemo(()=>cities.filter(c=>selected===null||selected.includes(c.id)),[cities,selected]);
+ const colors=useMemo(()=>new Map(cities.map((c,i)=>[c.id,CITY_COLORS[i%CITY_COLORS.length]])),[cities]);
+ const series=useMemo(()=>comparisonSeries(chosen,metric,from,to,samples),[chosen,metric,from,to,samples]);
+ const year=Math.max(from,Math.min(to,surveyYear));
+ const period=PERIOD_OPTIONS.find(([, ,a,b])=>a===from&&Math.min(b,latest)===to)?.[0]||'custom';
+ const changePeriod=id=>{const p=PERIOD_OPTIONS.find(p=>p[0]===id);if(p){setFrom(p[2]);setTo(Math.max(p[2],Math.min(p[3],latest)));setSurveyYear(Math.max(p[2],Math.min(p[3],latest)));}};
+ const toggleCity=id=>setSelected(prev=>{const ids=prev===null?cities.map(c=>c.id):prev;return ids.includes(id)?ids.filter(i=>i!==id):[...ids,id];});
+ return <main className="atlasPage comparisonPage">
+  <div className="comparisonHead"><button onClick={onBack}><ArrowLeft size={15}/> {backLabel}</button><div className="eyebrow">THE URBAN ATLAS</div><h1>Compare cities</h1><p>One measure, a shared period, and the maps that tell the story.</p></div>
+  {!cities.length?<div className="comparisonEmpty"><BookOpen size={28}/><h2>Your atlas is waiting</h2><p>Found a city to begin recording its growth and map surveys.</p><button onClick={onBack}>Return</button></div>:<>
+   <section className="comparisonControls" aria-label="Comparison controls">
+    <Selector label="Measure" value={metric} onChange={setMetric} options={MAIN_METRICS.map(k=>({value:k,label:METRICS[k].name}))}/>
+    <Selector label="Period" value={period} onChange={changePeriod} options={[...PERIOD_OPTIONS.map(([id,label])=>({value:id,label})),{value:'custom',label:'Custom period'}]}/>
+    <YearInput label="From" ariaLabel="Period start year" value={from} min={1300} max={to} onCommit={setFrom}/>
+    <YearInput label="To" ariaLabel="Period end year" value={to} min={from} max={2030} onCommit={setTo}/>
+   </section>
+   <fieldset className="comparisonCities"><legend>Cities to compare</legend>{cities.map(c=><label key={c.id} style={{'--city-color':colors.get(c.id)}}><input type="checkbox" checked={selected===null||selected.includes(c.id)} onChange={()=>toggleCity(c.id)}/><i/>{c.name}{c.id===activeCityId&&<small>current</small>}</label>)}<button onClick={()=>setSelected(null)}>Select all</button></fieldset>
+   <section className="comparisonChartPanel"><div className="comparisonPanelHead"><div><span className="eyebrow">GROWTH THROUGH TIME</span><h2>{METRICS[metric].name}</h2></div><span>{from}–{to} · {METRICS[metric].unit}</span></div>
+    {!chosen.length?<div className="comparisonEmpty">Select a city above to show its chart and map.</div>:<ComparisonChart series={series} metric={metric} from={from} to={to} year={year} colors={colors}/>}
+    <div className="comparisonLegend">{series.map(row=>{const point=row.points.filter(p=>p.year<=year).at(-1);return <div key={row.id}><i style={{background:colors.get(row.id)}}/><span>{row.name}</span><b>{point?numberText(point.value):'No record'}</b><small>{point?point.year:''}</small></div>;})}</div>
+   </section>
+   {chosen.length>0&&<section className="comparisonMaps"><div className="comparisonPanelHead"><div><span className="eyebrow">MAP SURVEYS</span><h2>The cities in {year}</h2></div><YearInput label="Survey year" ariaLabel="Map survey year" value={year} min={from} max={to} onCommit={setSurveyYear}/></div>
+    <input className="surveyRange" aria-label="Map survey timeline" type="range" min={from} max={to} value={year} onChange={e=>setSurveyYear(Number(e.target.value))}/>
+    <div className="comparisonMapGrid">{chosen.map(c=><article key={c.id}><div className="comparisonMapTitle"><h3><i style={{background:colors.get(c.id)}}/>{c.name}</h3><button onClick={()=>onOpen(c.id)} aria-label={`Open ${c.name}`}>Open <ExternalLink size={12}/></button></div><AtlasThumbnail city={c} year={year}/></article>)}</div>
+   </section>}
+   <p className="chronDisclaimer">Charts use recorded game values and the current city endpoint. Lines stop where a city’s records stop. Maps show the latest saved survey at or before your selected year; its actual date is shown below each map.</p>
+  </>}
  </main>;
 }

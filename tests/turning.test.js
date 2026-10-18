@@ -118,11 +118,10 @@ test('legacy market prevents overspending, purchases unlock cards and improves s
  const profile=startRunProfile(l,[]);assert.ok(profile.cardPool.includes('industrial_revolution'));assert.equal(profile.legacyBonuses.arts,.10);
  assert.ok(!startRunProfile(emptyLegacy(),[]).cardPool.includes('industrial_revolution'));
 });
-test('legendary figures require an Epic Patron achievement and legitimate currency',()=>{
+test('collected legendary figures enter future city pools and require local eligibility',()=>{
  let l=normalizeLegacy({...emptyLegacy(),points:2000});
  assert.equal(canBuy(l,'figure','michelangelo').ok,false);
- l.achievements.push('epic_patron');assert.equal(canBuy(l,'figure','michelangelo').ok,true);
- l=buyLegacy(l,'figure','michelangelo');assert.ok(l.unlockedFigures.includes('michelangelo'));
+ l=normalizeLegacy({...l,unlockedFigures:['michelangelo']});
  assert.equal(startRunProfile(l,['michelangelo']).featuredFigures[0],'michelangelo');
  assert.equal(canDraw(getOpportunity('figure:michelangelo'),town(5)),false);
  let c=town(5,'river',startRunProfile(l,['michelangelo']));c.year=1520;c.funds=10000;

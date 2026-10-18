@@ -2,6 +2,7 @@
 // No payment system, in-app purchases or external data dependencies.
 import {CARDS,CARD_INDEX} from './turningPoints.js';
 import {POP_SCALE} from './geo.js';
+import {ACHIEVEMENTS,achievementValues} from './achievements.js';
 export const LOCKED_CARDS=[
  'housing_revolution','metropolitan_magnet','industrial_revolution','factory_town',
  'grand_workshops','cultural_renaissance','tourist_paradise','city_monuments',
@@ -15,7 +16,7 @@ export const ACHIEVEMENT_REQUIREMENTS={
  sacred_city:{id:'sacred_heritage',label:'Sacred Heritage (100 religious influence)'},
  knowledge_economy:{id:'knowledge_city',label:'Knowledge City (construct a university)'},
  industrial_revolution:{id:'industrial_hub',label:'Industrial Hub (25 workshops)'},
- metropolitan_magnet:{id:'pop_10k',label:'Growing Metropolis (120,000 population)'}
+ metropolitan_magnet:{id:'population_10000',label:'10,000 residents in one city'}
 };
 export const BASE_CARDS=CARDS.filter(c=>!LOCKED_CARDS.includes(c.id)).map(c=>c.id);
 const figure=(id,name,domain,rarity,from,to,description,effects,extra={})=>({id,name,domain,rarity,kind:'figure',minYear:from,maxYear:to,description,effects,cost:({common:0,uncommon:100,rare:220,epic:600,legend:1100}[rarity]||0),...extra});
@@ -60,25 +61,70 @@ export const MARKET_UPGRADES=[
 ];
 export const UPGRADE_INDEX=Object.fromEntries(MARKET_UPGRADES.map(u=>[u.id,u]));
 export function legacyInvestmentProgress(legacy){const l=normalizeLegacy(legacy),bonuses=runModifiersFromLegacy(l),ranks=Object.values(l.upgrades).reduce((sum,n)=>sum+n,0),round=n=>Math.round(n*10000)/10000;return {ranks,capacity:round(bonuses.legacyCapacity||0),productivity:round(bonuses.legacyProductivity||0),featuredSlots:5+(bonuses.featuredSlots||0),megacity:!!bonuses.megacityCharter};}
-export function emptyLegacy(){return {version:2,points:0,unlockedCards:[],unlockedFigures:[],upgrades:{},completed:[],achievements:[],lifetimePoints:0};}
+export function emptyLegacy(){return {version:3,points:0,unlockedCards:[],unlockedFigures:[],upgrades:{},completed:[],achievements:[],claimedAchievements:[],lifetimePoints:0,packs:{opened:0,sinceEpic:0,sinceLegend:0}};}
 export function normalizeLegacy(raw){const base=emptyLegacy();if(!raw||typeof raw!=='object')return base;
- return {...base,points:Math.max(0,Math.floor(Number(raw.points)||0)),unlockedCards:Array.from(new Set((raw.unlockedCards||[]).filter(k=>LOCKED_CARDS.includes(k)))),unlockedFigures:Array.from(new Set((raw.unlockedFigures||[]).filter(k=>FIGURE_INDEX[k]&&!FIGURE_INDEX[k].generic))),upgrades:Object.fromEntries(Object.entries(raw.upgrades||{}).filter(([k,v])=>UPGRADE_INDEX[k]&&Number.isInteger(v)&&v>=0).map(([k,v])=>[k,Math.min(v,UPGRADE_INDEX[k].max)])),completed:Array.from(new Set((raw.completed||[]).filter(x=>typeof x==='string'))),achievements:Array.from(new Set((raw.achievements||[]).filter(x=>typeof x==='string'))),lifetimePoints:Math.max(0,Math.floor(Number(raw.lifetimePoints)||0))};
+ const strings=v=>Array.isArray(v)?Array.from(new Set(v.filter(x=>typeof x==='string'))):[];
+ const count=v=>Number.isFinite(Number(v))?Math.max(0,Math.floor(Number(v))):0;
+ const achievements=strings(raw.achievements);if(achievements.includes('pop_10k')&&!achievements.includes('population_10000'))achievements.push('population_10000');
+ return {...base,points:count(raw.points),unlockedCards:strings(raw.unlockedCards).filter(k=>LOCKED_CARDS.includes(k)),unlockedFigures:strings(raw.unlockedFigures).filter(k=>FIGURE_INDEX[k]&&!FIGURE_INDEX[k].generic),upgrades:Object.fromEntries(Object.entries(raw.upgrades||{}).filter(([k,v])=>UPGRADE_INDEX[k]&&Number.isInteger(v)&&v>=0).map(([k,v])=>[k,Math.min(v,UPGRADE_INDEX[k].max)])),completed:strings(raw.completed),achievements,claimedAchievements:strings(raw.claimedAchievements),lifetimePoints:count(raw.lifetimePoints),packs:{opened:count(raw.packs?.opened),sinceEpic:Math.min(4,count(raw.packs?.sinceEpic)),sinceLegend:Math.min(11,count(raw.packs?.sinceLegend))}};
 }
 export function marketCost(type,id,rank=0){if(type==='card'){const c=CARD_INDEX[id];return c?({common:85,uncommon:115,rare:175,epic:260,legend:600}[c.rarity]||200):Infinity;}
- if(type==='figure'){const f=FIGURE_INDEX[id];return f?({rare:220,epic:440,legend:850}[f.rarity]||Infinity):Infinity;}
+ if(type==='pack')return FIGURE_PACKS.find(p=>p.id===id)?.cost??Infinity;
+ if(type==='figure')return Infinity;
  const u=UPGRADE_INDEX[id];return u?Math.round(u.baseCost*(1+rank*.8)):Infinity;}
 export function canBuy(legacy,type,id){const l=normalizeLegacy(legacy);let cost=Infinity,reason='Unknown item';
  if(type==='card'){if(!LOCKED_CARDS.includes(id))return {ok:false,reason:'Already available from the start'};if(l.unlockedCards.includes(id))return {ok:false,reason:'Already unlocked'};const achievement=ACHIEVEMENT_REQUIREMENTS[id];if(achievement&&!l.achievements.includes(achievement.id))return {ok:false,reason:`Requires ${achievement.label}`};cost=marketCost('card',id);reason='Not enough Legacy Points';}
- else if(type==='figure'){const f=FIGURE_INDEX[id];if(!f||f.generic)return {ok:false,reason:'Unavailable figure'};if(l.unlockedFigures.includes(id))return {ok:false,reason:'Already unlocked'};
-  if(f.rarity==='legend'&&!l.achievements.includes('epic_patron'))return {ok:false,reason:'Requires Epic Patron achievement: recruit an Epic person in a completed city'};
-  cost=marketCost('figure',id);reason='Not enough Legacy Points';
- }else if(type==='upgrade'){const u=UPGRADE_INDEX[id];if(!u)return {ok:false,reason:'Unknown upgrade'};const rank=l.upgrades[id]||0;if(rank>=u.max)return {ok:false,reason:'Maximum rank reached'};cost=marketCost('upgrade',id,rank);reason='Not enough Legacy Points';}
+ else if(type==='figure')return {ok:false,reason:'Discover historical figures in packs'};
+ else if(type==='pack'){cost=marketCost(type,id);if(!Number.isFinite(cost))return {ok:false,reason:'Unknown pack'};if(!figurePackOdds(l,id).length)return {ok:false,reason:'Collection complete'};reason='Not enough Legacy Points';}
+ else if(type==='upgrade'){const u=UPGRADE_INDEX[id];if(!u)return {ok:false,reason:'Unknown upgrade'};const rank=l.upgrades[id]||0;if(rank>=u.max)return {ok:false,reason:'Maximum rank reached'};cost=marketCost('upgrade',id,rank);reason='Not enough Legacy Points';}
  return {ok:l.points>=cost,cost,reason:l.points>=cost?'Available to purchase':reason};
 }
 export function buyLegacy(legacy,type,id){const l=normalizeLegacy(legacy),check=canBuy(l,type,id);if(!check.ok)return l;
+ if(type==='pack')return l; // Random purchases use openFigurePack exactly once per action.
  const next={...l,points:l.points-check.cost,unlockedCards:[...l.unlockedCards],unlockedFigures:[...l.unlockedFigures],upgrades:{...l.upgrades}};
  if(type==='card')next.unlockedCards.push(id);else if(type==='figure')next.unlockedFigures.push(id);else next.upgrades[id]=(next.upgrades[id]||0)+1;
  return next;
+}
+
+export const FIGURE_PACKS=[
+ {id:'discovery',name:'Discovery folio',cost:100,description:'One random historical figure. A small beginning for your collection.',weights:{rare:70,epic:25,legend:5}},
+ {id:'patron',name:'Patron folio',cost:240,description:'One random figure, with stronger Epic and Legendary odds.',weights:{rare:40,epic:45,legend:15}},
+ {id:'grand',name:'Grand folio',cost:450,description:'One Epic or Legendary figure. A commission for an ambitious patron.',weights:{rare:0,epic:65,legend:35}}
+];
+const RARITY_ORDER=['rare','epic','legend'];
+export function figurePackOdds(legacy,packId){
+ const l=normalizeLegacy(legacy),pack=FIGURE_PACKS.find(p=>p.id===packId);if(!pack)return [];
+ const available=FIGURES.filter(f=>!f.generic&&!l.unlockedFigures.includes(f.id));if(!available.length)return [];
+ if(packId==='grand'&&!available.some(f=>f.rarity==='epic'||f.rarity==='legend'))return [];
+ let minimum=l.packs.sinceLegend>=11?2:l.packs.sinceEpic>=4?1:0;
+ // A completed rarity tier promotes its chance to the next remaining tier.
+ // Guarantees stop counting once that entire tier has been discovered.
+ if(!available.some(f=>RARITY_ORDER.indexOf(f.rarity)>=minimum))minimum=0;
+ const weights={};
+ for(const [rarity,weight] of Object.entries(pack.weights)){
+  if(!weight)continue;
+  const start=Math.max(minimum,RARITY_ORDER.indexOf(rarity));
+  let tier=RARITY_ORDER.slice(start).find(r=>available.some(f=>f.rarity===r));
+  if(!tier)tier=[...RARITY_ORDER].reverse().find(r=>available.some(f=>f.rarity===r));
+  weights[tier]=(weights[tier]||0)+weight;
+ }
+ const total=Object.values(weights).reduce((a,b)=>a+b,0);
+ return RARITY_ORDER.filter(r=>weights[r]>0).map(rarity=>({rarity,chance:weights[rarity]/total,figures:available.filter(f=>f.rarity===rarity)}));
+}
+export function openFigurePack(legacy,packId,random=Math.random){
+ const l=normalizeLegacy(legacy),check=canBuy(l,'pack',packId);if(!check.ok)return {legacy:l,figure:null,error:check.reason};
+ const odds=figurePackOdds(l,packId),roll=()=>Math.min(.999999999,Math.max(0,Number(random())||0));
+ let target=roll(),tier=odds.at(-1);for(const row of odds){target-=row.chance;if(target<0){tier=row;break;}}
+ const figure=tier.figures[Math.floor(roll()*tier.figures.length)];
+ const packs={opened:l.packs.opened+1,sinceEpic:figure.rarity==='rare'?Math.min(4,l.packs.sinceEpic+1):0,sinceLegend:figure.rarity==='legend'?0:Math.min(11,l.packs.sinceLegend+1)};
+ return {legacy:{...l,points:l.points-check.cost,unlockedFigures:[...l.unlockedFigures,figure.id],packs},figure,error:null};
+}
+
+export function awardCityMilestones(legacy,city,current){
+ const l=normalizeLegacy(legacy),values=achievementValues(city,current),claimed=new Set(l.claimedAchievements),unlocked=new Set(l.achievements);
+ let points=0;
+ for(const a of ACHIEVEMENTS)if(unlocked.has(a.id)||(values[a.metric]||0)>=a.target){unlocked.add(a.id);if(!claimed.has(a.id)){claimed.add(a.id);points+=a.points;}}
+ return {...l,points:l.points+points,lifetimePoints:l.lifetimePoints+points,achievements:[...unlocked],claimedAchievements:[...claimed]};
 }
 export function runModifiersFromLegacy(l){const result={};for(const u of MARKET_UPGRADES){const rank=l.upgrades[u.id]||0;for(const [k,v] of Object.entries(u.effect))result[k]=(result[k]||0)+v*rank;}return result;}
 export function startRunProfile(legacy,loadout){const l=normalizeLegacy(legacy);
@@ -93,17 +139,8 @@ export function scoreCity(city,stats){
  const qualityScore=Math.max(0,Math.min(60,(stats.prosperity-35)*1.1));
  const points=Math.round(75+populationScore+economicScore+qualityScore+
    Math.min(75,stats.culturalPrestige*.10)+Math.min(70,stats.religiousInfluence*.14)+Math.min(70,stats.educationIndex*.16));
- const achievements=[];
+ const values=achievementValues(city,stats),achievements=ACHIEVEMENTS.filter(a=>(values[a.metric]||0)>=a.target).map(a=>a.id);
  if(city.year>=2030)achievements.push('centuries_complete');
- if(stats.population>=10000*POP_SCALE)achievements.push('pop_10k');
- if(stats.population>=50000*POP_SCALE)achievements.push('pop_50k');
- if(stats.culturalPrestige>=120)achievements.push('cultural_rebirth');
- if(stats.religiousInfluence>=100)achievements.push('sacred_heritage');
- if(stats.universities>=1)achievements.push('knowledge_city');
- if(stats.industry>=25)achievements.push('industrial_hub');
- if((city.landmarks||[]).some(v=>v.kind==='port'))achievements.push('maritime_trade');
- if((city.figures||[]).some(v=>FIGURE_INDEX[v.id]?.rarity==='epic'))achievements.push('epic_patron');
- if((city.figures||[]).some(v=>FIGURE_INDEX[v.id]?.rarity==='legend'))achievements.push('legendary_founder');
  return {points,achievements};
 }
 export function awardCompletedCity(legacy,city,stats){const l=normalizeLegacy(legacy);if(!city.finished||l.completed.includes(city.id))return l;

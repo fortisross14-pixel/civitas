@@ -1,0 +1,86 @@
+/* Progression and comparison share the atlas's printed-paper surfaces. */
+.marketFolio,.comparisonPage{max-width:1200px;padding-top:30px}
+.marketHeader h1,.comparisonHead h1{font:400 40px/1.1 'Crimson Pro',Georgia,serif;color:var(--ink);margin:8px 0}
+.marketHeader p,.comparisonHead p{font:17px/1.45 'Crimson Pro',Georgia,serif;color:var(--soft-ink);margin:6px 0}
+.marketHeader>.legacyPoints{border-radius:0;border:3px double var(--rule);background:#ece5d2;color:var(--moss);white-space:nowrap}
+.marketTabs{gap:0;border-bottom:3px double var(--rule);margin:26px 0}
+.marketTabs button{padding:13px 20px;color:#686050;font-size:11px;white-space:nowrap;border-bottom-width:2px}
+.marketTabs button.sel{background:#dce4d2;border-bottom-color:var(--moss);color:var(--moss)}
+.marketSectionHead{display:flex;align-items:center;justify-content:space-between;gap:24px;margin-bottom:21px}
+.marketSectionHead h2,.ledgerIntro h2{font:400 28px 'Crimson Pro',Georgia,serif;margin:0 0 6px}
+.marketSectionHead p,.ledgerIntro p{max-width:700px;color:#6e6555;font-size:12px;line-height:1.6;margin:0}
+.marketSectionHead>span{font:16px 'Crimson Pro',Georgia,serif;white-space:nowrap;border-left:1px solid var(--rule-light);padding-left:20px}
+.packGuarantees{display:flex;align-items:center;flex-wrap:wrap;gap:12px 30px;background:#e4e8d8;border:1px solid #b5bfa8;padding:13px 16px;margin-bottom:18px;color:#40553e;font-size:12px}
+.packGuarantees>span{display:flex;align-items:center;gap:6px}
+.packGuarantees>small{flex-basis:100%;font-size:10px;color:#68745d}
+.packGrid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:18px}
+.packCard{--seal:#9b8050;--pack:#ece3cb;display:flex;flex-direction:column;align-items:center;text-align:center;position:relative;padding:24px 24px 20px;border:1px solid var(--rule);background:linear-gradient(130deg,#fbf8ed,var(--pack));box-shadow:inset 0 0 0 4px #f4eddd,inset 0 0 0 5px #b9ab8b}
+.pack-patron{--pack:#dce2d0;--seal:#59725a}.pack-grand{--pack:#e5d9c7;--seal:#9c7252}
+.packSeal{height:112px;width:86px;border:3px double var(--seal);color:var(--seal);display:grid;place-content:center;position:relative;margin:4px 0 25px;background:#fff9e653;transform:rotate(-5deg);box-shadow:4px 4px 0 #b5a78a4d}
+.packSeal::before{content:'';position:absolute;inset:7px;border:1px solid var(--seal);opacity:.6}
+.packSeal>span{position:absolute;bottom:-14px;left:25px;border:1px solid var(--seal);border-radius:50%;padding:7px;background:var(--pack);font-size:14px}
+.packCard h3{font:400 28px 'Crimson Pro',Georgia,serif;margin:8px 0}
+.packCard>p{font-size:12px;color:#6f6452;line-height:1.6;margin:0 0 18px;min-height:58px}
+.packOdds{width:100%;border-top:1px solid #bfb398;border-bottom:1px solid #bfb398;padding:7px 0;margin-top:auto}
+.packOdds span{display:flex;align-items:center;gap:7px;font-size:11px;padding:5px 1px}.packOdds b{margin-left:auto}.packOdds i{width:7px;height:7px;border:1px solid #7d725c}
+.packCard>small{font-size:10px;line-height:1.5;color:#716753;margin:12px 0 15px}
+.packCard .primary{min-height:42px;font-size:10px;letter-spacing:1px}
+.collectionToggle{margin:10px 0 20px;background:transparent;letter-spacing:.4px;font-size:11px}
+.marketFolio .marketItem{border-radius:0;border:1px solid var(--rule-light);border-top:3px solid var(--card-color);background:#f9f5e9;padding:20px}
+.marketItem h3{font:400 23px 'Crimson Pro',Georgia,serif;color:var(--ink)}
+.marketItem p{font-size:12px;color:#6e6555;line-height:1.6}
+.marketItem>small{line-height:1.6;color:#756950}
+.marketItem .purchaseRequirement{border-left:2px solid #bd9d66;background:#eee3cf;padding:7px;color:#795d30}
+.marketItem button{min-height:38px;margin-top:auto}
+.marketMeta{gap:10px}.marketMeta b{white-space:nowrap}
+.rankSteps{display:flex;gap:4px;margin:6px 0 0}.rankSteps i{height:4px;flex:1;background:#e0d7c4}.rankSteps i.filled{background:#69866b}
+.upgradePreview{margin:0 0 14px;font-size:10px;border-top:1px solid var(--rule-light)}
+.upgradePreview>div{display:grid;grid-template-columns:1.8fr 1fr 1fr;gap:6px;border-bottom:1px solid var(--rule-light);padding:7px 0}
+.upgradePreview>div:first-child{font-size:9px;text-transform:uppercase;letter-spacing:.5px;color:#827660}
+.upgradePreview b{font-weight:500;color:#756d5e}.upgradePreview b:last-child{color:var(--moss);font-weight:700}
+.offerRules{font-size:10px;color:#6a604f;margin:0 0 15px;line-height:1.5}
+.offerRules>div{display:grid;grid-template-columns:66px 1fr;gap:10px;padding:6px 0;border-top:1px solid var(--rule-light)}
+.offerRules dt{text-transform:uppercase;letter-spacing:.5px;font-size:8px;padding-top:2px}.offerRules dd{margin:0;color:#494235}
+.figureCollection .undiscovered{background:#eee8da}.collectionState{font-size:10px;color:#617558;border-top:1px solid var(--rule-light);padding-top:10px}.undiscovered .collectionState{color:#8a7962}
+.packRevealBackdrop{z-index:80}.packReveal{position:relative;max-width:480px;width:100%;text-align:center;border:3px double #9b8969;padding:40px 38px 28px;background:radial-gradient(ellipse at top,#fff9e8,#eee4cd);box-shadow:0 25px 80px #18180f66;animation:folioReveal .3s ease-out;color:var(--ink);max-height:calc(100dvh - 32px);overflow:auto}
+.packReveal h2{font:400 40px/1.05 'Crimson Pro',Georgia,serif;margin:10px 0 16px}.packReveal p{font:17px/1.5 'Crimson Pro',Georgia,serif;color:#655a48}
+.packReveal .muted{font:12px/1.6 'DM Sans',sans-serif}.packReveal .revealClose{position:absolute;right:10px;top:10px;border:0;background:transparent;padding:5px}
+.figureEmblem{width:100px;height:100px;margin:25px auto 20px;display:grid;place-content:center;border:3px double currentColor;border-radius:50%;background:#fff9e6}
+.revealRarity{font-size:10px;letter-spacing:2px;text-transform:uppercase}.revealEra{border-top:1px solid var(--rule-light);border-bottom:1px solid var(--rule-light);padding:10px;font-size:11px;line-height:1.8;color:#78694d}
+@keyframes folioReveal{from{opacity:0;transform:translateY(14px) scale(.97)}to{opacity:1;transform:translateY(0) scale(1)}}
+.ledgerIntro{display:flex;justify-content:space-between;align-items:center;gap:24px;margin-bottom:24px}.ledgerIntro>strong{font:38px 'Crimson Pro',Georgia,serif;color:var(--moss);white-space:nowrap}.ledgerIntro small{font:11px 'DM Sans',sans-serif;color:#80745e}
+.milestoneGroup h3{border-bottom:1px solid var(--rule);padding-bottom:10px;margin:25px 0 12px;font-size:10px;letter-spacing:2px;text-transform:uppercase;color:#73644d}
+.milestoneGrid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+.milestoneCard{padding:14px;background:#f8f3e6;border:1px solid var(--rule-light)}.milestoneCard.earned{background:#e5e9d9;border-color:#b7c2a8}
+.milestoneCard>div{display:flex;justify-content:space-between;gap:6px}.milestoneCard b{font:600 16px 'Crimson Pro',Georgia,serif;display:flex;gap:5px;align-items:center}.milestoneCard>div>span{font-size:10px;color:var(--moss);white-space:nowrap;padding-top:2px}
+.milestoneCard p{font-size:10px;color:#736853;line-height:1.6;min-height:32px;margin:9px 0}.milestoneCard small{font-size:9px;color:#746a55}
+.milestoneCard progress,.milestoneSummary progress{appearance:none;display:block;width:100%;height:4px;border:0;background:#ddd6c2;margin:8px 0}.milestoneCard progress::-webkit-progress-bar,.milestoneSummary progress::-webkit-progress-bar{background:#ddd6c2}.milestoneCard progress::-webkit-progress-value,.milestoneSummary progress::-webkit-progress-value{background:#738c6c}.milestoneCard progress::-moz-progress-bar,.milestoneSummary progress::-moz-progress-bar{background:#738c6c}
+.milestoneSummary{margin:0 0 22px;padding-bottom:17px;border-bottom:1px solid var(--rule)}.milestoneSummary>b{font:500 17px 'Crimson Pro',Georgia,serif;display:flex;align-items:baseline;gap:8px;justify-content:space-between}.milestoneSummary b>span{font:10px 'DM Sans',sans-serif;color:var(--moss);white-space:nowrap}.milestoneSummary>small{font-size:10px;line-height:1.5;color:#776c58;display:block}
+.milestoneToast{position:fixed;z-index:90;bottom:24px;left:50%;transform:translateX(-50%);display:flex;align-items:center;gap:15px;padding:15px 18px;border:3px double #8e9d7b;background:#ecf0dd;box-shadow:0 6px 28px #30251935;color:#365239;max-width:calc(100vw - 24px)}.milestoneToast>div{display:flex;flex-direction:column;gap:4px}.milestoneToast b{font:500 20px 'Crimson Pro',Georgia,serif}.milestoneToast span{font-size:11px}.milestoneToast button{background:transparent;font-size:10px;flex-shrink:0}.milestoneToast>button:last-child{padding:4px;border:0;font-size:20px}
+.comparisonHead{margin-bottom:24px}.comparisonHead>button{margin:0 0 24px}
+.comparisonControls{display:flex;gap:18px;align-items:flex-end;background:#f7f1e3;border-top:3px double var(--rule);border-bottom:1px solid var(--rule);padding:18px 20px}
+.comparisonControls .chronSelect{flex:1;margin:0;min-width:150px}.comparisonControls label>span,.comparisonYear>span{font-size:9px;letter-spacing:1.5px;text-transform:uppercase;color:#7d7059;display:block;margin-bottom:7px}
+.comparisonControls select,.comparisonYear input{border:1px solid #bbaf97;border-radius:0;min-height:38px;padding:8px 10px;background:#fcf9ef;font-size:12px;width:100%;color:var(--ink)}
+.comparisonYear{width:100px;display:block;flex-shrink:0}.comparisonYear input{font-variant-numeric:tabular-nums}
+.comparisonCities{border:0;padding:16px 0 23px;display:flex;flex-wrap:wrap;align-items:center;gap:8px 18px;margin:0}.comparisonCities legend{padding-top:15px;font-size:9px;color:#7d7059;text-transform:uppercase;letter-spacing:1.5px}
+.comparisonCities label{display:flex;align-items:center;gap:6px;font-size:12px;cursor:pointer}.comparisonCities input{accent-color:var(--city-color);width:15px;height:15px;margin:0}.comparisonCities i,.comparisonLegend i,.comparisonMapTitle i{width:8px;height:8px;display:inline-block;background:var(--city-color);flex-shrink:0}.comparisonCities small{font:italic 12px Georgia,serif;color:#8b7c62}.comparisonCities button{border:0;background:transparent;text-decoration:underline;min-height:28px;font-size:10px;padding:0 4px;color:#6a7159}
+.comparisonChartPanel{border:1px solid var(--rule);padding:22px 24px;background:#f9f5e9}
+.comparisonPanelHead{display:flex;justify-content:space-between;align-items:center;gap:15px}.comparisonPanelHead h2{font:400 27px 'Crimson Pro',Georgia,serif;margin:6px 0 0;color:var(--ink)}.comparisonPanelHead>span{font-size:10px;color:#8b7b61;text-align:right}
+.comparisonPlot{overflow-x:auto;padding:15px 0 0}.comparisonPlot svg{display:block;width:100%;min-width:560px;height:auto;background:transparent}.comparisonPlot text{font:12px 'DM Sans',sans-serif;fill:#7c715e}
+.comparisonLegend{display:flex;gap:12px 25px;flex-wrap:wrap;border-top:1px solid var(--rule-light);padding-top:15px}.comparisonLegend>div{display:flex;align-items:center;gap:7px;font-size:11px}.comparisonLegend b{font-weight:600;color:#454c3b}.comparisonLegend small{font-size:9px;color:#8a7b64}
+.comparisonMaps{margin-top:30px}.comparisonMaps .comparisonYear{width:100px}.surveyRange{display:block;width:100%;accent-color:#73876a;margin:20px 0;cursor:pointer}
+.comparisonMapGrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:20px}
+.comparisonMapGrid article{min-width:0;border:1px solid var(--rule);background:#f8f3e5;padding:13px}
+.comparisonMapTitle{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px}.comparisonMapTitle h3{display:flex;align-items:center;gap:8px;font:400 23px 'Crimson Pro',Georgia,serif;margin:0}.comparisonMapTitle button{border:0;background:transparent;padding:3px;font-size:10px}
+.surveyMap canvas{display:block;border:1px solid #b2a58b}.surveyMap>small{display:block;font-size:10px;line-height:1.5;color:#86765b;padding:9px 0 1px}
+.comparisonMapEmpty,.comparisonEmpty{min-height:190px;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:10px;padding:30px;font:17px/1.5 'Crimson Pro',Georgia,serif;color:#8a795d}.comparisonMapEmpty{background:#eae1ce;border:1px solid var(--rule-light);aspect-ratio:560/345;min-height:0}.comparisonEmpty h2,.comparisonEmpty p{margin:0}
+@media(max-width:850px){.packGrid{gap:10px}.packCard{padding:20px 14px}.packCard h3{font-size:24px}.marketTabs button{padding:12px 14px}.milestoneGrid{grid-template-columns:repeat(2,minmax(0,1fr))}.marketFolio .marketGrid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:600px){
+ .marketFolio,.comparisonPage{padding:20px 14px 50px}.marketHeader{gap:12px}.marketHeader>button{flex-basis:100%;justify-content:flex-start;border:0;padding:0;min-height:24px}.marketHeader h1,.comparisonHead h1{font-size:35px}.marketHeader p{font-size:15px}.marketHeader>.legacyPoints{font-size:16px;padding:9px}
+ .marketTabs{overflow-x:auto;margin:22px 0}.marketTabs button{flex:0 0 auto;padding:12px 11px;font-size:10px}.marketTabs button svg{display:block;width:13px}.marketSectionHead{gap:12px;align-items:flex-start}.marketSectionHead>span{font-size:13px;padding-left:10px}.marketSectionHead h2{font-size:25px}.marketSectionHead p{font-size:11px}
+ .packGrid{grid-template-columns:1fr}.packCard{padding:22px}.packSeal{height:90px;width:74px;margin-bottom:20px}.packSeal>span{left:19px}.packCard>p{min-height:0}.packOdds{max-width:280px}.packCard>small{max-width:300px}.packCard .primary{max-width:300px}
+ .marketFolio .marketGrid{grid-template-columns:1fr}.milestoneGrid{grid-template-columns:1fr}.ledgerIntro{align-items:flex-start;gap:10px}.ledgerIntro>strong{font-size:30px}.ledgerIntro small{display:block;font-size:10px}.packReveal{padding:38px 23px 24px}.packReveal h2{font-size:35px}.packGuarantees{gap:12px;font-size:11px}
+ .comparisonControls{flex-wrap:wrap;padding:14px;gap:14px}.comparisonControls .chronSelect{flex:1 1 100%;min-width:0}.comparisonYear{flex:1}.comparisonChartPanel{padding:17px 12px}.comparisonPanelHead h2{font-size:24px}.comparisonPanelHead>span{max-width:110px;line-height:1.6}.comparisonMapGrid{grid-template-columns:1fr}.comparisonLegend{gap:10px 18px}.comparisonLegend>div{flex-wrap:wrap}.comparisonHead>button{margin-bottom:20px}
+ .milestoneToast{bottom:12px;padding:11px;gap:8px;width:max-content}.milestoneToast b{font-size:17px}.milestoneToast span{font-size:10px}.milestoneToast>svg{width:18px;flex-shrink:0}
+}
+@media(prefers-reduced-motion:reduce){.packReveal{animation:none}}

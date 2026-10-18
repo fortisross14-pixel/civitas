@@ -58,7 +58,8 @@ export function pickParcel(g,zoneGrid,type,r,o){
     }else continue;
     let roads=0,touching=0;
     for(const [dx,dy] of DIRS4){const n=key(x+dx,y+dy);if(g.road[n])roads++;if(g.occ[n])touching++;}
-    let score=base+roads*.28+touching*.11+(type==='farm'?d*.02:-d*.022)+r()*.23;
+    // Plots on a street come first, so blocks line their streets; backlots fill later.
+    let score=base+roads*.28+touching*.11+(type==='farm'?d*.02:-d*.022)+r()*.23-(roads?0:.25);
     if(type==='trade'&&g.front[k])score+=.5;
     // Freshly designated districts fill first: the player just asked for them.
     if(base===3&&o.zoneOrder){const i=o.zoneOrder[k];if(i)score+=Math.max(0,1.2-(o.year-(o.zoneYears?.[i-1]??o.year))*.03);}
@@ -68,9 +69,11 @@ export function pickParcel(g,zoneGrid,type,r,o){
     // before steam; churches go where no parish reaches yet.
     if(f){
       const pol=Math.min(2,f.pollution[k]*(f.homeShield??1)),pre=Math.min(2,f.prestige[k]),ser=Math.min(2,f.service[k]),tra=Math.min(2,f.trade[k]);
-      if(type==='res')score+=pre*.5-pol*.6+(ser>=.35?.15:0);
-      else if(type==='trade')score+=tra*.4+pre*.2;
-      else if(type==='hotel')score+=pre*.6+tra*.2;
+      // Growth pull: parishes, schools and walls draw homes; markets and shops draw shops.
+      const hp=Math.min(2,f.homePull?.[k]||0),sp=Math.min(2,f.shopPull?.[k]||0);
+      if(type==='res')score+=pre*.5-pol*.6+(ser>=.35?.15:0)+hp*.85;
+      else if(type==='trade')score+=tra*.4+pre*.2+sp*1.1;
+      else if(type==='hotel')score+=pre*.6+tra*.2+sp*.3;
       else if(type==='craft')score+=-pre*.4+(o.year<1850&&g.nearWater?.[k]?.3:0);
       else if(type==='civic')score+=-ser*.6;
     }

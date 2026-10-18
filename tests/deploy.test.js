@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 const read=file=>readFileSync(new URL(`../${file}`,import.meta.url),'utf8');
 
-test('GitHub Pages workflow tests, builds, uploads, and deploys from main',()=>{
+test('GitHub Pages workflow runs quick checks, builds, and deploys from main',()=>{
   const yaml=read('.github/workflows/build.yml');
   assert.match(yaml,/push:\s*\n\s*branches:\s*\[main\]/);
   assert.match(yaml,/npm test/);
@@ -13,7 +13,8 @@ test('GitHub Pages workflow tests, builds, uploads, and deploys from main',()=>{
   assert.match(yaml,/actions\/deploy-pages@v4/);
   assert.match(yaml,/pages:\s*write/);
   assert.match(yaml,/id-token:\s*write/);
-  assert.doesNotMatch(yaml,/cache:\s*npm/,'npm caching must not be enabled until a lockfile is present');
+  assert.match(yaml,/cache:\s*npm/);
+  assert.match(yaml,/npm ci --no-audit --no-fund/);
 });
 
 test('GitHub Pages handles repository and account-root URLs',()=>{
