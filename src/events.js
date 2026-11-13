@@ -122,20 +122,20 @@ export const EVENT_INDEX=Object.fromEntries(EVENTS.map(e=>[e.id,e]));
 export const TRIAL_LEAD=8;
 export const TRIALS={
   1500:{title:'The Sweating Sickness',near:'res',text:'A fever runs through the crowded lanes faster than the physicians can walk.',
-    choices:[{label:'Hire physicians, cart away the dead',detail:'A heavy bill for the treasury.',funds:-.3},
-             {label:'Shut the doors and wait',detail:'6% of residents die; prosperity −3 for 20 years.',residents:-.06,effects:{prosperity:-3},years:20}]},
+    choices:[{label:'Hire physicians, cart away the dead',detail:'A bill for the treasury.',funds:-.15},
+             {label:'Shut the doors and wait',detail:'3% of residents die; prosperity −2 for 20 years.',residents:-.03,effects:{prosperity:-2},years:20}]},
   1750:{title:'The Great Fire',near:'res',text:'A baker’s oven sets a whole quarter of timber houses alight.',
-    choices:[{label:'Rebuild with the treasury',detail:'A heavy bill for the treasury.',funds:-.35},
-             {label:'Let the owners rebuild',detail:'5% of residents leave; housing −6% for 20 years.',residents:-.05,effects:{housing:-.06},years:20}]},
+    choices:[{label:'Rebuild with the treasury',detail:'A bill for the treasury.',funds:-.18},
+             {label:'Let the owners rebuild',detail:'3% of residents leave; housing −4% for 20 years.',residents:-.03,effects:{housing:-.04},years:20}]},
   1850:{title:'The Year of Revolutions',near:'civic',text:'Barricades go up in the market square; the crowd wants bread and a vote.',
-    choices:[{label:'Buy calm with bread and wages',detail:'A heavy bill for the treasury.',funds:-.35},
-             {label:'Call out the guard',detail:'4% of residents flee; prosperity −4 for 20 years.',residents:-.04,effects:{prosperity:-4},years:20}]},
+    choices:[{label:'Buy calm with bread and wages',detail:'A bill for the treasury.',funds:-.18},
+             {label:'Call out the guard',detail:'2% of residents flee; prosperity −2 for 20 years.',residents:-.02,effects:{prosperity:-2},years:20}]},
   1950:{title:'After the War',near:'res',text:'Whole streets are rubble and the returning soldiers need homes.',
-    choices:[{label:'Borrow for reconstruction',detail:'A heavy bill for the treasury.',funds:-.4},
-             {label:'Make do',detail:'6% of residents leave; housing −8% for 25 years.',residents:-.06,effects:{housing:-.08},years:25}]},
+    choices:[{label:'Borrow for reconstruction',detail:'A bill for the treasury.',funds:-.2},
+             {label:'Make do',detail:'3% of residents leave; housing −4% for 25 years.',residents:-.03,effects:{housing:-.04},years:25}]},
   2000:{title:'The Factory Gates Close',near:'craft',text:'The old works shut one by one, and the docks fall quiet.',
-    choices:[{label:'Retrain the workers',detail:'A heavy bill for the treasury.',funds:-.4},
-             {label:'Let the market decide',detail:'5% of residents leave; prosperity −3 for 20 years.',residents:-.05,effects:{prosperity:-3},years:20}]}
+    choices:[{label:'Retrain the workers',detail:'A bill for the treasury.',funds:-.2},
+             {label:'Let the market decide',detail:'3% of residents leave; prosperity −2 for 20 years.',residents:-.03,effects:{prosperity:-2},years:20}]}
 };
 export const TRIAL_ANSWERS={
   faith:{label:'The confraternities take care of it',effects:{faith:.06}},
@@ -178,7 +178,8 @@ export function eventSpot(city,near,r=Math.random){
 export function maybeEvent(city,year,blocked){
   if(!city.eventsOn||city.event||blocked||city.buildings.length<18)return null;
   // One historical question at a time (v1.6 omens are announced ahead).
-  if(omensOf(city).some(o=>!o.id.startsWith('disaster:')))return null;
+  // v2.0: Era Trials run alongside ordinary history.
+  if(omensOf(city).some(o=>!o.id.startsWith('disaster:')&&!o.id.startsWith('trial:')))return null;
   const seen=new Set(city.seenEvents||[]);
   const last=city.lastEventYear||0;
   if(year-last<12)return null;

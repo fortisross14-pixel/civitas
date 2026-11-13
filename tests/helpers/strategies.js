@@ -5,7 +5,7 @@
 //   and plays the cheapest card it can comfortably afford.
 import {makeCity,seedTown,advance,selectTurningPoint,stats,placeConstruction,playCard,cityOrigin} from '../../src/sim.js';
 import {needsOf,needAnswers} from '../../src/needs.js';
-import {omensOf,answerOmen} from '../../src/events.js';
+import {omensOf,answerOmen,eventDefinition,eventScale} from '../../src/events.js';
 import {buyCard,deckOf,rerollShop,rerollPrice} from '../../src/cards.js';
 import {scoreOf} from '../../src/score.js';
 import {cardDoctrines,DOCTRINE_IDS,doctrineState} from '../../src/doctrines.js';
@@ -48,7 +48,11 @@ function tendCity(c){
     const options=needAnswers(n.kind,c.year).filter(b=>b.cost<=c.funds).sort((a,b)=>a.cost-b.cost);
     for(const b of options){const built=buildNear(c,b.id,n.x,n.y);if(built){c=built;break;}}
   }
-  for(const o of omensOf(c))if(o.choice==null){const r=answerOmen(c,o.id,0);if(!r.error)c=r.city;}
+  // Era Trials: take the doctrine's own answer when the city has one (it is free), as a player would.
+  // A bill that would take more than half the treasury is declined (the harsher answer instead).
+  for(const o of omensOf(c))if(o.choice==null){let i=0;
+    if(o.id.startsWith('trial:')){const bill=Math.round(-(eventDefinition(o.id).choices[0].funds||0)*eventScale(c)*4);i=o.options.length>2?2:bill>c.funds/2?1:0;}
+    const r=answerOmen(c,o.id,i);if(!r.error)c=r.city;}
   return c;
 }
 function sensibleTurn(c){

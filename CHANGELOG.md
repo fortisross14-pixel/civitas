@@ -1,5 +1,41 @@
 # CIVITAS changelog
 
+## v2.0 — Runs and legacy (Milestone R3)
+
+Each city is now a run: choose who founds it and what they carry, play to 2030 or fall into Ruin, then see how it compares with your past runs and with real historical cities.
+
+**Fixed: doctrine cards in real games.** Since v1.9 the founding page gave each city a card pool of classic cards only, so the 40 doctrine-only cards were never offered outside the test harness. Cities now draw from an era card pool built from your profile.
+
+**Before a run** (Found a new city)
+- **Founders**: the Wanderer (+15% treasury), the Abbess (Faith), the Merchant Prince (Trade), and, once you reach tier 1 of their doctrine in a run or pay 120 LP, the Millwright, Painter, Scholar and Reeve. Each brings two starting cards, and their doctrine is three times as likely in the Market Hall.
+- **Artifacts** (bought once, kept): Founding Charter, Surveyor’s Chain, Merchant’s Scales, Weather Vane, Seal of Concord, Commune Bell, Brass Astrolabe, Founder’s Reliquary. 1 slot, +1 per Reliquary Vault rank.
+- **Boosters** (used up, two per city): Doctrine Bundle and Sealed Rare add cards to the first Market Hall at the usual price; Guild Purse adds 10% to the treasury.
+- **Hardship 0–10**: each level is prosperity −1, Market prices +4%, a higher Unrest line, neglect weighing 40% more, and +15% Legacy Points. Surviving Hardship *n* opens *n*+1.
+
+**During a run**
+- **Starter Pool and mastery**: a fresh profile draws from 59 of 94 cards (all Commons and Uncommons, plus Civic cards). Reaching tier 1 of a doctrine opens its Rares for good, and tier 2 its Epics and Patron, so a first run cannot reach Patrons or Wonders.
+- **Ruin**: Unrest builds while prosperity is below the line (40, +2 per Hardship) and with every unanswered history and declining district. At 100 the city falls into Ruin and the run ends early, at half Legacy Points.
+- **Era Trials**: before each era draft, history sets a trial announced 8 years ahead. You can pay or suffer; a doctrine at tier 2 also offers its own answer, which costs nothing and adds one card and better odds to the next draft.
+- Quiet years pass 1.2× faster (was 1.5×), so a run at 1× lasts about 16 minutes plus deciding time.
+
+**After a run**: a summary shows the score against your past runs, the population against Bruges, Florence, Venice, Amsterdam, Paris and London in the same year (approximate), Legacy Points earned, and cards opened by mastery.
+
+**Legacy Market**: a new *Founders & artifacts* tab (mastery, founders, artifacts, boosters) and four new upgrades: Larger Satchel (+1 hand), Expanded Council (+1 Decree slot), Market Favours (a free reroll each decade), Reliquary Vault (+1 artifact slot). Existing ranks are kept; in doctrine cities their percentages count at 25%, because they compound over 730 years.
+
+**Exit tests** (Milestone R, `tests/runs.test.js` and `npm run balance:runs`)
+- ✅ 3. Runs with different Founders share at most 40% of their cards.
+- ✅ 4. A first run cannot reach Patrons or Wonders.
+- ✅ 5. A meaningful choice comes at least every 90 s at 1×.
+- ✅ 6. The passive player survives Hardship 0 and is ruined by Hardship 5.
+- ✅ 7. The fifth run on one profile scores 1.58× the first (geometric mean of 48 seeds, `npm run balance:runs`; target 1.2–1.6×). Single runs swing widely: the median ratio is 2.2×.
+- ✅ 8. A run at 1× lasts 15–22 minutes.
+
+**R2 balance after Era Trials** (`npm run balance:doctrines`, 16 seeds): every focused doctrine scores 1.71–3.15× the spread player (exit 1 ✅). Exit 2 is open: People is 31% below the doctrine mean and Trade 27% above. On 8 seeds the same code gave People +4%, so 8-seed medians move about ±25% and a re-tune needs more seeds. Era Trials no longer hold back other history, a trial gains a doctrine's answer once that doctrine reaches tier 2, and the scripted players decline a bill larger than half their treasury.
+
+**Fixed**: six Civic building cards had no domain colour, which crashed the game the first time one was offered.
+
+**Tests**: 230 passing.
+
 ## v1.9.1 — Doctrines balanced (Milestone R2 exit tests pass)
 
 **Both R2 exit tests now pass on 8 seeds** (`npm run balance:doctrines -- --seeds 7,11,3,19,23,29,31,37`, four of the seeds never used for tuning):

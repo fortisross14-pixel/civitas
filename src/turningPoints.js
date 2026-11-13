@@ -98,7 +98,7 @@ export const SYNERGIES=[
  {id:'industrial_renaissance',name:'Industrial Renaissance',domain:'industry',needs:['master_craftsmen','hire_artists','industrial_revolution'],effects:{industry:.25,arts:.30},description:'Industrial craftsmanship and design flourish together.'},
  {id:'modernization',name:'Great Modernization',domain:'trade',needs:['urban_renewal','transport_network','civic_reform'],effects:{renewal:.35,services:.30},description:'Reconstruction and infrastructure create a highly efficient city.'}
 ];
-export const DOMAINS={population:{name:'Population',color:'#79966f',symbol:'◉'},industry:{name:'Industry',color:'#a5785c',symbol:'▥'},culture:{name:'Culture',color:'#9f78a5',symbol:'✦'},religion:{name:'Religion',color:'#ae955b',symbol:'✣'},education:{name:'Education',color:'#658da2',symbol:'◆'},trade:{name:'Commerce',color:'#b0925a',symbol:'▣'},wildcard:{name:'Wildcard',color:'#8c8396',symbol:'✧'}};
+export const DOMAINS={population:{name:'Population',color:'#79966f',symbol:'◉'},industry:{name:'Industry',color:'#a5785c',symbol:'▥'},culture:{name:'Culture',color:'#9f78a5',symbol:'✦'},religion:{name:'Religion',color:'#ae955b',symbol:'✣'},education:{name:'Education',color:'#658da2',symbol:'◆'},trade:{name:'Commerce',color:'#b0925a',symbol:'▣'},wildcard:{name:'Wildcard',color:'#8c8396',symbol:'✧'},civic:{name:'Civic',color:'#6f6a5c',symbol:'◇'}};
 export const RARITY_COLORS={common:'#8f948c',uncommon:'#61976f',rare:'#5e8db7',epic:'#9c72bf',legend:'#c3a04d'};
 
 const hash=(...a)=>{let h=2166136261;for(const v of a){for(const ch of String(v)){h^=ch.charCodeAt(0);h=Math.imul(h,16777619);}}return h>>>0;};

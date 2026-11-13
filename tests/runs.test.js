@@ -172,3 +172,7 @@ test('R exit 8: a run lasts 15–22 minutes at normal speed',()=>{
   const {quiet,years}=paced(),m=runMinutes(NORMAL_SPEED,quiet,years);
   assert.ok(m>=15&&m<=22,`${m.toFixed(1)} minutes (quiet share ${quiet.toFixed(2)})`);
 });
+test('every card in the doctrine pool has a known domain (the UI colours cards by it)',async()=>{
+  const {DOMAINS}=await import('../src/turningPoints.js');
+  for(const c of ERA_CARDS)assert.ok(DOMAINS[c.domain],`${c.id}: ${c.domain}`);
+});

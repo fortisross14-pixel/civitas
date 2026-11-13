@@ -7,7 +7,7 @@
 import {spawn} from 'node:child_process';
 import {fileURLToPath} from 'node:url';
 
-const STRATEGIES=['spread','focused:faith','focused:industry','focused:trade','focused:arts','focused:learning','focused:people'];
+const STRATEGIES=(process.env.STRATS||'spread,focused:faith,focused:industry,focused:trade,focused:arts,focused:learning,focused:people').split(',');
 const arg=process.argv.indexOf('--seeds'),seeds=arg>0?process.argv[arg+1]:'7,11,3,19';
 const self=fileURLToPath(import.meta.url);
 

@@ -568,6 +568,9 @@ function yearTick(city,prevYear){
   const knock=maybeEvent(city,year,nextMilestoneOf(city)===year);
   const lead=(doctrineFlags(city).omenLead||OMEN_LEAD)+perk(city,'omenLeadBonus');
   // v2.0: Era Trials, set before each era draft in doctrine cities.
+  // A trial announced before the city had a tier-2 doctrine gains that doctrine's answer once it does.
+  if(doctrinesOn(city)){const d=deepestDoctrine(city,2);if(d)city.omens=omensOf(city).map(o=>{if(!/^trial:\d+:none$/.test(o.id))return o;const id=o.id.replace(/none$/,d),def=eventDefinition(id);
+    return {...o,id,options:def.choices.map(c=>({label:c.label,detail:c.detail}))};});}
   if(doctrinesOn(city)){const draft=nextMilestoneOf(city),trial=draft&&maybeTrial(city,year,draft,deepestDoctrine(city,2));
     if(trial){announceOmen(city,trial,year,draft-1-year);city.seenEvents=[...(city.seenEvents||[]),`trial:${draft}`];
       city.events.push({year,type:'omen',trial:true,eventId:trial.id,x:trial.x,y:trial.y,text:`Era Trial: ${trial.title} (${draft-1}). ${trial.text} Decide how the city will meet it.`});}}

@@ -13,7 +13,7 @@ its exit test is measured, not judged by eye.
 | **B** | Card economy: Market Hall, hand, stack, merge | ✅ Core done in v1.5; tuning and drag-to-play remain |
 | **C** | Pressure: needs on the map, telegraphed history, score | ✅ Shipped in v1.6; closed in v1.7 by era drafts |
 | **D** | Art pass: roofs, landmarks, living countryside, era styles | ✅ Core shipped in v1.7; transitions and card art remain |
-| **R** | **Doctrines and runs: roguelite deckbuilding** (design: [`CARD_DESIGN.md`](CARD_DESIGN.md)) | **In progress**: R1 (v1.8) ✅; R2 (v1.9.1) ✅, exit tests 1–2 pass on 8 seeds; R3 next |
+| **R** | **Doctrines and runs: roguelite deckbuilding** (design: [`CARD_DESIGN.md`](CARD_DESIGN.md)) | **R1–R3 built** (v1.8–v2.0); see R3 status for exit test 7 |
 | **E** | Modes: era challenges | Planned; meta items moved into R; daily map dropped (offline game) |
 | **F** | Polish: game feel, audio, onboarding, copy | Planned (runs alongside C–E) |
 
@@ -139,7 +139,7 @@ everything. The full design is in [`CARD_DESIGN.md`](CARD_DESIGN.md).
 
 **Status (v1.9.1): R2 done.** Both exit tests pass on 8 seeds: every focused doctrine scores 1.35–1.86× the spread player, and all six are within +18% / −14% of their mean. Era Trials move to R3.
 
-**R3 next:** Era Trials; Founders; Starter Pool and doctrine mastery unlocks; Legacy Market artifacts and boosters; Ruin; end-of-run summary with past-run and historical-city comparison; optional Hardships.
+**Status (v2.0): R3 built.** Founders, artifacts, boosters, four rule-bending upgrades, Starter Pool and doctrine mastery, Ruin, Hardships 0–10, Era Trials, and the end-of-run summary (past runs and historical cities). Exit tests 3–6 and 8 pass in `tests/runs.test.js`; 7 passes in `npm run balance:runs`: The fifth run on one profile scores 1.58× the first (geometric mean of 48 seeds, `npm run balance:runs`; target 1.2–1.6×). Single runs swing widely: the median ratio is 2.2×. **Open:** after Era Trials, R2 exit 2 (doctrines within ±20%) fails on 16 seeds (People −31%, Trade +27%); exit 1 still passes (every focused doctrine at least 1.71× spread). A re-tune needs 16+ seeds, because 8-seed medians move about ±25%.
 
 **Status (v1.9), R2 first pass (superseded):**
 - ✅ 90 cards (14 building cards, 15 new, 7 hybrids), 6 Patrons, 6 Wonders, power budget, Renown, focus perk, `npm run balance:doctrines`.
