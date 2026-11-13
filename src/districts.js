@@ -7,6 +7,8 @@ import {W,H,CELLS,DIRS4,key,kx,ky,within,waterGrid,rand,hash,POP_SCALE} from './
 import {wallCells} from './growth.js';
 
 const MIN_BUILDINGS=10;
+import {doctrineFlags} from './doctrines.js';
+const minBuildings=city=>doctrineFlags(city).districtMin||MIN_BUILDINGS;
 const SAINTS=['St. Agnes','St. Olaf','St. Nicholas','St. Margaret','St. Brigid','St. Martin','St. Anne','St. Lawrence','St. Giles','St. Ursula','St. Peter','St. Clement'];
 function circleCells(cx,cy,r){
   const out=new Set(),steps=Math.ceil(r*2*Math.PI*3);let last=null;
@@ -81,7 +83,7 @@ function nameFor(city,info,buildings,taken,containsOrigin,r){
 // ({id,name,anchor:[x,y],founded}) — details are derived by districtDetails().
 export function updateDistricts(city,origin){
   const {piece,pieces}=districtPieces(city),previous=Array.isArray(city.districts)?city.districts:[];
-  const qualifying=pieces.filter(p=>p.buildings.length>=MIN_BUILDINGS);
+  const min=minBuildings(city),qualifying=pieces.filter(p=>p.buildings.length>=min);
   const owner=new Map();
   for(const d of previous){const [x,y]=d.anchor||[];if(!within(x,y))continue;let p=piece[key(x,y)];
     if(p<0)for(const [dx,dy] of DIRS4){if(within(x+dx,y+dy)&&piece[key(x+dx,y+dy)]>=0){p=piece[key(x+dx,y+dy)];break;}}
@@ -89,7 +91,7 @@ export function updateDistricts(city,origin){
   const taken=new Set([...owner.values()].map(d=>d.name)),out=[];
   // The founding crossroads sits on main roads; take the nearest piece to it.
   let originPiece=-1,best=Infinity;
-  for(let y=Math.max(0,origin.y-4);y<=Math.min(H-1,origin.y+4);y++)for(let x=Math.max(0,origin.x-4);x<=Math.min(W-1,origin.x+4);x++){const p=piece[key(x,y)];if(p<0||pieces[p].buildings.length<MIN_BUILDINGS)continue;const d=Math.hypot(x-origin.x,y-origin.y)-pieces[p].buildings.length*.001;if(d<best){best=d;originPiece=p;}}
+  for(let y=Math.max(0,origin.y-4);y<=Math.min(H-1,origin.y+4);y++)for(let x=Math.max(0,origin.x-4);x<=Math.min(W-1,origin.x+4);x++){const p=piece[key(x,y)];if(p<0||pieces[p].buildings.length<min)continue;const d=Math.hypot(x-origin.x,y-origin.y)-pieces[p].buildings.length*.001;if(d<best){best=d;originPiece=p;}}
   for(const p of qualifying){
     const kept=owner.get(p.id);if(kept){out.push(kept);continue;}
     const oldest=p.buildings.reduce((a,b)=>(b.born||9999)<(a.born||9999)?b:a,p.buildings[0]);

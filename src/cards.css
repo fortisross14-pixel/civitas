@@ -78,3 +78,26 @@
 .handEmpty{flex:1 0 220px}
 .handEmpty~.hcard.slot{display:none}
 .handTray{flex:0 0 auto}
+
+/* v1.8 doctrines */
+.hcardLevel{background:var(--domain);color:#fff;padding:0 5px;font-weight:700}
+.offerTools{display:flex;gap:6px;margin-top:6px}
+.offerTools button{flex:1;min-height:40px;font-size:13px;border:1px solid #c9bea8;background:#fbf7eb;cursor:pointer}
+.offerTools button.sel{background:#e8eef1;border-color:#4d6a7a}
+.doctrinePanel{display:flex;flex-direction:column;gap:8px}
+.doctrineRow{border:1px solid #d6cdbb;border-left:4px solid var(--doc);background:#fffdf6;padding:8px 10px;display:flex;flex-direction:column;gap:4px;opacity:.8}
+.doctrineRow.active{opacity:1;background:#fffaf0}
+.doctrineHead{display:flex;justify-content:space-between;align-items:center}
+.doctrineHead b{display:inline-flex;align-items:center;gap:6px;font-size:15px}
+.doctrineGlyph{color:var(--doc);font-size:17px}
+.doctrineCount{font:600 18px Georgia,serif;color:var(--doc)}
+.doctrinePips{display:flex;gap:4px}
+.doctrinePips i{flex:1;display:block;height:18px;line-height:16px;text-align:center;font-style:normal;font-size:11px;padding:0;border:1px solid #d6cdbb;color:#6b6252;box-sizing:border-box}
+.doctrinePips i.on{background:var(--doc);border-color:var(--doc);color:#fff;font-weight:700}
+.doctrineRow ul{margin:2px 0 0;padding-left:16px;font-size:13px;line-height:1.35}
+.doctrineRow small{font-size:12px;color:#5d5547;line-height:1.35}
+.doctrineRow .doctrineWeak{color:#8a4a32}
+.decreeRow{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:4px 0;border-top:1px solid #ece4d3;font-size:14px}
+.decreeRow button{min-height:40px;margin:0;width:auto!important;padding:0 12px}
+.doctrineChip{align-self:center;min-height:36px;margin:6px auto 0;padding:0 14px;border:1px solid var(--doc);background:#fffdf6;color:var(--doc);font-size:13px;font-weight:600;cursor:pointer;border-radius:18px}
+@media(max-width:760px){.doctrineChip{min-height:44px}}

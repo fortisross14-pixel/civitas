@@ -9,8 +9,8 @@ export function scoreOf(city){const s=city?.score;return s&&Number.isFinite(s.to
 export function yearlyPoints(s){return Math.max(0,(s.population||0)/1000*Math.max(0,s.prosperity||0)/NEUTRAL_PROSPERITY);}
 
 // Add one year of points. Mutates `city` (a working copy in the year tick).
-export function scoreYear(city,s){
-  const prev=scoreOf(city),pts=yearlyPoints(s);
+export function scoreYear(city,s,bonus={mult:1,add:0}){
+  const prev=scoreOf(city),pts=yearlyPoints(s)*(bonus.mult||1)+(bonus.add||0);
   city.score={...prev,earned:prev.earned+pts,total:prev.total+pts,last:pts,penalties:prev.penalties};
   return pts;
 }

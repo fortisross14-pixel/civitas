@@ -4,6 +4,8 @@ import {DOMAIN_AXIS} from './character.js';
 // and pure run modifiers. All numerical values are provisional balance targets.
 export const TURNING_POINTS=20;
 export const STACK_FACTORS=[1,.5,.25];
+// v1.8 era (doctrine) cities: copies level a card up instead: Lv2 ×1.5, Lv3 ×2.
+export const LEVEL_FACTORS=[1,.5,.5];
 export const HAND_EXTRA=.35;
 export function handTotal(list){
  const pos=list.filter(v=>v>0).sort((a,b)=>b-a),neg=list.filter(v=>v<0);
@@ -119,25 +121,25 @@ export function modifiers(city){
  // filtering figures out first would cause temporaries to expire too early.
  // Cards played from the hand expire by year instead (pick.until).
  const tpIndex=[];let n=0;for(const p of picks)tpIndex.push(p.via==='hand'?-1:n++);const count=n;
- const hand={};
+ const hand={},era=turningMode(city)==='era';
  for(let i=0;i<picks.length;i++){
-  const c=CARD_INDEX[picks[i].cardId];if(!c||c.kind==='instant')continue;
+  const c=CARD_INDEX[picks[i].cardId];if(!c||c.kind==='instant'||picks[i].retired)continue;
   const expires=picks[i].via==='hand'?Number.isFinite(picks[i].until)&&city.year>picks[i].until:c.durationPoints&&tpIndex[i]+c.durationPoints<count;
   if(expires)continue;
   // Exceptional building cards grant a site-specific project, not a free
   // abstract bonus. Effects activate only after the player places a project.
   if(c.building && !(city.landmarks||[]).some(l=>l.source===`choice:${i}`))continue;
   // v1.5: repeat copies of one card stack with diminishing strength (1, 1/2, 1/4).
-  const copy=picks.slice(0,i).filter(p=>p.cardId===picks[i].cardId).length,factor=STACK_FACTORS[copy]??0;
+  const copy=picks.slice(0,i).filter(p=>p.cardId===picks[i].cardId&&!p.retired).length,factor=(era?LEVEL_FACTORS:STACK_FACTORS)[copy]??0;
   for(const [k,v] of Object.entries(c.effects)){if(k==='popInstant'||k==='masterpieces')continue;
-   if(picks[i].via==='hand'){(hand[k]||=[]).push(v*factor);continue;}
+   if(picks[i].via==='hand'&&!era){(hand[k]||=[]).push(v*factor);continue;}
    result[k]=(result[k]||0)+v*factor;}
  }
  // v1.5: for each effect, the strongest hand-played card counts fully and the
  // rest count at HAND_EXTRA, so a big hand helps without compounding wildly.
  for(const [k,list] of Object.entries(hand))result[k]=(result[k]||0)+handTotal(list);
  for(const f of (city.figures||[]))for(const [k,v] of Object.entries(f.effects||{}))result[k]=(result[k]||0)+v;
- for(const synergy of activeSynergies(city))for(const [k,v] of Object.entries(synergy.effects))result[k]=(result[k]||0)+v;
+ if(!era)for(const synergy of activeSynergies(city))for(const [k,v] of Object.entries(synergy.effects))result[k]=(result[k]||0)+v;
  // Temporary cards accumulate once selected and expire after N more selections.
  return result;
 }
@@ -158,7 +160,7 @@ const baseWeight={common:12,uncommon:8,rare:4,epic:2,legend:.45};
 function drawFrom(pool,roll,selected,weightFn){let items=pool.filter(c=>!selected.has(c.id));if(!items.length)return null;let total=items.reduce((n,c)=>n+Math.max(.01,weightFn(c)),0),target=roll()*total;
  for(const c of items){target-=Math.max(.01,weightFn(c));if(target<=0)return c;}return items.at(-1);
 }
-export function generateOffers(city,index,reroll=0,extra=[]){
+export function generateOffers(city,index,reroll=0,extra=[],count=3){
  const owned=resolvedCards(city),dominance={};for(const c of owned)dominance[c.domain]=(dominance[c.domain]||0)+1;
  const leading=Object.keys(dominance).sort((a,b)=>dominance[b]-dominance[a]||a.localeCompare(b))[0];
  const roll=rng(hash(city.seed,index,reroll,owned.map(c=>c.id).join('|'),(city.figures||[]).map(f=>f.id).join('|')));
@@ -168,9 +170,9 @@ export function generateOffers(city,index,reroll=0,extra=[]){
  const selected=new Set(),slots=[];
  // Slot 1: purposeful combo offer when possible; early game still genuinely random.
  const synergyCandidates=available.filter(c=>(c.requiresAny&&c.requiresAny.length)||(leading&&leading!=='wildcard'&&c.domain===leading));
- const approaches=[synergyCandidates.length>=2&&roll()<.66?synergyCandidates:available,available,available];
- for(let slot=0;slot<3;slot++){
-  const candidates=approaches[slot].filter(c=>!selected.has(c.id));
+ const approaches=[synergyCandidates.length>=2&&roll()<.66?synergyCandidates:available,available,available,available];
+ for(let slot=0;slot<count;slot++){
+  const candidates=approaches[Math.min(slot,approaches.length-1)].filter(c=>!selected.has(c.id));
   const pool=candidates.length?candidates:available.filter(c=>!selected.has(c.id));
   const item=drawFrom(pool,roll,selected,c=>{
    let weight=baseWeight[c.rarity]||1;
@@ -193,7 +195,7 @@ export function generateOffers(city,index,reroll=0,extra=[]){
  const featured=available.filter(c=>c.kind==='figure'&&!c.generic&&city.turning?.featuredFigures?.includes(c.figureId));
  if(featured.length&&roll()<.48){
   const candidate=drawFrom(featured,roll,new Set(),c=>({rare:3,epic:2,legend:1}[c.rarity]||1));
-  if(candidate&&!slots.includes(candidate.id)&&slots.length>=3)slots[2]=candidate.id;
+  if(candidate&&!slots.includes(candidate.id)&&slots.length>=3)slots[slots.length-1]=candidate.id;
  }
  return slots;
 }

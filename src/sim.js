@@ -15,6 +15,7 @@ import {spatial,spatialEffects,freezeSpatial,thawSpatial} from './spatial.js';
 import {POLICIES,POLICY_INDEX,activePolicies,policyIssue,policyEffects,policyHook} from './policies.js';
 import {updateDistricts,districtDetails} from './districts.js';
 import {characterOf} from './character.js';
+import {doctrineState,doctrineFlags,scoreBonus,cardType,decreesInPlay,decreeSlots,cardLevel,MAX_LEVEL,doctrinesOn} from './doctrines.js';
 import {deckOf,normalizeDeck,restockShop,shopDue,playedCopies,MAX_COPIES,YEARS_PER_INTERVAL} from './cards.js';
 export {POLICIES,POLICY_INDEX,activePolicies,policyIssue,districtDetails};
 // Influence fields for the map layers and the building inspector.
@@ -257,7 +258,7 @@ const softStack=x=>x>0?x/(1+.35*x):x;
 export function businessCycle(city){
   const seed=(city?.seed|0)>>>0,period=18+(seed>>>3)%13,phase=((seed>>>7)%1000)/1000;
   const t=(Number(city?.year)||FIRST_YEAR)+(Number(city?.month)||0)/12;
-  return Math.sin(2*Math.PI*((t-FIRST_YEAR)/period+phase))*.12;
+  return Math.sin(2*Math.PI*((t-FIRST_YEAR)/period+phase))*.12*(doctrineFlags(city).cycleMult||1);
 }
 // Passive building effects only count structures that actually exist.
 export function cityEffects(city){
@@ -278,6 +279,8 @@ export function cityEffects(city){
   }
   add('transport',Math.min(4,(city.bridges||[]).length)*.03);
   for(const [k,v] of Object.entries(townCenterLevel(city)?.effects||{}))add(k,v);
+  // v1.8 doctrine tiers.
+  for(const [k,v] of Object.entries(doctrineState(city).effects))add(k,v);
   return effects;
 }
 function rememberLoss(city,b,year,reason){
@@ -448,7 +451,7 @@ function monthGrowth(city,year,r,perks){
     const weights=[
       ['res',needsHousing?5*taxDemand(city,'res')*pull.res:0],
       ['trade',needsJobs?2.1*taxDemand(city,'trade')*(1+cycle*2)*(1+.5*(city.character?.shares?.trade||0))*pull.trade:zonedFloor(s,'trade',city)],
-      ['craft',needsJobs?1.75*Math.max(.2,1+(perks.industrialDevelopment||0))*taxDemand(city,'craft')*(1+cycle*2)*(1+.5*(city.character?.shares?.industry||0)):zonedFloor(s,'craft',city)],
+      ['craft',(doctrineFlags(city).craftBoost||1)*(needsJobs?1.75*Math.max(.2,1+(perks.industrialDevelopment||0))*taxDemand(city,'craft')*(1+cycle*2)*(1+.5*(city.character?.shares?.industry||0)):zonedFloor(s,'craft',city))],
       ['farm',s.farms<Math.max(2,Math.floor(s.population/(900*K)))?1:0],
       // Civic buildings follow population, and parishes spring up where homes lack services.
       ['civic',s.civic<Math.max(1,Math.floor(s.population/(1800*K)))?.9:s.serviceCoverage<60?.5+(60-s.serviceCoverage)/60:0],
@@ -560,13 +563,16 @@ function yearTick(city,prevYear){
   const resolved=resolveDueOmens(city,year);
   for(const r of resolved)if(!r.answered)penalize(city,'undecided',UNANSWERED_YEARS_LOST,1,`${eventDefinition(r.omen.id)?.title||'A decision'}: no decision`,year);
   const knock=maybeEvent(city,year,nextMilestoneOf(city)===year);
-  if(knock&&year+OMEN_LEAD<END_YEAR){announceOmen(city,knock,year,OMEN_LEAD);city.seenEvents=[...(city.seenEvents||[]),knock.id];city.lastEventYear=year;
-    city.events.push({year,type:'omen',eventId:knock.id,x:knock.x,y:knock.y,text:`${knock.title} is coming (${year+OMEN_LEAD}). ${knock.text} Decide how the city will meet it.`});}
+  const lead=doctrineFlags(city).omenLead||OMEN_LEAD;
+  if(knock&&year+lead<END_YEAR){announceOmen(city,knock,year,lead);city.seenEvents=[...(city.seenEvents||[]),knock.id];city.lastEventYear=year;
+    city.events.push({year,type:'omen',eventId:knock.id,x:knock.x,y:knock.y,text:`${knock.title} is coming (${year+lead}). ${knock.text} Decide how the city will meet it.`});}
   // v1.6: districts that lack services, a market or clean air show a need; neglected ones decline.
   const declines=advanceNeeds(city,cityFields(city),year);
   if(declines.length){const all=Math.max(1,city.buildings.filter(b=>b.type==='res').length);
     for(const d of declines)penalize(city,'decline',DECLINE_YEARS_LOST,3*d.homes/all,`${d.name} declined`,year);}
-  scoreYear(city,stats(city));
+  {const sNow=stats(city),flags=doctrineFlags(city);
+   if(flags.interest&&city.funds>0){const gain=Math.min(city.funds*flags.interest,annualRevenue(city,sNow).total*.25);city.funds+=gain;}
+   scoreYear(city,sNow,scoreBonus(city,sNow));}
   // v1.5: the Market Hall restocks every decade.
   if(year<END_YEAR&&shopDue(city)){const r=restockShop(city,stats(city));city.deck=r.deck;city.events.push({year,type:'shop',text:'The Market Hall has new cards for sale.'});}
   if(year%5!==0&&year!==END_YEAR)return;
@@ -677,8 +683,8 @@ export function eligibleFigures(city){return FIGURES.map(f=>({...f,id:`figure:${
 export function rerollTurningPoint(city){
  const pending=city.turning?.pending,used=city.turning?.rerollsUsed||0,limit=2+Math.round(city.legacyBonuses?.extraRerolls||0);
  if(!pending||used>=limit||city.finished)return city;
- const reroll=used+1,options=generateOffers(city,pending.index,reroll,eligibleFigures(city));
- if(options.length!==3)return city;
+ const want=pending.options.length,reroll=used+1,options=generateOffers(city,pending.index,reroll,eligibleFigures(city),want);
+ if(options.length!==want)return city;
  return {...city,turning:{...city.turning,rerollsUsed:reroll,pending:{...pending,options}},events:[...city.events,{year:city.year,type:'reroll',text:`Turning Point options were reconsidered (${reroll}/${limit} rerolls used).`}]};
 }
 export function selectTurningPoint(city,cardId){
@@ -694,12 +700,24 @@ export function playCard(city,uid){
   if(city.awaitingCenter)return {city,error:'Found the town first.'};
   const deck=deckOf(city),held=deck.hand.find(c=>c.uid===uid),card=held&&CARD_INDEX[held.cardId];
   if(!card)return {city,error:'That card is not in your hand.'};
-  if(playedCopies(city,card.id)>=MAX_COPIES)return {city,error:`${card.name} is already stacked ${MAX_COPIES} times.`};
+  if(doctrinesOn(city)){
+    const level=cardLevel(city,card.id),type=cardType(card);
+    if(level>=MAX_LEVEL)return {city,error:`${card.name} is already at level ${MAX_LEVEL}.`};
+    if(level===0&&(type==='decree'||type==='patron')&&decreesInPlay(city).length>=decreeSlots(city))return {city,error:`All ${decreeSlots(city)} Decree slots are full. Retire a Decree first.`};
+  }else if(playedCopies(city,card.id)>=MAX_COPIES)return {city,error:`${card.name} is already stacked ${MAX_COPIES} times.`};
   const record={index:-1,year:city.year,cardId:card.id,via:'hand',uid};
   if(card.durationPoints)record.until=city.year+card.durationPoints*YEARS_PER_INTERVAL;
   const stack=playedCopies(city,card.id)+1;
   const next=applyChoice({...city,deck:{...deck,hand:deck.hand.filter(c=>c.uid!==uid),played:deck.played+1}},card,record,`${card.name} played from the hand${stack>1?` (stack ×${stack})`:''}.`);
   return {city:next,error:null,stack};
+}
+// v1.8: retire a Decree or Patron to free its slot. Its copies stop counting.
+export function retireCard(city,cardId){
+  const card=CARD_INDEX[cardId];if(!card)return {city,error:'Unknown card.'};
+  if(!['decree','patron'].includes(cardType(card)))return {city,error:'Only Decrees and Patrons take slots.'};
+  if(!cardLevel(city,cardId))return {city,error:`${card.name} is not in play.`};
+  const choices=city.turning.choices.map(p=>p.cardId===cardId&&!p.retired?{...p,retired:city.year}:p);
+  return {city:{...city,turning:{...city.turning,choices},events:[...city.events,{year:city.year,type:'card',cardId,text:`${card.name} was retired, freeing a Decree slot.`}]},error:null};
 }
 function applyChoice(city,card,record,label){
   const cardId=card.id;
@@ -734,7 +752,7 @@ function applyChoice(city,card,record,label){
 function nextMilestoneOf(city){return turningSchedule(city)[currentTurningIndex(city)+(city.turning?.skipped||0)];}
 function openTurningPoint(city){
   const index=currentTurningIndex(city)+(city.turning?.skipped||0);
-  city.turning.pending={index,year:city.year,options:generateOffers(city,index,0,eligibleFigures(city))};
+  city.turning.pending={index,year:city.year,options:generateOffers(city,index,0,eligibleFigures(city),doctrineFlags(city).draftOptions||3)};
   city.events.push({year:city.year,type:'turning_point',text:`Turning Point ${index+1}: three futures await your choice.`});
 }
 function finishCity(city){
@@ -1056,7 +1074,7 @@ export function normalizeCity(input){
   let tpSeen=0;const choices=Array.isArray(input.turning?.choices)?input.turning.choices.filter(v=>getOpportunity(v?.cardId)&&(v.via==='hand'||tpSeen++<(input.turning?.mode==='era'?5:TURNING_POINTS))):[];
   const tpChoices=choices.filter(v=>v.via!=='hand').length;
   let pending=input.turning?.pending;
-  if(pending&&(!Array.isArray(pending.options)||pending.options.length!==3||pending.options.some(id=>!getOpportunity(id))))pending=null;
+  if(pending&&(!Array.isArray(pending.options)||pending.options.length<3||pending.options.length>4||pending.options.some(id=>!getOpportunity(id))))pending=null;
   // Old saves resume at the next future checkpoint; past opportunities are not granted retroactively.
   const campaignYears=turningSchedule(input);
   const skipped=Math.max(0,campaignYears.filter(y=>y<=c.year).length-tpChoices-(pending?1:0));

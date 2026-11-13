@@ -5,6 +5,7 @@
 // policies) for a number of years. Events are era-bound, seen once per city,
 // and carry a map position so the story is written onto the map.
 import {rand,hash,POP_SCALE as K} from './geo.js';
+import {doctrineFlags} from './doctrines.js';
 
 const WATER=['river','coast','estuary','lake'];
 // near: which buildings anchor the caption on the map.
@@ -198,9 +199,10 @@ export function answerOmen(city,id,index){
 // Apply one response to a working copy (shared by resolveEvent and deadlines).
 export function applyEventChoice(next,ev,index,year){
   const def=eventDefinition(ev.id),choice=def?.choices?.[index];if(!choice)return null;
-  const scale=eventScale(next);
-  if(choice.residents)next.residents=Math.max(40*K,Math.round(next.residents*(1+choice.residents)));
-  if(choice.funds)next.funds=choice.funds>0?next.funds+Math.round(choice.funds*scale*4):next.funds-Math.min(Math.max(0,next.funds),Math.round(-choice.funds*scale*4));
+  const scale=eventScale(next),df=doctrineFlags(next);
+  const residents=choice.residents<0&&df.harshHalved?choice.residents/2:choice.residents;
+  if(residents)next.residents=Math.max(40*K,Math.round(next.residents*(1+residents)));
+  if(choice.funds)next.funds=choice.funds>0?next.funds+Math.round(choice.funds*scale*4):next.funds-Math.min(Math.max(0,next.funds),Math.round(-choice.funds*scale*4*(df.eventFundsMult||1)));
   next.effectsTimed=[...(next.effectsTimed||[])].filter(t=>t.until>year);
   if(choice.effects&&choice.years)next.effectsTimed.push({source:ev.id,label:`${def.title}: ${choice.label}`,until:year+choice.years,effects:choice.effects,...(choice.fireproof?{fireproof:true}:{})});
   return choice;

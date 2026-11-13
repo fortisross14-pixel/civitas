@@ -52,8 +52,8 @@
   .workspace button{min-height:44px}
 }
 @media(max-width:430px){
-  /* Narrow phones: keep 1×, 4× and MAX. */
-  .controls button[title^="2×"]{display:none}
+  /* Narrow phones: keep 1×, 2× and MAX. */
+  .controls button[title^="½×"]{display:none}
 }
 @media(max-width:760px){.sidebar .rail{width:100%}}
 

@@ -7,6 +7,7 @@
 import {CARDS,CARD_INDEX,SYNERGIES} from './turningPoints.js';
 import {eraCost,annualRevenue} from './economy.js';
 import {DOMAIN_AXIS} from './character.js';
+import {doctrineFlags,doctrineWeight,cardDoctrines,doctrinesOn,cardLevel,MAX_LEVEL} from './doctrines.js';
 
 export const RARITIES=['common','uncommon','rare','epic'];
 export const RARITY_LABEL={common:'Common',uncommon:'Uncommon',rare:'Rare',epic:'Epic'};
@@ -38,7 +39,9 @@ export function normalizeDeck(input){
   }
   const maxUid=Math.max(0,...hand.map(c=>c.uid),...(shop?.offers||[]).map(o=>o.uid));
   const num=k=>Math.max(0,Math.floor(Number(d[k])||0));
-  return {hand,shop,nextUid:Math.max(maxUid+1,Math.floor(Number(d.nextUid)||1)),bought:num('bought'),sold:num('sold'),merged:num('merged'),played:num('played'),spent:num('spent')};
+  const banished=(Array.isArray(d.banished)?d.banished:[]).filter(id=>CARD_INDEX[id]).slice(0,20);
+  if(shop&&Number.isInteger(d.shop?.locked)&&shop.offers.some(o=>o.uid===d.shop.locked))shop.locked=d.shop.locked;
+  return {banished,hand,shop,nextUid:Math.max(maxUid+1,Math.floor(Number(d.nextUid)||1)),bought:num('bought'),sold:num('sold'),merged:num('merged'),played:num('played'),spent:num('spent')};
 }
 
 // Hand size grows with the Town Center: 5, 6 at level 3, 7 at level 5.
@@ -50,7 +53,12 @@ export function priceUnit(city,s){
   if(!s)return floor;
   return Math.max(floor,5*annualRevenue(city,s).total);
 }
-export const cardPrice=(card,unit)=>Math.max(1,Math.round(RARITY_PRICE[card.rarity]*unit));
+export const cardPrice=(card,unit,city=null)=>{
+  // v1.8: Trade 2 makes the Market Hall 10% cheaper; Learning 8 halves Learning cards.
+  const f=city?doctrineFlags(city):{},learning=f.learningDiscount&&cardDoctrines(card).includes('learning')?f.learningDiscount:1;
+  return Math.max(1,Math.round(RARITY_PRICE[card.rarity]*unit*(f.priceMult||1)*learning));
+};
+export const BANISHES_PER_RUN=3;
 
 // Rarity odds drift from 60/28/10/2 in 1300 to 40/32/20/8 by 2030.
 export function rarityWeights(year){
@@ -72,6 +80,7 @@ export function shopEligible(card,city){
   if(Array.isArray(city.turning?.cardPool)&&!city.turning.cardPool.includes(card.id))return false;
   if(card.geographies&&!card.geographies.includes(city.type))return false;
   if(copiesOf(city,card.id)>=MAX_COPIES)return false;
+  if((deckOf(city).banished||[]).includes(card.id))return false;
   if(card.requiresAny){
     const owned=new Set([...(city.turning?.choices||[]).map(p=>p.cardId),...deckOf(city).hand.map(c=>c.cardId)]);
     if(!card.requiresAny.some(id=>owned.has(id)))return false;
@@ -89,7 +98,7 @@ function drawCard(city,roll,{minRarity='common',exclude=new Set()}={}){
   let total=present.reduce((n,r)=>n+w[r],0),t=roll()*total,rarity=present.at(-1);
   for(const r of present){t-=w[r];if(t<=0){rarity=r;break;}}
   const items=pool.filter(c=>c.rarity===rarity),owned=new Set((city.turning?.choices||[]).map(p=>p.cardId));
-  const weight=c=>1+(SYNERGIES.some(s=>s.needs.includes(c.id)&&s.needs.some(id=>id!==c.id&&owned.has(id)))?1.5:0)+1.5*(city.character?.shares?.[DOMAIN_AXIS[c.domain]]||0);
+  const weight=c=>doctrineWeight(city,c)*(1+(SYNERGIES.some(s=>s.needs.includes(c.id)&&s.needs.some(id=>id!==c.id&&owned.has(id)))?1.5:0)+1.5*(city.character?.shares?.[DOMAIN_AXIS[c.domain]]||0));
   total=items.reduce((n,c)=>n+weight(c),0);t=roll()*total;
   for(const c of items){t-=weight(c);if(t<=0)return c;}
   return items.at(-1);
@@ -98,12 +107,16 @@ function drawCard(city,roll,{minRarity='common',exclude=new Set()}={}){
 // Restock the Market Hall. Called at founding and every RESTOCK_YEARS.
 export function restockShop(city,s,salt=0){
   const deck={...deckOf(city)},roll=rng(hash(city.seed,city.year,'shop',salt,deck.nextUid));
-  const unit=priceUnit(city,s),offers=[],exclude=new Set();
-  for(let i=0;i<SHOP_SIZE;i++){
+  const unit=priceUnit(city,s),offers=[],exclude=new Set(),f=doctrineFlags(city);
+  // v1.8 Trade 4: an offer locked last decade stays (repriced), and one extra offer is drawn.
+  const kept=!salt&&deck.shop?.locked?deck.shop.offers.find(o=>o.uid===deck.shop.locked):null;
+  if(kept&&CARD_INDEX[kept.cardId]){exclude.add(kept.cardId);offers.push({...kept,price:cardPrice(CARD_INDEX[kept.cardId],unit,city)});}
+  const size=SHOP_SIZE+(f.extraOffer||0);
+  for(let i=offers.length;i<size;i++){
     const c=drawCard({...city,deck},roll,{exclude});if(!c)break;
-    exclude.add(c.id);offers.push({uid:deck.nextUid++,cardId:c.id,price:cardPrice(c,unit)});
+    exclude.add(c.id);offers.push({uid:deck.nextUid++,cardId:c.id,price:cardPrice(c,unit,city)});
   }
-  deck.shop={year:city.year,offers,packPrice:Math.round(PACK_PRICE*unit),packBought:false,rerolls:salt?deck.shop?.rerolls||0:0,unit};
+  deck.shop={year:city.year,offers,packPrice:Math.round(PACK_PRICE*unit),packBought:false,rerolls:salt?deck.shop?.rerolls||0:0,unit,locked:null};
   return {...city,deck};
 }
 export function shopDue(city){const shop=deckOf(city).shop;return !shop||city.year-shop.year>=RESTOCK_YEARS;}
@@ -160,7 +173,7 @@ export function sellCard(city,uid){
   const b=blocked(city);if(b)return fail(city,b);
   const deck=deckOf(city),card=deck.hand.find(c=>c.uid===uid);
   if(!card)return fail(city,'That card is not in your hand.');
-  const refund=Math.round(card.paid*SELL_SHARE);
+  const refund=Math.round(card.paid*(doctrineFlags(city).sellShare||SELL_SHARE));
   const next={...deck,hand:deck.hand.filter(c=>c.uid!==uid),sold:deck.sold+1};
   return {city:log({...city,funds:(city.funds||0)+refund,deck:next},`Sold ${CARD_INDEX[card.cardId].name} for ${refund}.`),error:null,refund};
 }
@@ -179,11 +192,12 @@ export function mergeCards(city,uids){
   const b=blocked(city)||mergeIssue(city,uids);if(b)return fail(city,b);
   const deck=deckOf(city),cards=uids.map(u=>deck.hand.find(c=>c.uid===u)),defs=cards.map(c=>CARD_INDEX[c.cardId]);
   const target=RARITIES[RARITIES.indexOf(defs[0].rarity)+1];
-  const count={};for(const d of defs)count[d.domain]=(count[d.domain]||0)+1;
+  const era=doctrinesOn(city),tag=d=>era?(cardDoctrines(d)[0]||'civic'):d.domain;
+  const count={};for(const d of defs)count[tag(d)]=(count[tag(d)]||0)+1;
   const domain=Object.keys(count).sort((a,b)=>count[b]-count[a]||a.localeCompare(b))[0];
   const remaining={...city,deck:{...deck,hand:deck.hand.filter(c=>!uids.includes(c.uid))}};
   const pool=CARDS.filter(c=>c.rarity===target&&shopEligible(c,remaining));
-  const preferred=pool.filter(c=>c.domain===domain),options=preferred.length?preferred:pool;
+  const preferred=pool.filter(c=>era?(cardDoctrines(c).includes(domain)||(domain==='civic'&&!cardDoctrines(c).length)):c.domain===domain),options=preferred.length?preferred:pool;
   if(!options.length)return fail(city,`No ${target} card is available in this era yet.`);
   const roll=rng(hash(city.seed,city.year,'merge',uids.join(',')));
   const pick=options[Math.floor(roll()*options.length)];
@@ -199,7 +213,7 @@ export function cardUpkeepShare(city){
     if(p.via!=='hand')continue;
     if(Number.isFinite(p.until)&&city.year>p.until)continue;
     const c=CARD_INDEX[p.cardId];if(!c||c.kind==='instant')continue;
-    share+=RARITY_UPKEEP[c.rarity]||0;
+    share+=(RARITY_UPKEEP[c.rarity]||0)*(cardDoctrines(c).includes('arts')?doctrineFlags(city).artsUpkeep||1:1);
   }
   return share;
 }
@@ -210,3 +224,20 @@ export function collectionsFor(city,cardId){
   const have=new Set([...(city.turning?.choices||[]).map(p=>p.cardId),...deckOf(city).hand.map(c=>c.cardId)]);
   return SYNERGIES.filter(s=>s.needs.includes(cardId)).map(s=>({id:s.id,name:s.name,description:s.description,size:s.needs.length,have:s.needs.filter(id=>have.has(id)).length,complete:s.needs.every(id=>(city.turning?.choices||[]).some(p=>p.cardId===id))}));
 }
+
+// v1.8: banish an offer: it leaves the shop and never returns this run (3 per run).
+export function banishOffer(city,uid){
+  const deck=deckOf(city),offer=deck.shop?.offers.find(o=>o.uid===uid);
+  if(!offer)return fail(city,'That card is no longer for sale.');
+  const banished=deck.banished||[];if(banished.length>=BANISHES_PER_RUN)return fail(city,`You have used all ${BANISHES_PER_RUN} banishes this run.`);
+  const next={...deck,banished:[...banished,offer.cardId],shop:{...deck.shop,offers:deck.shop.offers.filter(o=>o.uid!==uid),locked:deck.shop.locked===uid?null:deck.shop.locked}};
+  return {city:log({...city,deck:next},`${CARD_INDEX[offer.cardId].name} was banished from the Market Hall for this run.`),error:null};
+}
+// v1.8 Trade 4: lock one offer so it is still for sale after the next restock.
+export function lockOffer(city,uid){
+  if(!doctrineFlags(city).lock)return fail(city,'Locking offers needs Trade tier 4.');
+  const deck=deckOf(city);if(!deck.shop?.offers.some(o=>o.uid===uid))return fail(city,'That card is no longer for sale.');
+  const locked=deck.shop.locked===uid?null:uid;
+  return {city:{...city,deck:{...deck,shop:{...deck.shop,locked}}},error:null,locked};
+}
+export function canLevelUp(city,cardId){return doctrinesOn(city)&&cardLevel(city,cardId)>0&&cardLevel(city,cardId)<MAX_LEVEL;}

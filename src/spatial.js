@@ -9,6 +9,8 @@
 import {W,H,CELLS,within,key,waterGrid,POP_SCALE} from './geo.js';
 import {townCenterLevel} from './construction.js';
 import {insideWall} from './growth.js';
+import {doctrineFlags} from './doctrines.js';
+const RELIGIOUS_KINDS=new Set(['chapel','monastery','shrine']);
 
 const PRESTIGE={monument:1,museum:1,workshop:.8,garden:.8,university:.7,shrine:.6,monastery:.5,guildhall:.4,town_hall:.4,library:.4,boulevard:.4,research_center:.4};
 const SERVICE={chapel:9,school:9,clinic:9,hospital:11,town_hall:9,library:9,civic_center:11,monastery:9,shrine:8,university:8,waterworks:10,research_center:8};
@@ -54,12 +56,13 @@ function computeSpatial(city,effects,policies){
   const green=new Float32Array(CELLS),pollution=new Float32Array(CELLS),prestige=new Float32Array(CELLS),service=new Float32Array(CELLS),trade=new Float32Array(CELLS),homePull=new Float32Array(CELLS),shopPull=new Float32Array(CELLS);
   const water=waterGrid(city.type),year=city.year||1300;
   const dirty=pollutionStrength(year)*Math.max(.2,1+(effects.pollution||0));
+  const df=doctrineFlags(city),faithReach=1+(df.faithReach||0),prestigeReach=df.prestigeReach||1;
   for(const b of city.buildings){
     if(b.vacant)continue;const x=Math.floor(b.x),y=Math.floor(b.y);if(!within(x,y))continue;
     if(b.type==='craft')stamp(pollution,x,y,4,dirty*.55);
     if(b.special){
-      if(PRESTIGE[b.special])stamp(prestige,x,y,6,PRESTIGE[b.special]);
-      if(SERVICE[b.special])stamp(service,x,y,SERVICE[b.special],1.4);
+      if(PRESTIGE[b.special]){stamp(prestige,x,y,6*prestigeReach,PRESTIGE[b.special]);if(df.artsGreen)stamp(green,x,y,5,1);}
+      if(SERVICE[b.special])stamp(service,x,y,SERVICE[b.special]*(RELIGIOUS_KINDS.has(b.special)?faithReach:1),1.4);
       if(TRADE[b.special])stamp(trade,x,y,TRADE[b.special],1.2);
       if(GREEN[b.special])stamp(green,x,y,GREEN[b.special],1);
       if(HOME_PULL[b.special])stamp(homePull,x,y,...HOME_PULL[b.special]);

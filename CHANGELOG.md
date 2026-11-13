@@ -1,5 +1,28 @@
 # CIVITAS changelog
 
+## v1.8 — Doctrines (Milestone R, step 1: the engine) and ~20-minute runs
+
+Design: `docs/CARD_DESIGN.md`. Everything below applies to cities founded in the game (era mode); older saves and engine/balance runs are unchanged.
+
+**Pacing** (new `src/pacing.js`)
+- The clock still ticks once per month, but **Normal (1×) is now one year every 1.5 s**, so a run takes ≈ 18 minutes (it was ≈ 49). Speeds: ½× (a year every 3 s), 1×, 2×, MAX.
+- Quiet decades (no history waiting, no need past half) pass 1.5× faster. While the Market Hall or the Needs panel is open, time runs at ¼ speed instead of pausing. The status line says which.
+
+**Doctrines** (new `src/doctrines.js`)
+- Every card now belongs to a doctrine (Faith, Industry, Trade, Arts, Learning, People) or is Civic. Holy Scholars, Trading Empire and Tourist Paradise count for two doctrines. Basic buildings count toward their doctrine while they stand (Chapel → Faith, Market Square → Trade…).
+- Holding **2, 4, 6 and 8** cards of a doctrine unlocks its tiers (24 effects). Each doctrine's tier 4 bends a different system: churches count as markets (Faith), workshops pay a levy and count as markets (Industry), an extra and lockable shop offer (Trade), landmark prestige reaches twice as far (Arts), four-card era drafts plus 10-year foresight from tier 2 (Learning), and districts forming at 7 buildings (People). Each doctrine has a weakness, from tithes to smoke to crowding.
+- **Levels replace diminishing copies:** playing a card again levels it up (Lv2 ×1.5, Lv3 ×2). The "strongest card counts, the rest at 35%" rule is gone in these cities, and so are the fixed three-card synergies; doctrine tiers replace them.
+- **Decree slots:** Decrees and Patrons take one of 8 slots (9 at Town Center level 3, 10 at level 5). **Retire** a Decree to free its slot. Buildings and Events don't take slots; instant cards apply once and don't count.
+- **Merging** three cards of one doctrine gives a rarer card of that doctrine.
+- **Market Hall:** offers lean toward the doctrines you hold; **Banish** removes a card for the rest of the run (3 per run); Trade tier 4 can **Lock** an offer through the next restock; Trade 6 sells cards back at full price and earns interest on the treasury; Learning 8 halves Learning card prices.
+- **UI:** a **Doctrine** section (tier progress, active effects, next tier, weakness, Decree slots with Retire), a lead-doctrine chip above the hand, and doctrine glyphs, types and levels on card faces.
+
+**Measured baseline** (scripted players, 2 seeds; focus vs spread is R2's exit test)
+- Focused players: Learning 37k–65k, People 24k–42k, Trade 21k–26k, Arts 15k–20k, Faith 14k–18k, Industry 13k–18k. Spread: 17k–55k.
+- Focus does **not** yet reliably beat spread. Learning and People cards compound over 700 years and swamp tier bonuses, and doctrines are too thin to reach tiers 6–8 (Learning has only 3 Decrees open in 1300). That's what R2's 12-card doctrines and power budget are for.
+
+**Tests**: new `tests/doctrines.test.js` (10: tags, era gating, tier counting, levels, slots and retire, doctrine merge, banish and lock, rule-benders, tier-8 score, pacing). Full suite: 210 passing.
+
 ## v1.7 — Era drafts and a living map (Milestone C closed, Milestone D art pass)
 
 **Era drafts**
