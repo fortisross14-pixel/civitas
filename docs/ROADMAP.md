@@ -14,7 +14,7 @@ its exit test is measured, not judged by eye.
 | **C** | Pressure: needs on the map, telegraphed history, score | ✅ Shipped in v1.6; closed in v1.7 by era drafts |
 | **D** | Art pass: roofs, landmarks, living countryside, era styles | ✅ Core shipped in v1.7; transitions and card art remain |
 | **R** | **Doctrines and runs: roguelite deckbuilding** (design: [`CARD_DESIGN.md`](CARD_DESIGN.md)) | **Next** |
-| **E** | Modes and meta: challenges, daily map, share | Planned; its meta items moved into R |
+| **E** | Modes: era challenges | Planned; meta items moved into R; daily map dropped (offline game) |
 | **F** | Polish: game feel, audio, onboarding, copy | Planned (runs alongside C–E) |
 
 ---
@@ -139,7 +139,7 @@ everything. The full design is in [`CARD_DESIGN.md`](CARD_DESIGN.md).
 
 - **R1 Engine:** 6 doctrines plus Civic; tiers at 2/4/6/8, each doctrine's tier 4 bending a different system (needs, history, shop, drafts, districts); 8 Decree slots; card levels Lv1–3 replace diminishing stacks and the 35% guard; doctrine merging; shop lock and banish.
 - **R2 Content:** 90 cards plus 6 Wonders (evolutions); 10 hybrids; doctrine-coloured card frames (absorbs D's card-art item); doctrine tracker; Era Trials.
-- **R3 Runs and meta:** Founders; Starter Pool and doctrine mastery unlocks; Ruin; end-of-run summary; Hardships 1–10; Legacy Market sells options, not stats (absorbs E's "legacy unlocks").
+- **R3 Runs and meta:** ~20-minute runs (Normal = 1 year per 1.5 s, quiet decades faster, decisions slow time instead of pausing it); Founders; Starter Pool and doctrine mastery unlocks; Legacy Market sells starting artifacts, boosters and permanent upgrades (existing ranks kept), so every playthrough starts stronger; Ruin; end-of-run summary comparing with past runs and historical cities; optional Hardships 1–10.
 
 **Exit tests:**
 - focused ≥ 1.3× spread on the median of 4 seeds,
@@ -147,14 +147,16 @@ everything. The full design is in [`CARD_DESIGN.md`](CARD_DESIGN.md).
 - runs with different Founders share ≤ 40% of their cards,
 - the first run can't reach Patrons or Wonders,
 - a meaningful choice every ≤ 90 s at 1×,
-- no Ruin for the passive bot at Hardship 0.
+- no Ruin for the passive bot at Hardship 0,
+- the 5th run on one profile scores 1.2–1.6× the 1st,
+- a run at Normal speed lasts 15–22 minutes.
 
 ## Milestone E: modes and meta
 
 Addresses: *legacy makes runs easier, not different*, *no single score to compare*, *timelapse is under-used*.
 
 1. **Era challenges** (10 minutes, clear win/lose), e.g. *"Industrialise without losing the Old Town"*.
-2. **Daily map**: same seed and geography for everyone, one score.
+2. ~~**Daily map**~~: dropped. CIVITAS is offline and solo; comparison is with your past runs and historical cities (see Milestone R).
 3. **End-of-run timelapse** plays automatically with the score and the top 5 moments; export as video or GIF to share.
 4. **Legacy unlocks cards into the shop pool** (and geographies, starting cards, challenge rules) instead of +capacity bonuses.
 
