@@ -13,7 +13,8 @@ its exit test is measured, not judged by eye.
 | **B** | Card economy: Market Hall, hand, stack, merge | ✅ Core done in v1.5; tuning and drag-to-play remain |
 | **C** | Pressure: needs on the map, telegraphed history, score | ✅ Shipped in v1.6; closed in v1.7 by era drafts |
 | **D** | Art pass: roofs, landmarks, living countryside, era styles | ✅ Core shipped in v1.7; transitions and card art remain |
-| **E** | Modes and meta: challenges, daily map, share, legacy unlocks | Planned |
+| **R** | **Doctrines and runs: roguelite deckbuilding** (design: [`CARD_DESIGN.md`](CARD_DESIGN.md)) | **Next** |
+| **E** | Modes and meta: challenges, daily map, share | Planned; its meta items moved into R |
 | **F** | Polish: game feel, audio, onboarding, copy | Planned (runs alongside C–E) |
 
 ---
@@ -129,6 +130,24 @@ Addresses: *houses are flat rectangles*, *landmarks don't stand out*, *countrysi
 **Exit test:** before/after screenshots at zoom 1 and 3 in 1400, 1700, 1900 and 2030; landmarks findable without labels.
 
 ---
+
+## Milestone R: doctrines and runs (next)
+
+CIVITAS is a roguelite with cards: each run is one city, and you win by
+committing to a build (a Holy City, a Forge City…), not by owning one of
+everything. The full design is in [`CARD_DESIGN.md`](CARD_DESIGN.md).
+
+- **R1 Engine:** 6 doctrines plus Civic; tiers at 2/4/6/8, each doctrine's tier 4 bending a different system (needs, history, shop, drafts, districts); 8 Decree slots; card levels Lv1–3 replace diminishing stacks and the 35% guard; doctrine merging; shop lock and banish.
+- **R2 Content:** 90 cards plus 6 Wonders (evolutions); 10 hybrids; doctrine-coloured card frames (absorbs D's card-art item); doctrine tracker; Era Trials.
+- **R3 Runs and meta:** Founders; Starter Pool and doctrine mastery unlocks; Ruin; end-of-run summary; Hardships 1–10; Legacy Market sells options, not stats (absorbs E's "legacy unlocks").
+
+**Exit tests:**
+- focused ≥ 1.3× spread on the median of 4 seeds,
+- the six doctrines within ±20% of their mean,
+- runs with different Founders share ≤ 40% of their cards,
+- the first run can't reach Patrons or Wonders,
+- a meaningful choice every ≤ 90 s at 1×,
+- no Ruin for the passive bot at Hardship 0.
 
 ## Milestone E: modes and meta
 
