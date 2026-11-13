@@ -1,8 +1,10 @@
 import {FIGURES,FIGURE_INDEX} from './legacy.js';
 import {INITIAL_DEVELOPMENT,developmentOf,applyPulse,advanceDevelopment,accumulateDevelopment,productivityGrowth,developmentCapacity} from './development.js';
-import {BASIC_INDEX,BASIC_BUILDINGS,BUILDING_EFFECTS,SPECIAL_BUILDINGS,basicsForYear,TOWN_CENTER_LEVELS,TOWN_CENTER_MAX,townCenterLevel} from './construction.js';
+import {BASIC_INDEX,BASIC_BUILDINGS,BUILDING_EFFECTS,SPECIAL_BUILDINGS,basicsForYear,TOWN_CENTER_LEVELS,TOWN_CENTER_MAX,townCenterLevel,basicLimit,CITYWIDE_COPIES} from './construction.js';
 export {TOWN_CENTER_LEVELS,TOWN_CENTER_MAX,townCenterLevel};
-import {maybeEvent,disasterEvent,eventDefinition,eventScale,timedEffects,fireproofed,eventSpot} from './events.js';
+import {maybeEvent,disasterEvent,eventDefinition,eventScale,timedEffects,fireproofed,eventSpot,announceOmen,resolveDueOmens,applyEventChoice,normalizeOmens,omensOf,OMEN_LEAD,AFTERMATH_YEARS} from './events.js';
+import {advanceNeeds,normalizeNeeds} from './needs.js';
+import {scoreYear,penalize,normalizeScore,emptyScore,DECLINE_YEARS_LOST,UNANSWERED_YEARS_LOST} from './score.js';
 import {CARD_INDEX,TURNING_POINTS,turningYears,generateOffers,modifiers,activeSynergies,resolvedCards,currentTurningIndex} from './turningPoints.js';
 import {W,H,CELLS,DIRS4,clamp,within,key,kx,ky,rand,hash,terrain,waterGrid,footprint,POP_SCALE} from './geo.js';
 const K=POP_SCALE;
@@ -39,7 +41,7 @@ export function styleAt(year){return year<1500?'timber':year<1750?'stone':year<1
 export const HISTORICAL_INTERVAL=50;
 const ZONE_CODES=Object.keys(ZONES);
 
-export function makeCity(name='New Valdoria',type='river',seed=23451){return {schema:10,taxes:{...DEFAULT_TAXES},budget:{current:emptyBudget(FIRST_YEAR),last:null},growthCarry:0,roadNeed:0,walls:[],bridges:[],routes:[],month:0,development:{...INITIAL_DEVELOPMENT},productivityStock:720,culturalCapital:0,sacredCapital:0,knowledgeCapital:0,projects:[],nextProjectId:1,turning:{choices:[],pending:null,skipped:0,rerollsUsed:0},figures:[],legacyBonuses:{},landmarks:[],id:`${Date.now()}-${(seed>>>0).toString(36)}`,name:String(name).trim().slice(0,40)||'Unnamed City',type:['river','plain','coast','estuary','lake'].includes(type)?type:'river',seed:seed|0,year:FIRST_YEAR,turns:0,zones:[],buildings:[],roads:[],history:[],events:[],sites:[],snapshots:[],nextBuildingId:1,policies:{},momentumUntil:0,momentum:0,funds:400,residents:120*K,finished:false};}
+export function makeCity(name='New Valdoria',type='river',seed=23451){return {schema:10,taxes:{...DEFAULT_TAXES},budget:{current:emptyBudget(FIRST_YEAR),last:null},growthCarry:0,roadNeed:0,walls:[],bridges:[],routes:[],month:0,development:{...INITIAL_DEVELOPMENT},productivityStock:720,culturalCapital:0,sacredCapital:0,knowledgeCapital:0,projects:[],nextProjectId:1,turning:{choices:[],pending:null,skipped:0,rerollsUsed:0},needs:[],omens:[],score:emptyScore(),figures:[],legacyBonuses:{},landmarks:[],id:`${Date.now()}-${(seed>>>0).toString(36)}`,name:String(name).trim().slice(0,40)||'Unnamed City',type:['river','plain','coast','estuary','lake'].includes(type)?type:'river',seed:seed|0,year:FIRST_YEAR,turns:0,zones:[],buildings:[],roads:[],history:[],events:[],sites:[],snapshots:[],nextBuildingId:1,policies:{},momentumUntil:0,momentum:0,funds:400,residents:120*K,finished:false};}
 // A zone plan is immutable between player edits: cache its raster and area counts.
 // Full campaigns previously rebuilt 7,200 tile lookups for every single stats call.
 const zoningCache=new WeakMap();
@@ -262,7 +264,10 @@ export function cityEffects(city){
   const effects={...modifiers(city)};
   for(const [k,v] of Object.entries(policyEffects(city)))effects[k]=(effects[k]||0)+v;
   for(const [k,v] of Object.entries(timedEffects(city)))effects[k]=(effects[k]||0)+v;
+  const copies={};
   for(const b of city.buildings||[]){if(!b.special)continue;
+    // v1.6: extra copies of a basic building serve locally, not city-wide.
+    if(BASIC_INDEX[b.special]&&(copies[b.special]=(copies[b.special]||0)+1)>CITYWIDE_COPIES)continue;
     for(const [name,value] of Object.entries(BUILDING_EFFECTS[b.special]||{}))effects[name]=(effects[name]||0)+value;
   }
   const add=(k,v)=>{effects[k]=(effects[k]||0)+v;};
@@ -326,12 +331,12 @@ function localEvent(city,year){
     city.landmarks=(city.landmarks||[]).filter(l=>!gone.has(l.id));
     for(const b of removed)rememberLoss(city,b,year,kind==='fire'?'Urban fire':'Local flooding');
     city.residents=Math.round(city.residents*(kind==='fire'?.975:.965));
-    city.event=disasterEvent(city,kind,year,{x:center.x+.5,y:center.y+.5});
+    {const ask=disasterEvent(city,kind,year,{x:center.x+.5,y:center.y+.5});if(ask)announceOmen(city,ask,year,AFTERMATH_YEARS);}
     city.events.push({year,type:kind,impact:removed.length,x:center.x+.5,y:center.y+.5,text:`${kind==='fire'?'A destructive urban fire':'Severe flooding'} damaged ${removed.length} buildings. Streets remain, but reconstruction will take time.`});
   }else if(kind==='epidemic'){
     const lost=Math.max(5*K,Math.round(city.residents*(.035+r()*.06)*(policyHook(city,'epidemic')??1)));
     city.residents=Math.max(40*K,city.residents-lost);
-    const spot=eventSpot(city,'res',r);city.event=disasterEvent(city,kind,year,spot);
+    const spot=eventSpot(city,'res',r);{const ask=disasterEvent(city,kind,year,spot);if(ask)announceOmen(city,ask,year,AFTERMATH_YEARS);}
     city.events.push({year,type:kind,impact:lost,x:spot.x,y:spot.y,text:`An epidemic took approximately ${lost.toLocaleString('en-US')} lives and temporarily disrupted urban growth.`});
   }else{
     city.momentumUntil=year+25;city.momentum=.12;
@@ -413,6 +418,10 @@ function monthTick(city){
   freezeSpatial(city,spatial(city,perks,activePolicies(city)));
   try{monthGrowth(city,year,r,perks);}finally{thawSpatial(city);}
 }
+// v1.6: land the player zoned for workshops or shops gets built on even when
+// the city has enough jobs, until about a sixth of it is in use. Player
+// cities only (needsOn), so engine and balance runs keep the v1.5 economy.
+function zonedFloor(s,type,city){if(!city?.needsOn)return 0;const zoned=s.zoned?.[type]||0,built=type==='craft'?s.industry:s.commerce;return zoned>=6&&built*6<zoned&&built<Math.max(3,s.population/(type==='craft'?400:300)/K)?.6:0;}
 function monthGrowth(city,year,r,perks){
   let s=stats(city);
   const cache=growthGrids(city),zoning=zonedGrid(city),zg=zoning.grid,g=cache.g,o={...growthOptions(city,s),zoneOrder:zoning.order,zoneYears:city.zones.map(z=>Number(z.year)||FIRST_YEAR)};
@@ -438,8 +447,8 @@ function monthGrowth(city,year,r,perks){
     const needsHousing=s.population/Math.max(1,s.capacity)>=.83,needsJobs=s.jobs<workforceDemand*1.1;
     const weights=[
       ['res',needsHousing?5*taxDemand(city,'res')*pull.res:0],
-      ['trade',needsJobs?2.1*taxDemand(city,'trade')*(1+cycle*2)*(1+.5*(city.character?.shares?.trade||0))*pull.trade:0],
-      ['craft',needsJobs?1.75*Math.max(.2,1+(perks.industrialDevelopment||0))*taxDemand(city,'craft')*(1+cycle*2)*(1+.5*(city.character?.shares?.industry||0)):0],
+      ['trade',needsJobs?2.1*taxDemand(city,'trade')*(1+cycle*2)*(1+.5*(city.character?.shares?.trade||0))*pull.trade:zonedFloor(s,'trade',city)],
+      ['craft',needsJobs?1.75*Math.max(.2,1+(perks.industrialDevelopment||0))*taxDemand(city,'craft')*(1+cycle*2)*(1+.5*(city.character?.shares?.industry||0)):zonedFloor(s,'craft',city)],
       ['farm',s.farms<Math.max(2,Math.floor(s.population/(900*K)))?1:0],
       // Civic buildings follow population, and parishes spring up where homes lack services.
       ['civic',s.civic<Math.max(1,Math.floor(s.population/(1800*K)))?.9:s.serviceCoverage<60?.5+(60-s.serviceCoverage)/60:0],
@@ -547,7 +556,17 @@ function yearTick(city,prevYear){
   // Districts are re-surveyed every five years (and when the first one forms).
   if(year%5===0||!(city.districts||[]).length)city.districts=updateDistricts(city,cityOrigin(city));
   city.character=characterOf(stats(city),year);
-  const knock=maybeEvent(city,year,nextMilestoneOf(city)===year);if(knock)city.event=knock;
+  // v1.6: history is announced ahead and decided while the clock runs.
+  const resolved=resolveDueOmens(city,year);
+  for(const r of resolved)if(!r.answered)penalize(city,'undecided',UNANSWERED_YEARS_LOST,1,`${eventDefinition(r.omen.id)?.title||'A decision'}: no decision`,year);
+  const knock=maybeEvent(city,year,nextMilestoneOf(city)===year);
+  if(knock&&year+OMEN_LEAD<END_YEAR){announceOmen(city,knock,year,OMEN_LEAD);city.seenEvents=[...(city.seenEvents||[]),knock.id];city.lastEventYear=year;
+    city.events.push({year,type:'omen',eventId:knock.id,x:knock.x,y:knock.y,text:`${knock.title} is coming (${year+OMEN_LEAD}). ${knock.text} Decide how the city will meet it.`});}
+  // v1.6: districts that lack services, a market or clean air show a need; neglected ones decline.
+  const declines=advanceNeeds(city,cityFields(city),year);
+  if(declines.length){const all=Math.max(1,city.buildings.filter(b=>b.type==='res').length);
+    for(const d of declines)penalize(city,'decline',DECLINE_YEARS_LOST,3*d.homes/all,`${d.name} declined`,year);}
+  scoreYear(city,stats(city));
   // v1.5: the Market Hall restocks every decade.
   if(year<END_YEAR&&shopDue(city)){const r=restockShop(city,stats(city));city.deck=r.deck;city.events.push({year,type:'shop',text:'The Market Hall has new cards for sale.'});}
   if(year%5!==0&&year!==END_YEAR)return;
@@ -564,7 +583,7 @@ function yearTick(city,prevYear){
     }
   }
   const after=stats(city);
-  city.history.push({year,population:after.population,buildings:after.buildings,prosperity:after.prosperity,gdp:after.gdp,gdpPerCapita:after.gdpPerCapita,housingPressure:after.housingPressure,infrastructureEfficiency:after.infrastructureEfficiency,unemployment:after.unemployment,treasury:Math.round(city.funds),densityPerZone:after.densityPerZone,heritage:after.heritage,development:{...city.development},...Object.fromEntries(Object.entries(city.development).map(([k,v])=>[`${k}Score`,v])),productivityStock:city.productivityStock,culturalCapital:city.culturalCapital,sacredCapital:city.sacredCapital,knowledgeCapital:city.knowledgeCapital,culturalPrestige:after.culturalPrestige,tourismAppeal:after.tourismAppeal,religiousInfluence:after.religiousInfluence,educationIndex:after.educationIndex,pollution:after.pollution,turningPoints:currentTurningIndex(city)});
+  city.history.push({year,scoreTotal:Math.round(city.score?.total||0),population:after.population,buildings:after.buildings,prosperity:after.prosperity,gdp:after.gdp,gdpPerCapita:after.gdpPerCapita,housingPressure:after.housingPressure,infrastructureEfficiency:after.infrastructureEfficiency,unemployment:after.unemployment,treasury:Math.round(city.funds),densityPerZone:after.densityPerZone,heritage:after.heritage,development:{...city.development},...Object.fromEntries(Object.entries(city.development).map(([k,v])=>[`${k}Score`,v])),productivityStock:city.productivityStock,culturalCapital:city.culturalCapital,sacredCapital:city.sacredCapital,knowledgeCapital:city.knowledgeCapital,culturalPrestige:after.culturalPrestige,tourismAppeal:after.tourismAppeal,religiousInfluence:after.religiousInfluence,educationIndex:after.educationIndex,pollution:after.pollution,turningPoints:currentTurningIndex(city)});
   if(year%HISTORICAL_INTERVAL===0||year===END_YEAR)city.snapshots.push(captureSnapshot(city));
 }
 // A Turning Point awards a commission, NEVER instant construction. This is also
@@ -631,7 +650,7 @@ export function placeConstruction(city,kindOrProject,x,y){
  if(!project&&!basic)return {city,error:'Unknown or locked construction'};
  if(basic){
   if(city.year<basic.start||city.year>basic.end)return {city,error:`${basic.name} is available only during the ${basic.era} age`};
-  if(city.buildings.filter(b=>b.special===basic.kind).length>=2)return {city,error:`Maximum of two ${basic.name} buildings per city`};
+  {const limit=basicLimit(city);if(city.buildings.filter(b=>b.special===basic.kind).length>=limit)return {city,error:`Maximum of ${limit} ${basic.name} buildings: one per district`};}
   if(city.funds<basic.cost)return {city,error:`Need ${basic.cost.toLocaleString()} treasury to build ${basic.name}`};
  }
  const kind=project?.kind||basic.kind;
@@ -785,11 +804,9 @@ export function seedTown(city,at=null){
 // Answer the historical event that paused the clock.
 export function resolveEvent(city,index){
   const ev=city.event,def=eventDefinition(ev?.id);if(!ev||!def)return city;
-  const choice=def.choices[index];if(!choice)return city;
-  const scale=eventScale(city),next={...city,event:null,events:[...city.events],effectsTimed:[...(city.effectsTimed||[])].filter(t=>t.until>city.year),seenEvents:[...(city.seenEvents||[])]};
-  if(choice.residents)next.residents=Math.max(40*K,Math.round(city.residents*(1+choice.residents)));
-  if(choice.funds)next.funds=choice.funds>0?city.funds+Math.round(choice.funds*scale*4):city.funds-Math.min(Math.max(0,city.funds),Math.round(-choice.funds*scale*4));
-  if(choice.effects&&choice.years)next.effectsTimed.push({source:ev.id,label:`${def.title}: ${choice.label}`,until:city.year+choice.years,effects:choice.effects,...(choice.fireproof?{fireproof:true}:{})});
+  if(!def.choices[index])return city;
+  const next={...city,event:null,events:[...city.events],seenEvents:[...(city.seenEvents||[])]};
+  const choice=applyEventChoice(next,ev,index,city.year);
   if(!ev.id.startsWith('disaster:')){next.seenEvents.push(ev.id);next.lastEventYear=city.year;}
   next.events.push({year:city.year,type:'history',eventId:ev.id,x:ev.x,y:ev.y,title:def.title,choice:choice.label,text:`${def.text} The council chose: ${choice.label.toLowerCase()}.`});
   return next;
@@ -1077,6 +1094,14 @@ export function normalizeCity(input){
   c.lastEventYear=Number(input.lastEventYear)||0;
   c.effectsTimed=Array.isArray(input.effectsTimed)?input.effectsTimed.filter(t=>t&&Number.isFinite(t.until)&&t.effects):[];
   c.event=input.event&&eventDefinition(input.event.id)&&Array.isArray(input.event.options)&&!c.finished?input.event:null;
+  // v1.6: questions are no longer asked by pausing. An open v1.5 event becomes
+  // a decision with a two-year deadline; needs and score are additive.
+  c.omens=c.finished?[]:normalizeOmens(input.omens);
+  if(c.event){if(!c.omens.some(o=>o.id===c.event.id))c.omens.push({...c.event,announced:c.year,due:c.year+AFTERMATH_YEARS,choice:null});if(!c.event.id.startsWith('disaster:')&&!c.seenEvents.includes(c.event.id))c.seenEvents.push(c.event.id);c.event=null;}
+  c.needsOn=!!input.needsOn;
+  c.needs=normalizeNeeds(input.needs);
+  c.declines=Math.max(0,Math.floor(Number(input.declines)||0));
+  c.score=normalizeScore(input.score);
   // v1.5 Town Center.
   const tc=input.center;
   c.center=tc&&Number.isInteger(tc.x)&&Number.isInteger(tc.y)&&within(tc.x,tc.y)?{x:tc.x,y:tc.y,level:clamp(Math.floor(Number(tc.level)||1),1,TOWN_CENTER_MAX),founded:Number(tc.founded)||c.year}:null;

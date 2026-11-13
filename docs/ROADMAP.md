@@ -11,7 +11,7 @@ its exit test is measured, not judged by eye.
 |---|---|---|
 | **A** | Phone shell, accessibility, performance, PWA | ✅ Done in v1.5 (see notes) |
 | **B** | Card economy: Market Hall, hand, stack, merge | ✅ Core done in v1.5; tuning and drag-to-play remain |
-| **C** | Pressure: needs on the map, telegraphed history, score | Next |
+| **C** | Pressure: needs on the map, telegraphed history, score | ✅ Shipped in v1.6; one exit criterion open (see C) |
 | **D** | Art pass: roofs, landmarks, living countryside, era styles | Planned |
 | **E** | Modes and meta: challenges, daily map, share, legacy unlocks | Planned |
 | **F** | Polish: game feel, audio, onboarding, copy | Planned (runs alongside C–E) |
@@ -68,13 +68,24 @@ Before the balance guards, both card strategies reached about 1–1.5M. The tabl
 - [ ] **Tune toward ~2× passive for a good player.** Run `balance-check` on the card table. Population cards (migration, housing, births) compound hardest; consider lower stack factors for them.
 - [ ] **Drag a card onto the map** with a ghost preview of its area, instead of tap-to-play. Needs per-district targeting in the sim for event cards (Golden Age on *a district*).
 - [ ] **Edict cards in Charter slots**: convert the 8 policies into cards; 3 slots, 5 from the Industrial era.
-- [ ] **Era drafts**: replace the 20 Turning Points with 5 era-change picks (rare or better). The decade shop already supplies most of the decisions.
+- [ ] **Era drafts**: replace the 20 Turning Points with 5 era-change picks (rare or better). The decade shop already supplies most of the decisions. **This is now the blocker for C's 80% place-or-moment criterion, so do it next.**
 - [ ] Building cards for the basic buildings (Market Square, Chapel, Granary…), replacing the Build menu.
 - [ ] Legendary tier as set-completion rewards (one per city).
 
 ---
 
-## Milestone C: pressure, history and score (next)
+## Milestone C: pressure, history and score ✅ shipped in v1.6
+
+**Results (measured, full campaigns, 2 seeds):**
+
+| Exit criterion | Target | Result |
+|---|---|---|
+| Do-nothing bot vs scripted sensible player | passive < 50% of sensible | ✅ **7–14%** (passive 3.0k–5.3k vs sensible 36.7k–43.1k prosperity-years) |
+| Decisions that act on a place or a moment | ≥ 80% | ❌ **66–68%**. The sensible bot makes 36–43 such decisions (12–13 buildings for needs, 19–20 history answers, 5–12 cards), against 20 Turning Point picks. Replacing the Turning Points with 5 era drafts (Milestone B) would bring it to about 90%. |
+| Workshop zones that never develop | fixed | ✅ zoned workshop land develops by 1345 (it used to take about a century) |
+
+What shipped is listed in `CHANGELOG.md` (v1.6). The original plan follows.
+
 
 Addresses: *no pressure from the map*, *no goal inside a run*, *demand warnings with no consequence*, and the *do-nothing bot wins* critical issue.
 

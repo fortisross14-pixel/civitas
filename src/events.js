@@ -127,6 +127,8 @@ export function eventSpot(city,near,r=Math.random){
 // Does a historical event knock this year? Roughly one per generation.
 export function maybeEvent(city,year,blocked){
   if(!city.eventsOn||city.event||blocked||city.buildings.length<18)return null;
+  // One historical question at a time (v1.6 omens are announced ahead).
+  if(omensOf(city).some(o=>!o.id.startsWith('disaster:')))return null;
   const seen=new Set(city.seenEvents||[]);
   const last=city.lastEventYear||0;
   if(year-last<12)return null;
@@ -145,6 +147,7 @@ function openEvent(city,ev,year,r,spot){
 }
 export function disasterEvent(city,kind,year,spot){
   if(!city.eventsOn||city.event||!DISASTER_RESPONSES[kind])return null;
+  if(omensOf(city).some(o=>o.id===`disaster:${kind}`))return null;
   const d=DISASTER_RESPONSES[kind];
   return {id:`disaster:${kind}`,year,title:d.title,text:d.text,x:spot.x,y:spot.y,options:d.choices.map(c=>({label:c.label,detail:c.detail}))};
 }
@@ -160,3 +163,67 @@ export function timedEffects(city){
   return out;
 }
 export function fireproofed(city){return (city.effectsTimed||[]).some(t=>t.fireproof&&(city.year||0)<t.until);}
+
+// ───────────── v1.6: telegraphed history (no more pausing) ─────────────
+// A historical event is announced OMEN_LEAD years before it arrives; a
+// disaster asks for a response within AFTERMATH_YEARS. The player may choose
+// (and change their mind) at any time before the deadline, while the clock
+// runs. On the due date the choice applies. Undecided: a calamity takes its
+// harshest course, nothing else happens, and indecision costs prosperity.
+export const OMEN_LEAD=6,AFTERMATH_YEARS=2,INDECISION_YEARS=15,INDECISION_EFFECTS={prosperity:-2};
+export function omensOf(city){return Array.isArray(city?.omens)?city.omens:[];}
+export function announceOmen(city,ev,year,lead){
+  if(!ev)return null;
+  const omen={...ev,announced:year,due:year+lead,choice:null};
+  city.omens=[...omensOf(city).filter(o=>o.id!==ev.id),omen];
+  return omen;
+}
+// The harshest course: the response that costs the most residents, if any does.
+export function fallbackChoice(def){
+  let worst=-1,low=0;
+  (def?.choices||[]).forEach((c,i)=>{if((c.residents||0)<low){low=c.residents;worst=i;}});
+  return worst;
+}
+export function undecidedText(def){
+  const i=fallbackChoice(def);
+  return i>=0?`If the council never decides, events take their harshest course (${def.choices[i].label.toLowerCase()}) and prosperity falls by 2 for ${INDECISION_YEARS} years.`:`If the council never decides, the moment passes and prosperity falls by 2 for ${INDECISION_YEARS} years.`;
+}
+export function answerOmen(city,id,index){
+  const omens=omensOf(city),omen=omens.find(o=>o.id===id);
+  if(!omen)return {city,error:'That decision has already been taken'};
+  const def=eventDefinition(id);if(!def?.choices?.[index])return {city,error:'Unknown response'};
+  if(city.finished)return {city,error:'The chronicle is complete'};
+  return {city:{...city,omens:omens.map(o=>o===omen?{...o,choice:index}:o)},error:null};
+}
+// Apply one response to a working copy (shared by resolveEvent and deadlines).
+export function applyEventChoice(next,ev,index,year){
+  const def=eventDefinition(ev.id),choice=def?.choices?.[index];if(!choice)return null;
+  const scale=eventScale(next);
+  if(choice.residents)next.residents=Math.max(40*K,Math.round(next.residents*(1+choice.residents)));
+  if(choice.funds)next.funds=choice.funds>0?next.funds+Math.round(choice.funds*scale*4):next.funds-Math.min(Math.max(0,next.funds),Math.round(-choice.funds*scale*4));
+  next.effectsTimed=[...(next.effectsTimed||[])].filter(t=>t.until>year);
+  if(choice.effects&&choice.years)next.effectsTimed.push({source:ev.id,label:`${def.title}: ${choice.label}`,until:year+choice.years,effects:choice.effects,...(choice.fireproof?{fireproof:true}:{})});
+  return choice;
+}
+// Resolve every omen whose deadline has come. Mutates `city`; returns what happened.
+export function resolveDueOmens(city,year){
+  const due=omensOf(city).filter(o=>o.due<=year);if(!due.length)return [];
+  city.omens=omensOf(city).filter(o=>o.due>year);city.events=[...city.events];
+  const out=[];
+  for(const o of due){
+    const def=eventDefinition(o.id);if(!def)continue;
+    const answered=Number.isInteger(o.choice)&&!!def.choices[o.choice];
+    const index=answered?o.choice:fallbackChoice(def);
+    const choice=index>=0?applyEventChoice(city,o,index,year):null;
+    if(!answered){city.effectsTimed=[...(city.effectsTimed||[]).filter(t=>t.until>year),{source:`indecision:${o.id}`,label:`${def.title}: no decision`,until:year+INDECISION_YEARS,effects:INDECISION_EFFECTS}];}
+    const what=answered?`The council chose: ${choice.label.toLowerCase()}.`:choice?`No decision was taken, and events took their harshest course: ${choice.label.toLowerCase()}.`:'No decision was taken, and the moment passed.';
+    city.events.push({year,type:'history',eventId:o.id,x:o.x,y:o.y,title:def.title,choice:answered?choice.label:'No decision',undecided:!answered,text:`${def.text} ${what}`});
+    out.push({omen:o,answered,choice});
+  }
+  return out;
+}
+export function normalizeOmens(list){
+  if(!Array.isArray(list))return [];
+  return list.filter(o=>o&&eventDefinition(o.id)&&Number.isFinite(o.due)&&Array.isArray(o.options))
+    .map(o=>({...o,announced:Number(o.announced)||o.year||o.due,choice:Number.isInteger(o.choice)?o.choice:null}));
+}

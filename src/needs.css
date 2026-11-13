@@ -1,0 +1,56 @@
+/* CIVITAS v1.6 — Needs & history panel, history pill, score ranking. */
+.needsPanel{display:flex;flex-direction:column;gap:8px}
+.scoreCard{display:flex;flex-direction:column;gap:2px;padding:10px 12px;background:#eef1e4;border-left:4px solid #405b49}
+.scoreCard b{font:600 26px/1.1 Georgia,'Times New Roman',serif;color:#2e4739}
+.scoreCard small{font-size:12px;color:#5d5547}
+
+.omenCard,.needCard{border:1px solid #d6cdbb;background:#fffdf6;padding:10px 11px;display:flex;flex-direction:column;gap:6px}
+.omenCard{border-left:4px solid #6a2f22}
+.omenCard.decided{border-left-color:#4d6a7a}
+.omenCard .cardHead,.needCard .cardHead{display:flex;flex-direction:column;gap:2px}
+.omenCard .cardHead b,.needCard .cardHead b{font-size:15px;line-height:1.25}
+.omenCard .cardHead span{display:inline-flex;align-items:center;gap:4px;font-size:12px;color:#6a2f22}
+.omenCard p{margin:0;font-size:13px;line-height:1.4;color:#3e3628}
+.omenChoices{display:flex;flex-direction:column;gap:6px}
+.omenChoices button,.sidebar .sidepanel .omenChoices button{display:flex;flex-direction:column;align-items:flex-start;gap:2px;width:100%;min-height:44px;padding:8px 10px;margin:0;text-align:left;border:1px solid #c9bea8;background:#fbf7eb;cursor:pointer;white-space:normal}
+.omenChoices button strong{display:inline-flex;align-items:center;gap:5px;font-size:14px}
+.omenChoices button span{font-size:12px;color:#5d5547;line-height:1.35}
+.omenChoices button.sel{border-color:#4d6a7a;background:#e8eef1;box-shadow:inset 3px 0 0 #4d6a7a}
+.omenFallback{font-size:12px;color:#6a2f22;line-height:1.35}
+.omenCard.decided .omenFallback{color:#4d6a7a}
+
+.needCard{border-left:4px solid #b07a24}
+.needCard.urgent{border-left-color:#a2413a}
+.needCard.served{border-left-color:#4d7a5c;opacity:.85}
+.needCard .cardHead{flex-direction:row;align-items:center;gap:8px}
+.needGlyph{display:grid;place-items:center;width:26px;height:26px;flex:0 0 26px;border-radius:50%;background:#f3ead4;font:600 15px Georgia,serif;color:#8a5a14}
+.needCard.urgent .needGlyph{background:#f4dcd6;color:#a2413a}
+.needCard.served .needGlyph{background:#dfeadf;color:#4d7a5c}
+.needBar{height:6px;background:#e8deca;overflow:hidden}
+.needBar i{display:block;height:100%;background:#b07a24}
+.needCard.urgent .needBar i{background:#a2413a}
+.needCard.served .needBar i{background:#4d7a5c}
+.needCard small{font-size:12px;color:#5d5547;line-height:1.35}
+.needAnswers{display:flex;flex-direction:column;gap:4px}
+.needAnswers button{display:flex;align-items:center;gap:6px;min-height:40px;margin:0}
+.needAnswers button small{margin-left:auto}
+
+.historyPill{align-self:center;display:inline-flex;align-items:center;gap:6px;min-height:40px;margin:6px auto 0;padding:0 14px;border:1px solid #6a2f22;background:#fbf2ec;color:#6a2f22;font-size:13px;cursor:pointer;max-width:calc(100% - 20px);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.historyPill span{color:#5d5547}
+.historyPill em{font-style:normal;font-weight:700;background:#6a2f22;color:#fbf7eb;padding:0 6px;border-radius:9px}
+.ts-score b{color:#2e4739}
+
+.scoreRanking{margin:0 0 18px;padding:14px 16px;border:1px solid #d6cdbb;background:#fffdf6}
+.scoreRanking ol{list-style:none;margin:8px 0 0;padding:0;display:flex;flex-direction:column;gap:4px}
+.scoreRanking li{display:grid;grid-template-columns:28px minmax(0,1fr) auto auto;align-items:center;gap:10px;padding:6px 0;border-top:1px solid #ece4d3}
+.scoreRanking li:first-child{border-top:0}
+.scoreRanking .rank{font:600 16px Georgia,serif;color:#8a3b2b;text-align:center}
+.scoreRanking button{justify-self:start;border:0;background:none;padding:0;font-size:15px;font-weight:600;color:#2e4739;cursor:pointer;min-height:32px;text-align:left}
+.scoreRanking small{font-size:12px;color:#5d5547}
+.scoreRanking b{font:600 16px Georgia,serif}
+@media(max-width:760px){
+  .historyPill{min-height:44px}
+  .scoreRanking li{grid-template-columns:24px minmax(0,1fr) auto}
+  .scoreRanking li small{grid-column:2}
+  .scoreRanking li b{grid-row:1;grid-column:3}
+}

@@ -1,5 +1,38 @@
 # CIVITAS changelog
 
+## v1.6 — Needs & History (Milestone C: pressure, telegraphed history, score)
+
+**Needs on the map** (new `src/needs.js`, `src/Needs.jsx`)
+- Once a year each district checks whether most of its homes are within reach of **public services** (church, school, clinic… by era), of **a market** (or a main street), and, from 1750, out of **workshop smoke**.
+- A district that lacks one shows a ring on the map. The ring fills over about 30 years; building the right answer nearby drains it twice as fast. A full ring means the district **declines**: 15% of its homes empty, and prosperity −2 and migration −4% for 20 years. The Chronicle records it and the score pays for it.
+- The new **Needs** section (tool rail) lists each need with "declines in about N years" and one-tap buttons for the buildings that answer it. Tap a ring on the map to open it.
+- Needs run in cities founded in the game (`needsOn`). Headless engine runs and older saves are unaffected.
+
+**History is announced, not paused for**
+- Historical events are announced 6 years ahead with a marker on the map ("1354 · 6 yrs") and a "Decide" pill above the hand. Disasters ask for a response within 2 years. Choose any time while the clock runs, and change your mind until the deadline.
+- If the council never decides, a calamity takes its harshest course, nothing else happens, prosperity falls by 2 for 15 years, and the score loses 4 years of points.
+- An open, pausing event in a v1.5 save becomes a decision with a two-year deadline.
+
+**Score: prosperity-years** (new `src/score.js`)
+- Each year a city earns (population ÷ 1,000) × (prosperity ÷ 56). A decline costs 3 years of points (scaled by the district's size); an undecided event costs 4.
+- Shown in the HUD, in the map cartouche and in the Needs panel. The Urban Atlas opens on a score ranking and charts the score over time.
+
+**Fewer, clearer surfaces**
+- Demand bars are gone (needs show on the map). The 11 map layers are now 3 lenses: **Plan**, **Needs** (who is served; where the smoke lies) and **Age**. Zoning colours appear while a zoning tool is held. GDP and GDP per person left the HUD.
+
+**Rule changes** (intentional; tests updated)
+- Market Square and Public Gardens stay on sale in every later era.
+- Each basic building is limited to one per district (at least two per city). Only the first two of a kind add their city-wide effect; extra copies serve their neighbourhood.
+- Homes near the Town Center's Market Cross count as having a market. Public gardens clear the smoke around them.
+- **Fixed:** in cities founded in the game, zoned workshop or shop land now develops in the first decades even when the city has enough jobs. It used to wait about a century while the demand bar said "URGENT".
+
+**Balance** (two seeds, full campaigns, `tests/helpers/strategies.js`)
+- Passive player (founds the town, then nothing): score 3.0k–5.3k, 77–78 declines, 9k–42k residents.
+- Sensible player (builds what needs ask for, answers history, plays cheap cards): score 36.7k–43.1k, 3–7 declines, 168k–200k residents.
+- Engine and balance runs (no player) are unchanged: needs, the workshop-zone fix and the Market Cross market rule apply only to cities founded in the game.
+
+**Tests**: new `tests/milestoneC.test.js` (8, including the exit test: passive < 50% of sensible). `phase4` and `construction` tests rewritten for announced history and the new building limits.
+
 ## v1.5 — The Market Hall (cards) and Milestone A (phone, accessibility, performance, PWA)
 
 See `docs/AUDIT.md` for the review this release responds to and `docs/ROADMAP.md` for what comes next.

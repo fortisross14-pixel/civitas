@@ -1,6 +1,7 @@
 // CIVITAS v0.6 — chronological records and historical comparisons.
 // Pure, side-effect free, no invented values for real-world cities.
 export const METRICS={
+ scoreTotal:{name:'Score',unit:'prosperity-years',label:'Score'},
  economyScore:{name:'Economic momentum',unit:'score / 100',label:'Economic momentum'},
  technologyScore:{name:'Technology momentum',unit:'score / 100',label:'Technology'},
  cultureScore:{name:'Culture momentum',unit:'score / 100',label:'Culture momentum'},
@@ -35,7 +36,7 @@ export function metricSeries(city,metric){return (city?.history||[]).filter(h=>N
 export function comparisonSeries(cities,metric,from,to,samples=new Map()){
  return cities.map(city=>{
   const byYear=new Map(metricSeries(city,metric).filter(p=>p.year<=city.year).map(p=>[p.year,p]));
-  const current=metricValue(samples.get(city.id),metric);
+  const current=metric==='scoreTotal'?(Number.isFinite(city.score?.total)?Math.round(city.score.total):null):metricValue(samples.get(city.id),metric);
   if(current!==null)byYear.set(city.year,{year:city.year,value:current});
   const points=[...byYear.values()].filter(p=>p.year>=from&&p.year<=to).sort((a,b)=>a.year-b.year);
   return {id:city.id,name:city.name,points};

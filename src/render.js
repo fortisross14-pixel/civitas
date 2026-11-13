@@ -368,13 +368,16 @@ export function drawCity(ctx,city,width,height,opts={}){
     const fields=fieldsLayer(city.type,city.seed);if(fields){ctx.imageSmoothingEnabled=true;ctx.drawImage(fields,0,0,W,H);}
     // Zoning: a wash on the zoning layer, a whisper on the urban map.
     if(layer==='zones'||layer==='urban')for(let y=0;y<H;y++)for(let x=0;x<W;x++){const type=zoneCell(city,x,y);if(type){ctx.fillStyle=ZONES[type].color+(layer==='zones'?'66':'18');ctx.fillRect(x,y,1,1);}}
-    const influence=['value','pollution','coverage','pull'].includes(layer)?cityFields(city):null;
+    const influence=['value','pollution','coverage','pull','needs'].includes(layer)?cityFields(city):null;
     if(layer==='districts'&&districts)for(let k=0;k<W*H;k++){const i=districts.grid[k];if(i>=0){ctx.fillStyle=DISTRICT_COLORS[i%DISTRICT_COLORS.length]+'38';ctx.fillRect(k%W,Math.floor(k/W),1,1);}}
     if(influence)for(let k=0;k<W*H;k++){const x=k%W,y=Math.floor(k/W);
       if(layer==='value'){const v=Math.max(-1,Math.min(1,influence.prestige[k]*.7-influence.pollution[k]*influence.homeShield*.6));if(Math.abs(v)<.05)continue;ctx.fillStyle=v>0?`rgba(92,140,96,${Math.min(.55,v*.6)})`:`rgba(150,95,70,${Math.min(.55,-v*.6)})`;ctx.fillRect(x,y,1,1);}
       else if(layer==='pollution'){const v=influence.pollution[k]*influence.homeShield;if(v<.1)continue;ctx.fillStyle=`rgba(96,82,104,${Math.min(.6,v*.35)})`;ctx.fillRect(x,y,1,1);}
       else if(layer==='pull'){const hp=influence.homePull[k],sp=influence.shopPull[k],v=Math.max(hp,sp);if(v<.08)continue;ctx.fillStyle=hp>=sp?`rgba(151,103,76,${Math.min(.5,v*.32)})`:`rgba(196,150,62,${Math.min(.55,v*.36)})`;ctx.fillRect(x,y,1,1);}
-      else if(layer==='coverage'){const v=influence.service[k];if(v<.05)continue;ctx.fillStyle=v>=.35?`rgba(83,135,115,${Math.min(.45,.15+v*.15)})`:'rgba(83,135,115,.08)';ctx.fillRect(x,y,1,1);}}
+      else if(layer==='needs'){const v=influence.service[k],t=influence.trade[k],sm=influence.pollution[k]*influence.homeShield*(influence.green&&influence.green[k]>=.3?.4:1);
+      if(sm>=.8){ctx.fillStyle=`rgba(96,82,104,${Math.min(.5,sm*.25)})`;ctx.fillRect(x,y,1,1);}
+      else if(v>=.35||t>=.3){ctx.fillStyle=v>=.35&&t>=.3?'rgba(83,135,115,.30)':'rgba(83,135,115,.14)';ctx.fillRect(x,y,1,1);}}
+    else if(layer==='coverage'){const v=influence.service[k];if(v<.05)continue;ctx.fillStyle=v>=.35?`rgba(83,135,115,${Math.min(.45,.15+v*.15)})`:'rgba(83,135,115,.08)';ctx.fillRect(x,y,1,1);}}
     const water=waterLayer(city.type);if(water)ctx.drawImage(water,0,0,W,H);
     // Canals follow the old wall line, under the quays.
     for(const ring of walls)if(ring.state==='canal'){ctx.beginPath();for(const [a,b] of wallSegments(ring)){ctx.moveTo(a[0],a[1]);ctx.lineTo(b[0],b[1]);}ctx.lineCap='round';ctx.lineJoin='round';ctx.strokeStyle=WATER_EDGE;ctx.lineWidth=1.05;ctx.stroke();ctx.strokeStyle=WATER;ctx.lineWidth=.82;ctx.stroke();}
@@ -530,7 +533,36 @@ export function drawCity(ctx,city,width,height,opts={}){
     for(let i=0;i<lines.length;i++){const w=ctx.measureText(lines[i]).width;ctx.fillRect(sx-w/2-6,top+i*lh-lh/2,w+12,lh);}
     ctx.shadowBlur=0;ctx.fillStyle='#6a2f22';for(let i=0;i<lines.length;i++)ctx.fillText(lines[i],sx,top+i*lh);
     ctx.restore();}
+  if(!opts.archiveYear&&opts.markers!==false)drawMarkers(ctx,city,warp,ox,oy,scale,opts);
   if(opts.cartouche!==false)drawCartouche(ctx,city,width,height,opts);
+}
+// v1.6 markers, in screen space so they stay tappable at any zoom.
+export const MARKER_RADIUS=14;
+const NEED_GLYPH={services:'✚',market:'⚖',air:'❦'};
+export function markerPositions(city,warp,ox,oy,scale){
+  const out=[];
+  for(const n of city.needs||[]){const [x,y]=warp?warp(n.x,n.y):[n.x,n.y];out.push({type:'need',item:n,x:ox+x*scale,y:oy+y*scale});}
+  for(const o of city.omens||[]){if(!Number.isFinite(o.x))continue;const [x,y]=warp?warp(o.x,o.y):[o.x,o.y];out.push({type:'omen',item:o,x:ox+x*scale,y:oy+y*scale});}
+  return out;
+}
+function drawMarkers(ctx,city,warp,ox,oy,scale,opts){
+  const r=MARKER_RADIUS,year=city.year||0;
+  ctx.save();ctx.textAlign='center';ctx.textBaseline='middle';
+  for(const m of markerPositions(city,warp,ox,oy,scale)){
+    const {x,y}=m;
+    if(m.type==='need'){const n=m.item,urgent=n.progress>=.66,col=n.served?'#4d7a5c':urgent?'#a2413a':'#b07a24';
+      ctx.shadowColor='rgba(48,43,34,.35)';ctx.shadowBlur=6;ctx.fillStyle='#fbf7eb';ctx.beginPath();ctx.arc(x,y,r,0,Math.PI*2);ctx.fill();ctx.shadowBlur=0;
+      ctx.strokeStyle='rgba(48,43,34,.25)';ctx.lineWidth=4;ctx.beginPath();ctx.arc(x,y,r-2,0,Math.PI*2);ctx.stroke();
+      ctx.strokeStyle=col;ctx.lineCap='round';ctx.beginPath();ctx.arc(x,y,r-2,-Math.PI/2,-Math.PI/2+Math.PI*2*Math.max(.04,n.progress));ctx.stroke();
+      ctx.fillStyle=col;ctx.font=`600 ${r}px Georgia, 'Times New Roman', serif`;ctx.fillText(NEED_GLYPH[n.kind]||'!',x,y+1);
+      if(urgent&&!n.served&&opts.now){ctx.globalAlpha=.35+.35*Math.sin(opts.now/260);ctx.strokeStyle=col;ctx.lineWidth=2;ctx.beginPath();ctx.arc(x,y,r+4,0,Math.PI*2);ctx.stroke();ctx.globalAlpha=1;}
+    }else{const o=m.item,decided=Number.isInteger(o.choice),left=Math.max(0,o.due-year),col=decided?'#4d6a7a':'#6a2f22';
+      ctx.shadowColor='rgba(48,43,34,.35)';ctx.shadowBlur=6;ctx.fillStyle=col;ctx.beginPath();ctx.moveTo(x,y-r);ctx.lineTo(x+r,y);ctx.lineTo(x,y+r);ctx.lineTo(x-r,y);ctx.closePath();ctx.fill();ctx.shadowBlur=0;
+      ctx.fillStyle='#fbf7eb';ctx.font=`700 ${r}px Georgia, serif`;ctx.fillText(decided?'✓':'!',x,y+1);
+      const label=`${o.due}${left?` · ${left} yr${left===1?'':'s'}`:''}`;ctx.font=`italic 12px Georgia, serif`;const w=ctx.measureText(label).width;
+      ctx.fillStyle='rgba(250,245,232,.9)';ctx.fillRect(x-w/2-4,y+r+3,w+8,16);ctx.fillStyle=col;ctx.fillText(label,x,y+r+11);}
+  }
+  ctx.restore();
 }
 // The Town Center, drawn as the map's civic emblem over the founding
 // crossroads: a market cross, then a square with a well, an arcaded piazza
@@ -570,11 +602,12 @@ function drawCartouche(ctx,city,width,height,opts){
   const x=16,y=small?30:38,year=opts.archiveYear??city.year;
   // A soft parchment cloud behind the title keeps it legible over the town.
   const grad=ctx.createRadialGradient(x+70,y+8,10,x+70,y+8,small?120:170);grad.addColorStop(0,'rgba(240,233,212,.9)');grad.addColorStop(.6,'rgba(240,233,212,.6)');grad.addColorStop(1,'rgba(240,233,212,0)');
-  ctx.fillStyle=grad;ctx.fillRect(0,0,small?240:330,small?90:110);
+  ctx.fillStyle=grad;ctx.fillRect(0,0,small?240:330,small?(opts.score!=null?104:90):(opts.score!=null?128:110));
   glow(()=>{ctx.fillStyle='#3e3326';ctx.font=`${small?26:34}px Georgia, 'Times New Roman', serif`;ctx.fillText(String(year),x,y+(small?2:6));});
   glow(()=>{ctx.fillStyle='#8a3b2b';ctx.font=`${small?10:12}px Georgia, serif`;ctx.fillText(city.name.toUpperCase().split('').join(' '),x,y+(small?18:26));});
   const pop=opts.population||0,rounded=pop>=10000?Math.round(pop/1000)*1000:Math.round(pop/100)*100;
   glow(()=>{ctx.fillStyle='#5b4b39';ctx.font=`italic ${small?11:13}px Georgia, serif`;ctx.fillText(`${ERA(year)}${pop?` · pop. c. ${rounded.toLocaleString('en-US')}`:''}`,x,y+(small?32:44));});
+  if(opts.score!=null)glow(()=>{ctx.fillStyle='#405b49';ctx.font=`600 ${small?11:13}px Georgia, serif`;ctx.fillText(`Score ${Math.round(opts.score).toLocaleString('en-US')} prosperity-years`,x,y+(small?47:62));});
   // Compass rose.
   const cx=30,cy=height-62;ctx.save();ctx.translate(cx,cy);ctx.fillStyle='#4d3f31';
   for(let i=0;i<8;i++){const a=i*Math.PI/4-Math.PI/2,len=i%2?7:14;ctx.beginPath();ctx.moveTo(0,0);ctx.lineTo(Math.cos(a-.25)*3,Math.sin(a-.25)*3);ctx.lineTo(Math.cos(a)*len,Math.sin(a)*len);ctx.lineTo(Math.cos(a+.25)*3,Math.sin(a+.25)*3);ctx.closePath();ctx.globalAlpha=i%2?.55:1;ctx.fill();}

@@ -1,13 +1,13 @@
 // CIVITAS v0.5: small era-bound catalogue of ordinary civic works.
 // Exceptional structures enter a run ONLY through Turning Points or figures.
 export const BASIC_BUILDINGS=[
- {id:'market',name:'Market Square',era:'Medieval',start:1300,end:1499,cost:130,kind:'market',domain:'trade',description:'Trade +10%; creates a compact market square.'},
+ {id:'market',name:'Market Square',era:'Medieval',start:1300,end:2030,cost:130,kind:'market',domain:'trade',description:'Trade +10%; creates a compact market square.'},
  {id:'chapel',name:'Parish Chapel',era:'Medieval',start:1300,end:1499,cost:160,kind:'chapel',domain:'religion',description:'Faith +10%; an early local spiritual center.'},
  {id:'granary',name:'Stone Granary',era:'Medieval',start:1300,end:1499,cost:145,kind:'granary',domain:'population',description:'Food reserves improve housing stability and migration.'},
  {id:'town_hall',name:'Town Hall',era:'Early modern',start:1500,end:1749,cost:290,kind:'town_hall',domain:'education',description:'Treasury revenue +12%; local civic administration.'},
  {id:'school',name:'Public School',era:'Early modern',start:1500,end:1749,cost:240,kind:'school',domain:'education',description:'Education +15%; a basic scholastic institution.'},
  {id:'guildhall',name:'Guild Hall',era:'Early modern',start:1500,end:1749,cost:310,kind:'guildhall',domain:'trade',description:'Craft commerce and cultural prestige improve.'},
- {id:'garden',name:'Public Gardens',era:'Enlightenment',start:1750,end:1849,cost:400,kind:'garden',domain:'culture',description:'Culture and quality of life improve.'},
+ {id:'garden',name:'Public Gardens',era:'Enlightenment',start:1750,end:2030,cost:400,kind:'garden',domain:'culture',description:'Culture and quality of life improve.'},
  {id:'clinic',name:'City Clinic',era:'Enlightenment',start:1750,end:1849,cost:420,kind:'clinic',domain:'education',description:'Public-service effectiveness +20%.'},
  {id:'waterworks',name:'Waterworks',era:'Enlightenment',start:1750,end:1849,cost:460,kind:'waterworks',domain:'education',description:'Civic services and resilience improve.'},
  {id:'station',name:'Rail Station',era:'Industrial',start:1850,end:1949,cost:820,kind:'station',domain:'trade',description:'Transport accessibility +25%.'},
@@ -37,6 +37,11 @@ export const BUILDING_EFFECTS={
  workshop:{arts:.10},university:{education:.25},port:{trade:.25},monastery:{faith:.20,faithEducation:.12},
  shrine:{faith:.30},monument:{arts:.08},boulevard:{transport:.12}
 };
+// v1.6: one of each basic building per district (at least two per city). Only
+// the first two of a kind add their city-wide effect; the rest serve their
+// own neighbourhood through the service, trade and green fields.
+export const CITYWIDE_COPIES=2;
+export function basicLimit(city){return Math.max(2,(city?.districts||[]).length);}
 export function basicsForYear(year){return BASIC_BUILDINGS.filter(x=>year>=x.start&&year<=x.end);}
 export function eraNameForYear(year){if(year<500)return 'Antiquity';if(year<1500)return 'Medieval';if(year<1750)return 'Early modern';if(year<1850)return 'Enlightenment';if(year<1950)return 'Industrial';if(year<2000)return 'Metropolitan';return 'Contemporary';}
 export function figureEraEligible(fig,year){return year>=(fig.minYear??-Infinity)&&year<=(fig.maxYear??Infinity);}

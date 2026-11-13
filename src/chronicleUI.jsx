@@ -4,7 +4,7 @@ import {BookOpen,Landmark,Clock3,ChartNoAxesCombined,Trophy,ArrowLeft,Layers3,Sh
 import {W,H,terrain,ZONES,snapshotCity,stats} from './sim.js';
 import {METRICS,numberText,metricSeries,cityRecords,identityOf,timelineItems,periodSummary,comparisonSeries,historyAt,shareSummary} from './chronicle.js';
 
-const MAIN_METRICS=['economyScore','technologyScore','cultureScore','faithScore','infrastructureScore','attractionScore','population','gdp','gdpPerCapita','culturalPrestige','tourismAppeal','religiousInfluence','educationIndex','densityPerZone','heritage','prosperity','infrastructureEfficiency','unemployment'];
+const MAIN_METRICS=['scoreTotal','economyScore','technologyScore','cultureScore','faithScore','infrastructureScore','attractionScore','population','gdp','gdpPerCapita','culturalPrestige','tourismAppeal','religiousInfluence','educationIndex','densityPerZone','heritage','prosperity','infrastructureEfficiency','unemployment'];
 function Selector({value,onChange,options,label}){return <label className="chronSelect">{label&&<span>{label}</span>}<select value={value} onChange={e=>onChange(e.target.value)}>{options.map(o=><option key={o.value} value={o.value}>{o.label}</option>)}</select></label>;}
 export function HistoricalChart({city,metric='population',height=125}){
  const rows=metricSeries(city,metric),shown=rows.filter((_,i)=>i%Math.max(1,Math.ceil(rows.length/160))===0||i===rows.length-1);
@@ -112,7 +112,8 @@ export function ComparisonChart({series,metric,from,to,year,colors}){
 }
 export function UrbanAtlas({cities,onBack,onOpen,backLabel='Home',activeCityId}){
  const latest=Math.max(1300,...cities.map(c=>c.year));
- const [metric,setMetric]=useState('population'),[from,setFrom]=useState(1300),[to,setTo]=useState(latest),[selected,setSelected]=useState(null),[surveyYear,setSurveyYear]=useState(latest);
+ // Score by default once cities have recorded it (v1.6+); population for older atlases.
+ const [metric,setMetric]=useState(()=>cities.some(c=>(c.history||[]).filter(h=>Number.isFinite(h.scoreTotal)).length>=2)?'scoreTotal':'population'),[from,setFrom]=useState(1300),[to,setTo]=useState(latest),[selected,setSelected]=useState(null),[surveyYear,setSurveyYear]=useState(latest);
  const samples=useMemo(()=>new Map(cities.map(c=>[c.id,stats(c)])),[cities]);
  const chosen=useMemo(()=>cities.filter(c=>selected===null||selected.includes(c.id)),[cities,selected]);
  const colors=useMemo(()=>new Map(cities.map((c,i)=>[c.id,CITY_COLORS[i%CITY_COLORS.length]])),[cities]);
@@ -124,6 +125,7 @@ export function UrbanAtlas({cities,onBack,onOpen,backLabel='Home',activeCityId})
  return <main className="atlasPage comparisonPage">
   <div className="comparisonHead"><button onClick={onBack}><ArrowLeft size={15}/> {backLabel}</button><div className="eyebrow">THE URBAN ATLAS</div><h1>Compare cities</h1><p>One measure, a shared period, and the maps that tell the story.</p></div>
   {!cities.length?<div className="comparisonEmpty"><BookOpen size={28}/><h2>Your atlas is waiting</h2><p>Found a city to begin recording its growth and map surveys.</p><button onClick={onBack}>Return</button></div>:<>
+   <section className="scoreRanking" aria-label="Score ranking"><div className="eyebrow">SCORE RANKING · PROSPERITY-YEARS</div><ol>{[...cities].sort((a,b)=>(b.score?.total||0)-(a.score?.total||0)).map((c,i)=><li key={c.id}><span className="rank">{i+1}</span><button onClick={()=>onOpen(c.id)}>{c.name}</button><small>{c.finished?'complete':`to ${c.year}`}{c.declines?` · ${c.declines} declines`:''}</small><b>{Math.round(c.score?.total||0).toLocaleString('en-US')}</b></li>)}</ol></section>
    <section className="comparisonControls" aria-label="Comparison controls">
     <Selector label="Measure" value={metric} onChange={setMetric} options={MAIN_METRICS.map(k=>({value:k,label:METRICS[k].name}))}/>
     <Selector label="Period" value={period} onChange={changePeriod} options={[...PERIOD_OPTIONS.map(([id,label])=>({value:id,label})),{value:'custom',label:'Custom period'}]}/>

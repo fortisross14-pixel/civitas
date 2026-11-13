@@ -2,7 +2,7 @@ import React,{useEffect,useMemo,useRef,useState} from 'react';
 import {Maximize2} from 'lucide-react';
 import {W,H,ZONES,terrain,zoneCell,STYLE_NAMES,styleAt,cityOrigin,tourismUnlocked,bridgeAt,publicWorkCost,constructionSite} from './sim';
 import {footprint} from './geo.js';
-import {drawCity,mapTransform,DISTRICT_COLORS,roofTone} from './render.js';
+import {drawCity,mapTransform,DISTRICT_COLORS,roofTone,markerPositions,mapWarp,MARKER_RADIUS} from './render.js';
 export {DISTRICT_COLORS};
 
 // CIVITAS v1.4 interactive map: drawing lives in render.js; this component
@@ -11,7 +11,7 @@ const DRAG_TOOLS=new Set([...Object.keys(ZONES),'erase','demolish']);
 const SELECTION_STYLE={erase:['#7a7464','#7a746426'],demolish:['#a2513f','#b8604a2e']};
 export const CAPTION_MS=7000;
 
-export function CityMap({city,tool,layer,onZone,onPlace,onInspect,selectedId=null,readOnly=false,previewRing=null,describeSelection=null,captions=[],animate=false,population=0,archiveYear=null}){
+export function CityMap({city,tool,layer,onZone,onPlace,onInspect,onMarker=null,score=null,selectedId=null,readOnly=false,previewRing=null,describeSelection=null,captions=[],animate=false,population=0,archiveYear=null}){
   const canvas=useRef(null),drag=useRef(null),view=useRef({zoom:1,dx:0,dy:0});
   const [dimensions,setDimensions]=useState({width:600,height:500}),[frame,setFrame]=useState(0),[selection,setSelection]=useState(null),[hover,setHover]=useState(null),[tick,setTick]=useState(0);
   const [showLegend,setShowLegend]=useState(()=>typeof window==='undefined'||window.innerWidth>760);
@@ -46,7 +46,7 @@ export function CityMap({city,tool,layer,onZone,onPlace,onInspect,selectedId=nul
     const caps=liveCaptions.map(cap=>{const age=now-cap.t0;return {...cap,alpha:age<600?age/600:age>CAPTION_MS-1500?(CAPTION_MS-age)/1500:1};});
     const [line,fill]=SELECTION_STYLE[tool]||['#3c6d57','#3c895231'];
     drawCity(ctx,city,width,height,{view:view.current,maxStaleMs:animate?350:0,layer,selectedId,previewRing:readOnly?null:previewRing,bridgePreview,
-      selection:selection?{...selection,line,fill}:null,hover,placing:tool.startsWith('place:')&&!readOnly,placingCenter:tool==='place:center'&&!readOnly,site,captions:caps,now,population,archiveYear});
+      selection:selection?{...selection,line,fill}:null,hover,placing:tool.startsWith('place:')&&!readOnly,placingCenter:tool==='place:center'&&!readOnly,site,captions:caps,now,population,archiveYear,score:archiveYear?null:score});
   },[city,layer,selection,dimensions,frame,hover,tool,readOnly,previewRing,bridgePreview,site,selectedId,tick,captions,population,archiveYear]);
 
   const dragTool=DRAG_TOOLS.has(tool);
@@ -66,6 +66,8 @@ export function CityMap({city,tool,layer,onZone,onPlace,onInspect,selectedId=nul
   };
   const up=e=>{pointers.current.delete(e.pointerId);if(pinch.current){if(pointers.current.size<2)pinch.current=null;drag.current=null;return;}
     const d=drag.current;if(!d)return;drag.current=null;const p=toMap(e),still=Math.hypot(e.clientX-d.cx,e.clientY-d.cy)<9;
+    if((tool==='inspect'||readOnly)&&still&&!readOnly&&onMarker){const rect=e.currentTarget.getBoundingClientRect(),t=transform(),sx=e.clientX-rect.left,sy=e.clientY-rect.top;
+      const hit=markerPositions(city,mapWarp(city),t.ox,t.oy,t.scale).find(m=>Math.hypot(m.x-sx,m.y-sy)<=MARKER_RADIUS+6);if(hit){onMarker(hit);return;}}
     if(tool==='inspect'||readOnly){if(still){const b=city.buildings.find(b=>{const f=footprint(b);return p.x>=f.x&&p.x<f.x+f.w&&p.y>=f.y&&p.y<f.y+f.h;});onInspect?.(b||null);}}
     else if(tool.startsWith('place:')){if(still)onPlace?.(tool.slice(6),p.x,p.y);}
     else if(dragTool){const x=Math.max(0,Math.min(W-1,Math.min(d.start.x,p.x))),y=Math.max(0,Math.min(H-1,Math.min(d.start.y,p.y)));
