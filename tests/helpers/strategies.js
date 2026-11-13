@@ -9,7 +9,7 @@ import {omensOf,answerOmen} from '../../src/events.js';
 import {buyCard,deckOf} from '../../src/cards.js';
 import {scoreOf} from '../../src/score.js';
 
-export function newCity(seed,type='river'){const c=seedTown(makeCity('Strategy '+seed,type,seed));return {...c,eventsOn:true,needsOn:true};}
+export function newCity(seed,type='river'){const c=seedTown(makeCity('Strategy '+seed,type,seed));return {...c,eventsOn:true,needsOn:true,turning:{...c.turning,mode:'era'}};}
 
 // Try parcels in rings around (x, y) until one accepts the building.
 export function buildNear(city,id,x,y,maxRadius=7){

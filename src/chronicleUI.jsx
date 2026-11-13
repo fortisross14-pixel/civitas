@@ -43,7 +43,7 @@ export function ChroniclePanel({city,archiveYear,onArchiveYear,onOpenBuild,onTim
  const copy=()=>{const summary=shareSummary(city);if(navigator.clipboard?.writeText)navigator.clipboard.writeText(summary).catch(()=>window.prompt('Copy your Chronicle:',summary));else window.prompt('Copy your Chronicle:',summary);};
  return <div className="sidecontent chroniclePanel">
   <div className="eyebrow">THE GREAT CHRONICLE</div><h2>{city.name}</h2><p className="chronEpithet">{identityOf(city)} · 1300–{city.year} · {city.type}</p>
-  <div className="chronPills"><span>{city.finished?'COMPLETE':'IN PROGRESS'}</span><span>{records.turningPoints} / 20 decisions</span><span>{records.snapshots} survey maps</span></div>
+  <div className="chronPills"><span>{city.finished?'COMPLETE':'IN PROGRESS'}</span><span>{records.turningPoints} / {records.turningTotal||20} decisions</span><span>{records.snapshots} survey maps</span></div>
   <div className="chronTabs">{[['overview','Overview'],['timeline','Timeline'],['records','Records']].map(([key,title])=><button key={key} className={view===key?'sel':''} onClick={()=>setView(key)}>{title}</button>)}</div>
   {view==='overview'&&<>
    {onTimelapse&&<button className="primary wide timelapseLaunch" onClick={onTimelapse} disabled={(city.snapshots||[]).length<1}>▶ Play timelapse · one map every 50 years</button>}<h3>HISTORICAL MAP SURVEYS</h3><p className="muted">Inspect the actual archived streets and footprints. Earlier maps are read-only; the present is editable.</p>

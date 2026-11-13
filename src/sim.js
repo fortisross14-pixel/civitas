@@ -5,7 +5,7 @@ export {TOWN_CENTER_LEVELS,TOWN_CENTER_MAX,townCenterLevel};
 import {maybeEvent,disasterEvent,eventDefinition,eventScale,timedEffects,fireproofed,eventSpot,announceOmen,resolveDueOmens,applyEventChoice,normalizeOmens,omensOf,OMEN_LEAD,AFTERMATH_YEARS} from './events.js';
 import {advanceNeeds,normalizeNeeds} from './needs.js';
 import {scoreYear,penalize,normalizeScore,emptyScore,DECLINE_YEARS_LOST,UNANSWERED_YEARS_LOST} from './score.js';
-import {CARD_INDEX,TURNING_POINTS,turningYears,generateOffers,modifiers,activeSynergies,resolvedCards,currentTurningIndex} from './turningPoints.js';
+import {CARD_INDEX,TURNING_POINTS,turningYears,turningSchedule,turningCount,generateOffers,modifiers,activeSynergies,resolvedCards,currentTurningIndex} from './turningPoints.js';
 import {W,H,CELLS,DIRS4,clamp,within,key,kx,ky,rand,hash,terrain,waterGrid,footprint,POP_SCALE} from './geo.js';
 const K=POP_SCALE;
 import {buildGrids,markRoad,markBuilding,pickParcel,growRoads,patternFor,layMainRoads,addRoute,routeBetween,fitWall,ringCells,findBridge,roadClass,homeLand,wallPolygon,insideWall,wallSegments,wallLength} from './growth.js';
@@ -731,7 +731,7 @@ function applyChoice(city,card,record,label){
   if(pos!==-1)next.snapshots[pos]=captureSnapshot(next);
   return next;
 }
-function nextMilestoneOf(city){return turningYears()[currentTurningIndex(city)+(city.turning?.skipped||0)];}
+function nextMilestoneOf(city){return turningSchedule(city)[currentTurningIndex(city)+(city.turning?.skipped||0)];}
 function openTurningPoint(city){
   const index=currentTurningIndex(city)+(city.turning?.skipped||0);
   city.turning.pending={index,year:city.year,options:generateOffers(city,index,0,eligibleFigures(city))};
@@ -1053,14 +1053,14 @@ export function normalizeCity(input){
       }
     });
   }
-  let tpSeen=0;const choices=Array.isArray(input.turning?.choices)?input.turning.choices.filter(v=>getOpportunity(v?.cardId)&&(v.via==='hand'||tpSeen++<TURNING_POINTS)):[];
+  let tpSeen=0;const choices=Array.isArray(input.turning?.choices)?input.turning.choices.filter(v=>getOpportunity(v?.cardId)&&(v.via==='hand'||tpSeen++<(input.turning?.mode==='era'?5:TURNING_POINTS))):[];
   const tpChoices=choices.filter(v=>v.via!=='hand').length;
   let pending=input.turning?.pending;
   if(pending&&(!Array.isArray(pending.options)||pending.options.length!==3||pending.options.some(id=>!getOpportunity(id))))pending=null;
   // Old saves resume at the next future checkpoint; past opportunities are not granted retroactively.
-  const campaignYears=turningYears();
+  const campaignYears=turningSchedule(input);
   const skipped=Math.max(0,campaignYears.filter(y=>y<=c.year).length-tpChoices-(pending?1:0));
-  c.turning={choices,pending:pending||null,skipped:Math.max(Number(input.turning?.skipped)||0,skipped),rerollsUsed:Math.max(0,Number(input.turning?.rerollsUsed)||0),cardPool:Array.isArray(input.turning?.cardPool)?input.turning.cardPool:undefined,figurePool:Array.isArray(input.turning?.figurePool)?input.turning.figurePool:[],featuredFigures:Array.isArray(input.turning?.featuredFigures)?input.turning.featuredFigures:[]};
+  c.turning={...(input.turning?.mode==='era'?{mode:'era'}:{}),choices,pending:pending||null,skipped:Math.max(Number(input.turning?.skipped)||0,skipped),rerollsUsed:Math.max(0,Number(input.turning?.rerollsUsed)||0),cardPool:Array.isArray(input.turning?.cardPool)?input.turning.cardPool:undefined,figurePool:Array.isArray(input.turning?.figurePool)?input.turning.figurePool:[],featuredFigures:Array.isArray(input.turning?.featuredFigures)?input.turning.featuredFigures:[]};
   c.finished=c.year>=END_YEAR;
   if(c.finished)c.turning.pending=null;
   c.development=developmentOf(input);

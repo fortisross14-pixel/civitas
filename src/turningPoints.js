@@ -93,9 +93,17 @@ export const RARITY_COLORS={common:'#8f948c',uncommon:'#61976f',rare:'#5e8db7',e
 const hash=(...a)=>{let h=2166136261;for(const v of a){for(const ch of String(v)){h^=ch.charCodeAt(0);h=Math.imul(h,16777619);}}return h>>>0;};
 const rng=(n)=>()=>{n+=0x6d2b79f5;let t=n;t=Math.imul(t^t>>>15,t|1);t^=t+Math.imul(t^t>>>7,t|61);return ((t^t>>>14)>>>0)/4294967296;};
 const clamp=(n,low,high)=>Math.min(high,Math.max(low,n));
+// v1.7 era drafts: cities founded in the game (turning.mode 'era') get five
+// picks, one as each new era begins, offering Rare cards or better. The decade
+// Market Hall supplies the rest. Older saves and engine runs keep 20 Turning Points.
+export const ERA_DRAFT_YEARS=[1500,1750,1850,1950,2000];
+export const PREMIUM_RARITIES=['rare','epic','legend'];
+export function turningMode(city){return city?.turning?.mode==='era'?'era':'classic';}
+export function turningCount(city){return turningMode(city)==='era'?ERA_DRAFT_YEARS.length:TURNING_POINTS;}
+export function turningSchedule(city){return turningMode(city)==='era'?ERA_DRAFT_YEARS:turningYears();}
 export const turningYears=(start=1300,end=2030)=>Array.from({length:TURNING_POINTS},(_,i)=>start+Math.round((i+1)*(end-start)/(TURNING_POINTS+1)/5)*5);
 // Cards played from the hand (via:'hand') are not Turning Points.
-export function currentTurningIndex(city){return Math.max(0,Math.min(TURNING_POINTS,(city?.turning?.choices||[]).filter(p=>p.via!=='hand').length));}
+export function currentTurningIndex(city){return Math.max(0,Math.min(turningCount(city),(city?.turning?.choices||[]).filter(p=>p.via!=='hand').length));}
 export function resolvedCards(city){return (city?.turning?.choices||[]).map(p=>CARD_INDEX[p.cardId]).filter(Boolean);}
 export function activeSynergies(city){
  const choices=city.turning?.choices||[];
@@ -154,7 +162,9 @@ export function generateOffers(city,index,reroll=0,extra=[]){
  const owned=resolvedCards(city),dominance={};for(const c of owned)dominance[c.domain]=(dominance[c.domain]||0)+1;
  const leading=Object.keys(dominance).sort((a,b)=>dominance[b]-dominance[a]||a.localeCompare(b))[0];
  const roll=rng(hash(city.seed,index,reroll,owned.map(c=>c.id).join('|'),(city.figures||[]).map(f=>f.id).join('|')));
- const available=[...CARDS,...extra].filter(c=>canDraw(c,city));
+ let available=[...CARDS,...extra].filter(c=>canDraw(c,city));
+ // Era drafts offer Rare cards or better whenever at least three are open.
+ if(turningMode(city)==='era'){const premium=available.filter(c=>PREMIUM_RARITIES.includes(c.rarity));if(premium.length>=3)available=premium;}
  const selected=new Set(),slots=[];
  // Slot 1: purposeful combo offer when possible; early game still genuinely random.
  const synergyCandidates=available.filter(c=>(c.requiresAny&&c.requiresAny.length)||(leading&&leading!=='wildcard'&&c.domain===leading));
@@ -189,4 +199,4 @@ export function generateOffers(city,index,reroll=0,extra=[]){
 }
 
 export function pendingFor(city){const t=city.turning;return t?.pending||null;}
-export function pendingYear(city){return turningYears()[currentTurningIndex(city)];}
+export function pendingYear(city){return turningSchedule(city)[currentTurningIndex(city)];}
