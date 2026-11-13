@@ -111,6 +111,38 @@ Weaknesses, seen at zoom ([desktop-zoomed-1722](audit/desktop-zoomed-1722.jpg), 
 - **Eras don't change the map's look.** The city in 2030 is drawn in the same medieval-ink language as in 1350. No railways or train sheds visibly cut through, no parks, no ring roads.
 - **The UI chrome competes with the map.** Heavy framed panels and dense small type (labels as small as 8–9 px on mobile).
 
+### 2.6 Cards today
+
+There are 54 cards (13 common, 17 uncommon, 19 rare, 5 epic) across 7 domains (including a wildcard domain), with 10 three-card synergies.
+But the player only sees them as **20 single picks from 3 random offers, one every 35 years**:
+- **Synergies almost never complete.** Collecting 3 specific cards out of 54 with 20 random draws is rare. The bot's 2030 city ended with *"Your first synergy is still waiting to emerge."*
+- **There's nothing to buy.** The treasury reached 26k while cards can't be bought, held or saved for the right moment.
+- **No hand, no timing.** A card applies the moment you pick it, so you never choose *when*.
+- **Rarity has no texture.** Rarities are a colour label. There's no pack, no shop and no "I finally pulled the epic" moment.
+
+The card content is the most valuable thing in the codebase after the renderer. It's just
+delivered in the least game-like way possible. Section 3.1 redesigns this.
+
+### 2.7 Scorecard against the installed skills
+
+Each installed skill (see §5) was applied to the build as it stands.
+
+| Skill | Verdict | Key finding |
+|---|---|---|
+| `game-design` (30-second loop test) | **Fail** | Action → feedback → reward is missing. Most actions give no feedback within 30 s, and the "reward" is a number. Early wins exist (fast medieval growth), but there's no "meaningful choices" pacing. |
+| `game-design-review` (six tests) | **Fail** | Only walls and bridges pass. See §2.2. |
+| `balance-check` | **CRITICAL ISSUES** | Degenerate strategy: *doing nothing* reaches 177k pop. The economy has no meaningful sink (treasury 400 → 26,613). Synergies are effectively unreachable. |
+| `card-game` | **Fail** | No zones (hand, shop, slots), no reward loop, no rarity-weighted offers by era, no removal or merging, no power budget. Cards are priced in nothing. |
+| `roguelike` (run/meta structure) | Weak | Meta-progression adds stats (+capacity) rather than options. Runs don't diverge. |
+| `mobile-games` / `mobile-game-ux` | **Fail** | **18 of 22** buttons on the phone game screen are under 44 px (most are 29–34 px tall). Taxes is unreachable on a phone. There's no pinch-zoom. |
+| `game-ui-ux` | Fail | **169 CSS rules set text ≤ 11 px** (7 of them at 8 px). The HUD rebuilds from React state every tick instead of updating on events. There's no screen stack (modal flags in `App`). |
+| `accessibility-review` (WCAG 2.1 AA) | Partial | Secondary text `#756d5e` on paper is **4.39:1** (4.5:1 needed) and **3.83:1** on deep-paper panels. Map state is conveyed by colour alone (zones, roofs). Modals use `role="dialog"` and `aria-modal`, which is good. |
+| `performance-optimization` / `web-games` | Fail | ~63 ms average long tasks on a throttled phone (budget 33 ms at 30 fps). There's no Web Worker and no layer caching. The bundle (161 kB gzip) is fine. There's no PWA manifest, so it can't be installed on a phone home screen. |
+| `game-feel` | **Fail** | No audio at all, no placement "pop", no milestone fanfare beyond a toast. Founding a town or finishing a cathedral doesn't *feel* like anything. |
+| `game-art` / `cartographic-art` / `2d-games` | Mixed | Strong style guide and consistency at city scale. Silhouette readability fails at gameplay zoom ("ignore silhouette readability" is the skill's top anti-pattern). |
+| `design-critique` | Mixed | First impression of the home screen: the eye goes to "Urban Atlas" marketing, not to "Found a city". The in-game reading order competes across 7 surfaces. |
+| `ux-copy` | Weak | Jargon and numbers where verbs should be: "Immediate momentum: Population attraction +21 · Economy +15", "GDP / person". CTAs are mostly good ("Found the town", "Reroll all three"). |
+
 ---
 
 ## 3. Recommendations
@@ -119,35 +151,94 @@ The model to copy is **Mini Metro / Mini Motorways**: a clean map, one or two
 drawing verbs, a weekly "pick one upgrade" choice, and pressure from icons that
 fill up on the map. Here it's adapted to "a city growing on an old map".
 
-### 3.1 The new core loop (the most important change)
+### 3.1 The new core loop: a hand of history cards (the most important change)
 
-> **Every decade you receive a Charter. You spend it on the map. Quarters ask
-> for things. Ignore them too long and they decline.**
+> **The city earns money. Money buys cards. You hold a small hand and play
+> cards onto the map at the moment that matters. Quarters ask for things;
+> ignore them and they decline.**
 
-1. **Charters as the one scarce resource.** Every 10 years, choose **one of two** Charters, in the same rhythm as Mini Metro's weekly upgrade. Each is a *spatial* action:
-   - *Street charter*: draw one road (up to N cells). Growth follows roads, so this is the main steering verb, and it replaces most of zoning.
-   - *Market / Church / Guildhall / School…*: place a building that serves a radius.
-   - *Bridge*, *Wall*, *Canal*, *Harbour*, *Railway*, *Park*: era-specific big works.
-   Money disappears from the HUD, or shrinks to a quiet modifier. Taxes and policies are folded into Charters or cut.
-2. **Needs that appear on the map.** Districts sprout a small icon (🔔 church, ⚖ market, 💧 well, 🎓 school, 🚂 station) when they outgrow what serves them. A ring fills around the icon over ~20–40 game years. When it fills, the district **declines**: roofs grey out, people leave, the name gets a "Old/Lower" prefix, and the Chronicle records it. That's the Mini Metro station timer, in a historical frame.
-3. **Era shifts change the rules.** Each era (Medieval → Early modern → Industrial → Modern → Contemporary) adds one new Charter type and one new kind of need (e.g. Industrial: smoke spreads, so homes downwind ask for parks. Modern: traffic, so main roads ask for bypasses). The map visibly changes style at each shift.
-4. **Score = Prosperity-years.** Sum population × wellbeing across the run. Show it in the cartouche. One number to beat, compared in the Atlas. A city that loses districts to decline scores lower. That gives the bot test a real answer.
+This takes what works in card-driven games (Balatro's shop and rarities,
+Slay the Spire's visible threats, Mini Metro's weekly upgrade, merge games'
+stacking) and puts it on the old map. It reuses the 54 existing cards and their
+rarities.
 
-Why this works: about 70 decisions per run (one per decade, plus where to put
-it), every one on the map, every one visible within seconds, and they compound
-because roads and services change where the next quarter grows.
+#### The loop
+
+1. **Earn.** The treasury is the only currency. Taxes and growth fill it, and active cards drain it through upkeep. This gives money a real sink: the 26k idle treasury becomes the thing you spend.
+2. **Shop (every decade).** The **Market Hall** restocks: 3 face-up cards plus 1 sealed pack, with rarities weighted by era and by the city's character. Buy, reroll for a fee, or save. The clock keeps running at low speed, with no hard pause.
+3. **Hold.** A **hand of 5 cards** (6 at Town Center level 3, 7 at level 5). Holding is a decision: keep the Fire Brigade for the fire you can see coming, or sell it back for half.
+4. **Play.** Drag a card from the hand onto the map:
+   - **Building cards** go on a parcel (Market Square, Cathedral, University, Harbour, Station).
+   - **Event cards** go on a district or the whole city, for a set number of years (Baby Boom, Golden Age, Trade Fair, Pilgrimage).
+   - **Edict cards** go into one of **3 Charter slots** (5 by the Industrial era) and stay until replaced (Free Port, Fire Code, Public Schools; today's policies become these).
+   - **Figure cards** go on a building to boost it (Erasmus on the University, Rembrandt on the Artists' Workshop).
+5. **Stack and merge.**
+   - *Stack*: the same card on the same district levels it up. Market ×2 = Market Town (bigger radius, a new roof style). Golden Age on a district already under a Trade Fair extends both.
+   - *Merge*: 3 copies of a common → 1 uncommon of the same domain; 3 uncommons → 1 rare. This is how commons stay useful, and how players chase rarities.
+   - *Sets*: today's 10 synergies become visible **collections** printed on each card ("Renaissance 1/3"). Completing one gives a unique epic, such as a Renaissance landmark. Since cards are now bought rather than randomly offered, sets become reachable goals instead of luck.
+6. **Answer history.** Calamities and events are **telegraphed 5–10 years ahead** on the map, the way Slay the Spire shows enemy intent ("Plague approaching from the harbour, 1347"). The answer is a card you have or can buy in time (Pest House, Quarantine, Dykes). Playing nothing is allowed, but costs more.
+7. **Needs that appear on the map.** Districts sprout a small icon (church, market, well, school, station) when they outgrow what serves them. A ring fills around it over ~20–40 game years. When it fills, the district **declines**: roofs grey out, people leave, the Chronicle records it. Building cards are the answer, so needs drive what you buy.
+8. **Era drafts (5 per run, not 20 Turning Points).** At each era change you get a free pick of 1 of 3 cards, rare or better. You also get new card types in the shop, and the map is redrawn in the new era's style.
+9. **Score = Prosperity-years.** Sum population × wellbeing across the run, shown in the cartouche and compared in the Atlas. Declines and unanswered calamities cost score.
+
+#### Rarity and economy
+
+| Rarity | Shop weight (medieval → modern) | Price (× a decade's average net income) | Typical effect |
+|---|---|---|---|
+| Common | 60% → 40% | 0.2–0.4 | small building, short event, +1 stack |
+| Uncommon | 28% → 32% | 0.5–0.8 | district-level building or event |
+| Rare | 10% → 20% | 1.0–1.5 | landmark, edict, figure |
+| Epic | 2% → 7% | 2–3 (or set reward) | wonder, era-defining edict |
+| Legendary | set rewards and era drafts only | — | one per city (Cathedral of …, Great Exhibition) |
+
+- **Power budget** (from the `card-game` skill): fix one reference card, e.g. *Market Square (common) = serves 6 parcels, +1 prosperity, costs 0.3 decades*, and price every card against it. Run `balance-check` on the table.
+- **Upkeep** on Edicts and active Events keeps money tight in the late game, so the treasury can't snowball.
+- **Visible odds** on packs, and a shown "rare guaranteed within 3 packs" counter. No hidden pity rules.
+- **Selling** a card returns 50%. That's the removal/thinning tool the `card-game` skill says every card economy needs.
+
+#### Example cards (from the existing pool, reshaped)
+
+| Card | Rarity | Type | Play on | Effect | Stacks / merges |
+|---|---|---|---|---|---|
+| New Settlers | Common | Event | a district | +10% residents there now | 3 → *Land of Opportunity* |
+| Market Square | Common | Building | parcel | serves 6 parcels; shops nearby +15% | ×2 = Market Town, ×3 = Exchange |
+| Fertile Families | Uncommon | Event | city | natural growth +20% for 30 years | stacks duration |
+| Fire Brigade | Uncommon | Building | parcel | halves fire spread within 8 parcels | answers *Great Fire* |
+| Golden Age | Rare | Event | city | GDP +20%, prosperity +6 for 20 years | extends any active Event |
+| Free Port | Rare | Edict | slot | harbour districts +30% trade; upkeep 40/yr | — |
+| Erasmus | Rare | Figure | a University/School | education +35% in radius | one figure per building |
+| Great Cathedral | Epic | Building | 3×3 parcels | faith +40%, pilgrims; takes 60 years to build, visible on the map | Holy City set piece |
+| The Renaissance | Legendary | Set reward | city | art and craft cards cost −30% for the rest of the run | — |
+
+#### Why this works
+
+- **Decisions per run go from ~36 to ~150**: what to buy, what to hold, where and when to play, what to merge. Each one is small and quick, the Balatro/Mini Metro rhythm.
+- **Every decision is spatial or timed**, so it passes the `game-design-review` tests.
+- **Money matters**, which fixes the `balance-check` critical issue.
+- **Rarity has texture**: packs, a merge ladder, collections, legendaries.
+- **It's semi-casual.** Three verbs (buy, play, merge) and one hand. The complexity comes from how they combine, not from more panels.
+
+#### Guardrails so it doesn't become a complex city builder
+
+- Hand ≤ 7, Charter slots ≤ 5, shop ≤ 4 cards. No deck to manage, no draw pile.
+- A card does one thing. If its text needs two sentences, split or cut it.
+- Cards must change the map visibly within seconds (new building, coloured district aura, crowd icons).
+- The do-nothing bot must lose clearly. Re-run `headless-playtest` with a "buy cheapest, play randomly" bot and a "sensible" bot. The gap is the measure of depth.
 
 ### 3.2 What to cut or merge
 
 | Cut / merge | Into |
 |---|---|
-| GDP, GDP/person, treasury in HUD | Year · Population · Score |
+| GDP, GDP/person in HUD | Year · Population · Treasury · Score |
 | 4 demand bars | Need icons on the map |
-| Taxes (12 states), 8 policies | 3–4 "Charter of Law" cards per run (e.g. Free Port, Fire Code), each with a visible effect |
+| Taxes (12 states) | One "tax rate" dial (Low / Fair / High), or an Edict card |
+| 8 policies | Edict cards in Charter slots |
+| Basic buildings menu (3 per era) | Building cards in the shop |
 | 11 map layers | 3 lenses: *Plan* (default), *Needs*, *Age* |
-| Turning Points as stat cards | Keep the 20 historical moments, but each one offers spatial options ("The railway is coming — choose where the station goes: A / B / C") |
-| Events as stat modifiers | Same: tie each to a place (the plague hits the most crowded district; the fire spreads through timber quarters, so stone Charters matter) |
-| Legacy bonuses that make runs easier | Legacy *unlocks* that make runs **different**: new geographies, starting conditions, figures, challenge rules |
+| 20 Turning Points (1 of 3, every 35 years) | 5 era drafts plus the decade shop |
+| Events as instant stat modifiers | Telegraphed events answered with cards, tied to a place (the plague starts at the harbour; fire spreads through timber quarters) |
+| Hidden synergies | Visible card collections ("Renaissance 1/3") |
+| Legacy bonuses that make runs easier | Legacy *unlocks* that make runs **different**: unlock new cards into the shop pool, new geographies, a starting card, challenge rules |
 
 ### 3.3 Goals and modes
 
@@ -172,15 +263,18 @@ Game (phone portrait):
 │             MAP                │   ← ≥ 80% of screen, pinch/zoom/pan
 │     (need icons on map)        │
 │                                │
-│  [ Charter ready: choose ▸ ]   │   ← contextual pill, not a modal
+│  [ Market Hall restocked ▸ ]   │   ← contextual pill, not a modal
 ├──────────────────────────────┤
-│  ✋ Explore  ✏ Charter  ◐ Lens  📜 Chronicle │ ← one dock, 4 items
+│ [card][card][card][card][card] │   ← the hand: drag a card onto the map
+│  ✋ Explore  🛒 Shop  ◐ Lens  📜 Chronicle │ ← one dock, 4 items
 └──────────────────────────────┘
 ```
 
+- The hand is the main control surface, as in Balatro on mobile. Cards are ≥ 64 px wide, tap to read, drag to play, with a ghost preview of the effect area on the map before release.
+
 - Remove the CIVITAS/version header inside the game.
 - One bottom dock, at most 5 items. Everything else goes in bottom sheets.
-- Charter choice as a bottom sheet with 2 large cards, stacked vertically. The clock **slows** while it's open instead of hard-pausing, and resumes automatically.
+- The shop and era drafts open as a bottom sheet with large cards. The clock **slows** while it's open instead of hard-pausing, and resumes automatically.
 - Pinch-to-zoom and two-finger pan. Tap-and-hold to see a building's history.
 - Desktop uses the same structure with the sheet docked to the right, not a separate 3-column app.
 
@@ -207,21 +301,39 @@ Priorities, in order of impact per effort:
 | Phase | Scope | Success test |
 |---|---|---|
 | **A. Mobile shell** (1–2 wk) | New HUD/dock/sheets, home above the fold, pinch-zoom, Taxes/Stats reachable, auto-resume after choices, render caching | All features reachable on 390×844; no long task > 50 ms at 4× throttle |
-| **B. Charters + needs** (2–3 wk) | Decade Charter choice, road drawing, service radius, need icons with timers, decline, score | Bot (option 1, no map actions) scores < 50% of a scripted sensible player |
-| **C. Spatial history** (2 wk) | Rewrite Turning Points/events to have spatial options; cut taxes, policies, extra layers | ≥ 80% of decisions act on a place on the map |
+| **B. Card economy** (3 wk) | Card zones (shop, hand, slots, in play), decade shop with rarity weights and packs, drag-to-play on the map, upkeep, selling, stack and merge rules, visible collections; convert the 54 existing cards and 8 policies; era drafts replace Turning Points | Card invariants tested (`card-game` skill: each card id in exactly one zone); treasury no longer climbs monotonically |
+| **C. Needs, telegraphed history, score** (2–3 wk) | Need icons with timers, decline, events announced ahead and answered with cards, Prosperity-years score; cut taxes UI, extra layers, demand bars | Do-nothing bot scores < 50% of a scripted sensible player; ≥ 80% of decisions act on a place or a moment |
 | **D. Art pass** (2–3 wk) | Roofs, landmark silhouettes, evolving fields, era palettes, decline visuals | Before/after screenshots at zoom 3 in 1400/1700/1900/2030 |
 | **E. Modes and meta** (2 wk) | Era challenges, daily map, end-of-run timelapse share, legacy unlocks | A 10-minute challenge is playable start to finish on a phone |
 
 Do A first. It's cheap and every later phase gets tested on mobile.
-B is the change that makes CIVITAS a game. The rest builds on it.
+B and C are the changes that make CIVITAS a game. The rest builds on them.
+Add **game feel** throughout (from the `game-feel` skill): a small eased pop
+when a card lands on the map, a short sound per rarity when a pack opens, a
+bell when a landmark completes, and a reduce-motion toggle.
 
 ---
 
-## 5. Skills added for this work
+## 5. Skills installed in this repo
 
-Project skills in `.claude/skills/` that Claude Code loads in this repo:
+All of these live in `.claude/skills/` and load automatically for Claude Code in this repository.
 
-- **`game-design-review`**: the six-test checklist (decision, spatial, visible, compounds, pressure, readable), decision budget and content rules used in this audit.
+### Written for CIVITAS
+- **`game-design-review`**: the six-test checklist (decision, spatial, visible, compounds, pressure, readable), decision budget and content rules.
 - **`mobile-game-ux`**: layout, touch, readability and performance budgets for phone-first play.
 - **`cartographic-art`**: art direction for `render.js`: building recipes, landmark silhouettes, era palettes, evolving countryside.
-- **`headless-playtest`**: `playtest.cjs` plays a full campaign headlessly, screenshots each century, counts decisions and measures long tasks. It's the "bot test" used above.
+- **`headless-playtest`**: `playtest.cjs` plays a campaign headlessly, screenshots each century, counts decisions and measures long tasks.
+
+### Community and official skills (vendored, licenses in `.claude/skills/_licenses/`)
+
+| Skill | Source | License | Used for |
+|---|---|---|---|
+| `card-game`, `roguelike`, `game-ui-ux`, `game-feel`, `performance-optimization`, `procedural-gen` | [gamedev-skills/awesome-gamedev-agent-skills](https://github.com/gamedev-skills/awesome-gamedev-agent-skills) @ `c6ca6c4` | Apache-2.0 | card economy, run/meta structure, HUD and menus, juice, frame budgets, field/terrain generation |
+| `game-design`, `mobile-games`, `web-games`, `game-art`, `2d-games` | [sickn33/antigravity-awesome-skills](https://github.com/sickn33/antigravity-awesome-skills) @ `560b762c` | MIT / CC-BY-4.0 | core loop, mobile constraints, browser games, art style, 2D patterns |
+| `design-critique`, `accessibility-review`, `ux-copy` | [anthropics/knowledge-work-plugins](https://github.com/anthropics/knowledge-work-plugins) (design) @ `02717ef` | Apache-2.0 | screen critiques, WCAG audit, microcopy |
+| `balance-check` (adapted) | [Donchitos/Claude-Code-Game-Studios](https://github.com/Donchitos/Claude-Code-Game-Studios) @ `abc0de7` | MIT | balance verdicts. Retargeted to CIVITAS files, and the studio framework's auto-run shell hook removed |
+
+Not installed: the engine-specific skills (Godot, Unity, Unreal, Roblox), and the
+rest of Claude-Code-Game-Studios. Its skills run `bash` hooks when they load
+and depend on that project's own design documents and agents, so they'd break or
+behave oddly here.
