@@ -11,7 +11,8 @@
     "test:full": "node --test tests/*.test.js",
     "test:ui": "node --test tests/progression-ui.test.js",
     "balance": "node --test tests/balance.test.js",
-    "balance:doctrines": "node scripts/doctrine-balance.mjs"
+    "balance:doctrines": "node scripts/doctrine-balance.mjs",
+    "balance:runs": "node scripts/run-progression.mjs"
   },
   "dependencies": {
     "vite": "6.3.5",

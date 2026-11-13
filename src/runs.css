@@ -1,0 +1,53 @@
+/* CIVITAS v2.0 — founding setup, Unrest meter and run summary. */
+.runSetup{display:flex;flex-direction:column;gap:14px;margin:16px 0 4px}
+.setupBlock>b{display:flex;align-items:center;gap:7px;font-size:12px;margin-bottom:7px}
+.setupNote{font-size:11px;line-height:1.55;color:var(--soft-ink,#655d4f);margin:6px 0 0}
+.poolNote{display:flex;align-items:flex-start;gap:6px;background:#efe8d8;padding:8px 10px;border-radius:5px}
+.founderRow{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:4px}
+.founderChip{flex-direction:column;gap:2px;padding:7px 3px;min-height:64px;font-size:11px;border-top:3px solid var(--doctrine);text-align:center}
+.founderChip.selected{background:#e3ebe1;border-color:#628774;border-top-color:var(--doctrine);font-weight:700}
+.founderChip small{font-size:10px;color:#6d6155;font-weight:400}
+.founderGlyph{font:18px Georgia,serif;color:var(--doctrine);line-height:1}
+.hardshipRow{display:flex;align-items:center;gap:8px}
+.hardshipRow button{padding:6px 9px;min-width:44px;min-height:36px}
+.hardshipRow strong{min-width:86px;text-align:center;font:15px Georgia,serif}
+.hardshipRow small{font-size:11px;color:#6d6155}
+@media(max-width:760px){.founderRow{grid-template-columns:repeat(4,minmax(0,1fr))}}
+
+.unrestMeter{display:flex;align-items:center;gap:6px;font-size:11px;padding:6px 9px;border-radius:5px;background:#f0e8d6;color:#6a5133;margin:0 0 10px}
+.unrestMeter i{flex:1;height:6px;border-radius:3px;background:#c8a867;max-width:100%}
+.unrestMeter.warn{background:#f4e1c8;color:#7a4c1d}.unrestMeter.warn i{background:#c47d3a}
+.unrestMeter.danger{background:#f6d9d0;color:#8a2c22}.unrestMeter.danger i{background:#b5432f}
+.unrestMeter b{min-width:22px;text-align:right}
+
+.runSummary{position:relative;width:min(640px,100%);max-height:calc(100dvh - 30px);overflow:auto;background:radial-gradient(ellipse at top,#fff9e8,#efe5cf);border:3px double #9b8969;border-radius:10px;padding:28px 30px 22px;color:var(--ink,#28251f);box-shadow:0 25px 80px #18180f66}
+.runSummary h2{display:flex;align-items:center;gap:9px;font:27px 'Libre Baskerville',Georgia,serif;margin:8px 0 4px}
+.runSummary h3{display:flex;align-items:center;gap:7px;font-size:12px;letter-spacing:1.2px;text-transform:uppercase;color:#6d6050;margin:20px 0 6px}
+.summaryLine{font-size:12px;color:#6a6155;margin:0 0 14px}
+.summaryStats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.summaryStats>div{background:#fbf6ea;border:1px solid #dccfb6;border-radius:7px;padding:10px;display:flex;flex-direction:column;gap:3px}
+.summaryStats span{font-size:11px;letter-spacing:1px;text-transform:uppercase;color:#6d6050}
+.summaryStats strong{display:flex;align-items:center;gap:5px;font:21px Georgia,serif}
+.summaryStats small{font-size:11px;color:#6a6155;line-height:1.4}
+.summaryDelta{display:flex;align-items:center;gap:6px;font-size:12px;color:#405b49;margin:10px 0 0}
+.historyBars{list-style:none;padding:0;margin:8px 0 4px;display:flex;flex-direction:column;gap:4px}
+.historyBars li{display:grid;grid-template-columns:110px 1fr 84px;align-items:center;gap:8px;font-size:11px}
+.historyBars li span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.historyBars i{height:9px;border-radius:2px;background:#b9ad92}
+.historyBars li.you{font-weight:700}.historyBars li.you i{background:#405b49}
+.historyBars b{text-align:right;font-weight:600}
+.runBars{list-style:none;padding:0;margin:8px 0;display:flex;align-items:flex-end;gap:6px;height:80px}
+.runBars li{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:100%;gap:3px}
+.runBars i{width:100%;max-width:34px;background:#b9ad92;border-radius:3px 3px 0 0}
+.runBars i.ruined{background:#b98a7a}
+.runBars li.you i{background:#405b49}
+.runBars small{font-size:10px;color:#6a6155}
+.summaryActions{display:flex;gap:8px;justify-content:flex-end;margin-top:20px;flex-wrap:wrap}
+@media(max-width:560px){.runSummary{padding:22px 16px 16px}.summaryStats{grid-template-columns:1fr}.historyBars li{grid-template-columns:80px 1fr 70px}}
+
+.metaGrid .marketItem{min-height:160px}
+.masteryRow{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-bottom:18px}
+.masteryRow>div{background:#fdf9f0;border:1px solid #dbcfb8;border-left:4px solid var(--doctrine);border-radius:6px;padding:10px 12px;font-size:11px;display:flex;flex-direction:column;gap:4px}
+.masteryRow b{font-size:13px}
+.masteryRow progress{width:100%;accent-color:var(--doctrine)}
+@media(max-width:800px){.masteryRow{grid-template-columns:repeat(2,minmax(0,1fr))}}

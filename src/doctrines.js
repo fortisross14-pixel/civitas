@@ -4,6 +4,7 @@
 // bends a different game system. This module only *describes* the state; the
 // systems (needs, history, shop, drafts, districts, fields, economy, score)
 // read `doctrineState(city).flags`. Player cities only (turning.mode 'era').
+import {perk} from './perks.js';
 import {CARDS,ERA_CARDS,CARD_INDEX,setCardScale,ERA_KEY_SCALE} from './turningPoints.js';
 import {townCenterLevel} from './construction.js';
 import {setDevelopmentFloorHook} from './development.js';
@@ -99,7 +100,7 @@ export const TYPE_LABEL={building:'Building',decree:'Decree',event:'Event',patro
 export const MAX_LEVEL=3;
 
 export function doctrinesOn(city){return city?.turning?.mode==='era';}
-export function decreeSlots(city){const l=townCenterLevel(city)?.level||1;return 8+(l>=3?1:0)+(l>=5?1:0);}
+export function decreeSlots(city){const l=townCenterLevel(city)?.level||1;return 8+(l>=3?1:0)+(l>=5?1:0)+perk(city,'decreeBonus');}
 
 // Picks that are currently in effect (not retired, not expired, buildings placed).
 export function activePicks(city){

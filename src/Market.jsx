@@ -1,13 +1,18 @@
 import React,{useEffect,useMemo,useRef,useState} from 'react';
-import {ArrowLeft,BookOpen,Check,Coins,Crown,Layers3,Medal,PackageOpen,TrendingUp,X} from 'lucide-react';
+import {ArrowLeft,BookOpen,Check,Coins,Crown,Gem,Layers3,Medal,PackageOpen,TrendingUp,X} from 'lucide-react';
+import {FOUNDERS,ARTIFACTS,BOOSTERS,founderOpen,artifactSlots} from './legacy.js';
+import {DOCTRINES,DOCTRINE_IDS} from './doctrines.js';
+import {masteryUnlocks,eraCardPool} from './runs.js';
+import {ERA_CARDS} from './turningPoints.js';
+import './runs.css';
 import {CARD_INDEX,DOMAINS,RARITY_COLORS} from './turningPoints.js';
 import {FIGURES,FIGURE_PACKS,LOCKED_CARDS,MARKET_UPGRADES,canBuy,marketCost,figurePackOdds} from './legacy.js';
 import {achievementProgress} from './achievements.js';
 
 const number=n=>Math.round(n).toLocaleString('en-US');
 const rarityName=r=>r==='legend'?'Legendary':r.charAt(0).toUpperCase()+r.slice(1);
-const effectLabels={treasury:'Treasury income',development:'Urban growth',newHousing:'New housing capacity',trade:'Commercial productivity',arts:'Cultural production',migration:'Migration attraction',services:'Service efficiency',legacyCapacity:'Housing capacity',legacyProductivity:'Productive know-how',featuredSlots:'Extra featured slots',megacityCharter:'Metropolis Charter',rareLuck:'Rare-offer luck',extraRerolls:'Extra rerolls'};
-const effectValue=(key,value)=>['featuredSlots','extraRerolls'].includes(key)?`+${value}`:key==='megacityCharter'?(value?'Unlocked':'Locked'):`+${Math.round(value*100)}%`;
+const effectLabels={treasury:'Treasury income',development:'Urban growth',newHousing:'New housing capacity',trade:'Commercial productivity',arts:'Cultural production',migration:'Migration attraction',services:'Service efficiency',legacyCapacity:'Housing capacity',legacyProductivity:'Productive know-how',featuredSlots:'Extra featured slots',megacityCharter:'Metropolis Charter',rareLuck:'Rare-offer luck',extraRerolls:'Extra rerolls',handBonus:'Hand size',decreeBonus:'Decree slots',freeRerolls:'Free Market rerolls a decade',artifactSlots:'Artifact slots'};
+const effectValue=(key,value)=>['featuredSlots','extraRerolls','handBonus','decreeBonus','freeRerolls','artifactSlots'].includes(key)?`+${value}`:key==='megacityCharter'?(value?'Unlocked':'Locked'):`+${Math.round(value*100)}%`;
 export function UpgradePreview({upgrade,rank}){
  return <div className="upgradePreview"><div><span>Benefit</span><span>Owned</span><span>{rank>=upgrade.max?'Maximum':'Next rank'}</span></div>{Object.entries(upgrade.effect).map(([key,value])=><div key={key}><span>{effectLabels[key]||key}</span><b>{effectValue(key,value*rank)}</b><b>{effectValue(key,value*Math.min(rank+1,upgrade.max))}</b></div>)}</div>;
 }
@@ -28,6 +33,25 @@ export function AchievementLedger({legacy,cities,samples,compact=false,onOpen}){
  <p className="marketNote">Income tiers use modeled GDP per person in game currency: Normal 1,000 · Good 2,500 · High 5,000 · Very high 10,000 · Rich 25,000. Completing a chronicle still earns a separate bonus.</p></section>;
 }
 
+// v2.0: Founders, artifacts, boosters and doctrine mastery.
+function BuyButton({legacy,type,id,owned,label,onPurchase}){
+ const status=canBuy(legacy,type,id);
+ if(owned)return <button className="owned" disabled><Check size={14}/> {label||'Owned'}</button>;
+ return <button className="primary" disabled={!status.ok} title={status.reason} onClick={()=>onPurchase(type,id)}><Coins size={14}/> {status.ok||Number.isFinite(status.cost)?`${number(status.cost)} LP`:status.reason}</button>;
+}
+function RunsMarket({legacy,onPurchase}){
+ const pool=eraCardPool(legacy).length;
+ return <>
+  <div className="marketSectionHead"><div><h2>Doctrine mastery</h2><p>Mastery is the deepest tier a doctrine has reached in any run. Tier 1 opens its Rare cards for every future city; tier 2 opens its Epics and Patron, and so its Wonders. Your card pool: <b>{pool}</b> of {ERA_CARDS.length}.</p></div></div>
+  <div className="masteryRow">{DOCTRINE_IDS.map(d=>{const m=legacy.mastery[d]||0,next=m<1?1:m<2?2:null,opens=next?masteryUnlocks(d,next).length:0;return <div key={d} style={{'--doctrine':DOCTRINES[d].color}}><b>{DOCTRINES[d].glyph} {DOCTRINES[d].name} · tier {m}</b><progress value={Math.min(m,2)} max={2}/><small>{next?`Reach tier ${next} in a run to open ${opens} more ${opens===1?'card':'cards'}.`:'Every card of this doctrine is open.'}</small></div>;})}</div>
+  <div className="marketSectionHead"><div><h2>Founders</h2><p>Who founds the town decides its first cards and which doctrine the Market Hall favours. A founder joins for free once you reach tier 1 of their doctrine in a run.</p></div></div>
+  <div className="marketGrid metaGrid">{FOUNDERS.map(f=>{const open=founderOpen(legacy,f.id);return <article className="marketItem" key={f.id} style={{'--card-color':f.doctrine?DOCTRINES[f.doctrine].color:'#6f6a5c'}}><div className="marketMeta"><span>{f.doctrine?DOCTRINES[f.doctrine].name:'Civic'}</span><b>{open?'In your council':'Locked'}</b></div><h3>{f.name}</h3><p>{f.description}</p><BuyButton legacy={legacy} type="founder" id={f.id} owned={open} label="Available" onPurchase={onPurchase}/></article>;})}</div>
+  <div className="marketSectionHead"><div><h2>Artifacts</h2><p>Bought once, kept forever. Carry {artifactSlots(legacy)} into each city (Reliquary Vault adds slots). Each one bends a single rule for that run.</p></div></div>
+  <div className="marketGrid metaGrid">{ARTIFACTS.map(a=><article className="marketItem" key={a.id} style={{'--card-color':'#8a6f3e'}}><div className="marketMeta"><span>Artifact</span><b>{legacy.artifacts.includes(a.id)?'Owned':''}</b></div><h3>{a.name}</h3><p>{a.description}</p><BuyButton legacy={legacy} type="artifact" id={a.id} owned={legacy.artifacts.includes(a.id)} onPurchase={onPurchase}/></article>)}</div>
+  <div className="marketSectionHead"><div><h2>Boosters</h2><p>Used up when you found a city, up to two per city. Stock up between runs.</p></div></div>
+  <div className="marketGrid metaGrid">{BOOSTERS.map(b=><article className="marketItem" key={b.id} style={{'--card-color':'#5f7d6c'}}><div className="marketMeta"><span>Booster</span><b>{legacy.boosters[b.id]?`${legacy.boosters[b.id]} in store`:''}</b></div><h3>{b.name}</h3><p>{b.description}</p><BuyButton legacy={legacy} type="booster" id={b.id} onPurchase={onPurchase}/></article>)}</div>
+ </>;
+}
 export function Market({legacy,onPurchase,onOpenPack,onBack,backLabel,tab,setTab,cities,samples,ready}){
  const [reveal,setReveal]=useState(null),[collectionOpen,setCollectionOpen]=useState(false);
  const revealRef=useRef(null),revealOrigin=useRef(null);
@@ -42,7 +66,7 @@ export function Market({legacy,onPurchase,onOpenPack,onBack,backLabel,tab,setTab
  const named=FIGURES.filter(f=>!f.generic),ownedCount=legacy.unlockedFigures.length;
  const openPack=id=>{revealOrigin.current=document.activeElement;const result=onOpenPack(id);if(result?.figure)setReveal(result.figure);};
  return <main className="legacyPage marketFolio"><div className="marketHeader"><button onClick={onBack}><ArrowLeft size={15}/> {backLabel}</button><div><div className="eyebrow">THE PATRON’S COLLECTION</div><h1>Legacy Market</h1><p>Milestones earn Legacy Points. Invest them in the next city’s story.</p></div><span className="legacyPoints"><Coins size={18}/>{number(legacy.points)} LP</span></div>
- <nav className="marketTabs" aria-label="Legacy Market">{[['people','Figure packs',Crown],['upgrades','City upgrades',TrendingUp],['cards','Turning Point cards',Layers3],['achievements','Milestones',Medal]].map(([id,name,Icon])=><button key={id} className={tab===id?'sel':''} aria-current={tab===id?'page':undefined} onClick={()=>setTab(id)}><Icon size={16}/>{name}</button>)}</nav>
+ <nav className="marketTabs" aria-label="Legacy Market">{[['runs','Founders & artifacts',Gem],['people','Figure packs',Crown],['upgrades','City upgrades',TrendingUp],['cards','Turning Point cards',Layers3],['achievements','Milestones',Medal]].map(([id,name,Icon])=><button key={id} className={tab===id?'sel':''} aria-current={tab===id?'page':undefined} onClick={()=>setTab(id)}><Icon size={16}/>{name}</button>)}</nav>
  {tab==='people'&&<>
   <div className="marketSectionHead"><div><h2>Discover a figure</h2><p>Open a sealed folio to reveal one random, unowned historical figure. Your collection carries into every future city.</p></div><span>{ownedCount} / {named.length} discovered</span></div>
   <div className="packGuarantees"><span><Crown size={16}/> Epic or better within <b>{5-legacy.packs.sinceEpic}</b> openings</span><span>Legendary within <b>{12-legacy.packs.sinceLegend}</b> openings</span><small>All folios count. A stronger discovery resets its counter. Guarantees apply while that rarity remains undiscovered.</small></div>
@@ -53,6 +77,7 @@ export function Market({legacy,onPurchase,onOpenPack,onBack,backLabel,tab,setTab
  </>}
  {tab==='upgrades'&&<><div className="marketSectionHead"><div><h2>Strengthen your next city</h2><p>Buy the next rank with LP. Its full bonus applies automatically when you found a new city; existing cities keep their founding bonuses.</p></div></div><div className="marketGrid">{MARKET_UPGRADES.map(u=>{const rank=legacy.upgrades[u.id]||0,status=canBuy(legacy,'upgrade',u.id),cost=marketCost('upgrade',u.id,rank);return <article className="marketItem" key={u.id} style={{'--card-color':DOMAINS[u.domain].color}}><div className="marketMeta"><span>{DOMAINS[u.domain].name}</span><b>Rank {rank} / {u.max}</b></div><h3>{u.name}</h3><div className="rankSteps" aria-label={`Rank ${rank} of ${u.max}`}>{Array.from({length:u.max},(_,i)=><i className={i<rank?'filled':''} key={i}/>)}</div><p>{u.description}</p><UpgradePreview upgrade={u} rank={rank}/><small>{u.id==='metropolis'?'Building available in 2000–2030 · requires 144,000 residents and city treasury.':u.id==='reputation'?'Choose featured figures before founding. Their own era windows still apply.':u.id==='luck'||u.id==='rerolls'?'Applies to Turning Point offers throughout the new campaign.':'All eras · active throughout each new campaign.'}</small><button disabled={!ready||!status.ok} className={rank>=u.max?'owned':''} onClick={()=>onPurchase('upgrade',u.id)}>{rank>=u.max?<><Check size={14}/> Maximum rank</>:<><Coins size={14}/>{status.ok?`Rank ${rank+1} · ${cost} LP`:`${cost} LP · need ${cost-legacy.points} more`}</>}</button></article>;})}</div></>}
  {tab==='cards'&&<><div className="marketSectionHead"><div><h2>Expand your Turning Point deck</h2><p>One purchase unlocks a card for future cities. It may be offered at a Turning Point when its conditions are met; choose it there to gain its effect.</p></div></div><div className="marketGrid">{LOCKED_CARDS.map(id=>{const c=CARD_INDEX[id],status=canBuy(legacy,'card',id),owned=legacy.unlockedCards.includes(id),cost=marketCost('card',id);return <article className="marketItem" key={id} style={{'--card-color':DOMAINS[c.domain].color}}><div className="marketMeta"><span>{DOMAINS[c.domain].name}</span><b>{rarityName(c.rarity)}</b></div><h3>{c.name}</h3><p>{c.description}</p><OfferRules card={c}/>{!owned&&!status.ok&&status.reason.startsWith('Requires')&&<small className="purchaseRequirement">{status.reason} · earn during play</small>}<button disabled={!ready||!status.ok} className={owned?'owned':''} onClick={()=>onPurchase('card',id)}>{owned?<><Check size={14}/> In your deck</>:status.reason.startsWith('Requires')?`Locked · ${cost} LP`:<><Coins size={14}/>{status.ok?`Unlock · ${cost} LP`:`${cost} LP · need ${cost-legacy.points} more`}</>}</button></article>;})}</div></>}
+ {tab==='runs'&&<RunsMarket legacy={legacy} onPurchase={onPurchase}/>}
  {tab==='achievements'&&<AchievementLedger legacy={legacy} cities={cities} samples={samples}/>}
  {reveal&&<div className="turningBackdrop packRevealBackdrop"><section ref={revealRef} className="packReveal" role="dialog" aria-modal="true" aria-labelledby="packRevealTitle"><button className="revealClose" autoFocus aria-label="Close figure reveal" onClick={()=>setReveal(null)}><X size={18}/></button><div className="eyebrow">A NEW PAGE IN YOUR COLLECTION</div><div className="figureEmblem" style={{color:RARITY_COLORS[reveal.rarity]}}><Crown size={50}/></div><span className="revealRarity">{rarityName(reveal.rarity)} · {DOMAINS[reveal.domain].name}</span><h2 id="packRevealTitle">{reveal.name}</h2><p>{reveal.description}</p><div className="revealEra">Offer window {reveal.minYear}–{reveal.maxYear}<br/>{number(reveal.cost)} city treasury to recruit</div><p className="muted">Added to your permanent collection. Feature this figure before founding a city to improve their chances of appearing in that era.</p><button className="primary wide" onClick={()=>setReveal(null)}><Check size={15}/> Continue</button></section></div>}
  </main>;

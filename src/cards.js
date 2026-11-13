@@ -7,6 +7,7 @@
 import {CARDS,ERA_CARDS,CARD_INDEX,SYNERGIES} from './turningPoints.js';
 import {eraCost,annualRevenue} from './economy.js';
 import {DOMAIN_AXIS} from './character.js';
+import {perk,perkMult} from './perks.js';
 import {doctrineFlags,doctrineWeight,cardDoctrines,doctrinesOn,cardLevel,MAX_LEVEL,doctrineState,FOCUS_DISCOUNT,tierOf} from './doctrines.js';
 
 export const RARITIES=['common','uncommon','rare','epic'];
@@ -45,7 +46,8 @@ export function normalizeDeck(input){
 }
 
 // Hand size grows with the Town Center: 5, 6 at level 3, 7 at level 5.
-export function handLimit(city){const lvl=city?.center?.level||1;return 5+(lvl>=3?1:0)+(lvl>=5?1:0);}
+// v2.0: the Larger Satchel upgrade adds to it.
+export function handLimit(city){const lvl=city?.center?.level||1;return 5+(lvl>=3?1:0)+(lvl>=5?1:0)+perk(city,'handBonus');}
 
 // One price unit: a share of the city's income, never below an era floor.
 export function priceUnit(city,s){
@@ -58,9 +60,11 @@ export const cardPrice=(card,unit,city=null)=>{
   const f=city?doctrineFlags(city):{},learning=f.learningDiscount&&cardDoctrines(card).includes('learning')?f.learningDiscount:1;
   // Focus perk: a doctrine with tier 1+ (2 cards in play) sells its cards for 20% less.
   const st=city?doctrineState(city):null,focus=st?.on&&cardDoctrines(card).some(d=>tierOf(st.counts[d]||0)>=1)?FOCUS_DISCOUNT:1;
-  return Math.max(1,Math.round(RARITY_PRICE[card.rarity]*unit*(f.priceMult||1)*learning*focus));
+  return Math.max(1,Math.round(RARITY_PRICE[card.rarity]*unit*(f.priceMult||1)*learning*focus*(city?perkMult(city,'priceMult'):1)));
 };
 export const BANISHES_PER_RUN=3;
+// v2.0: the Founder's doctrine is this many times as likely in the Market Hall.
+export const FOUNDER_FAVOUR=3;
 
 // Rarity odds drift from 60/28/10/2 in 1300 to 40/32/20/8 by 2030.
 export function rarityWeights(year){
@@ -101,7 +105,7 @@ function drawCard(city,roll,{minRarity='common',exclude=new Set()}={}){
   let total=present.reduce((n,r)=>n+w[r],0),t=roll()*total,rarity=present.at(-1);
   for(const r of present){t-=w[r];if(t<=0){rarity=r;break;}}
   const items=pool.filter(c=>c.rarity===rarity),owned=new Set((city.turning?.choices||[]).map(p=>p.cardId));
-  const weight=c=>doctrineWeight(city,c)*(1+(SYNERGIES.some(s=>s.needs.includes(c.id)&&s.needs.some(id=>id!==c.id&&owned.has(id)))?1.5:0)+1.5*(city.character?.shares?.[DOMAIN_AXIS[c.domain]]||0));
+  const favour=city.perks?.favour,weight=c=>doctrineWeight(city,c)*(favour&&cardDoctrines(c).includes(favour)?FOUNDER_FAVOUR:1)*(1+(SYNERGIES.some(s=>s.needs.includes(c.id)&&s.needs.some(id=>id!==c.id&&owned.has(id)))?1.5:0)+1.5*(city.character?.shares?.[DOMAIN_AXIS[c.domain]]||0));
   total=items.reduce((n,c)=>n+weight(c),0);t=roll()*total;
   for(const c of items){t-=weight(c);if(t<=0)return c;}
   return items.at(-1);
@@ -115,7 +119,10 @@ export function restockShop(city,s,salt=0){
   const kept=!salt&&deck.shop?.locked?deck.shop.offers.find(o=>o.uid===deck.shop.locked):null;
   if(kept&&CARD_INDEX[kept.cardId]){exclude.add(kept.cardId);offers.push({...kept,price:cardPrice(CARD_INDEX[kept.cardId],unit,city)});}
   const size=SHOP_SIZE+(f.extraOffer||0);
-  for(let i=offers.length;i<size;i++){
+  // v2.0: boosters and the Reliquary add their cards to the first Market Hall.
+  let bonus=0;
+  if(!salt&&!deck.shop)for(const id of city.perks?.firstOffers||[]){const c=CARD_INDEX[id];if(c&&!exclude.has(id)){exclude.add(id);bonus++;offers.push({uid:deck.nextUid++,cardId:id,price:cardPrice(c,unit,city)});}}
+  for(let i=offers.length;i<size+bonus;i++){
     const c=drawCard({...city,deck},roll,{exclude});if(!c)break;
     exclude.add(c.id);offers.push({uid:deck.nextUid++,cardId:c.id,price:cardPrice(c,unit,city)});
   }
@@ -123,7 +130,8 @@ export function restockShop(city,s,salt=0){
   return {...city,deck};
 }
 export function shopDue(city){const shop=deckOf(city).shop;return !shop||city.year-shop.year>=RESTOCK_YEARS;}
-export function rerollPrice(city){const shop=deckOf(city).shop;if(!shop)return 0;return Math.round(REROLL_PRICE*shop.unit*(1+.5*shop.rerolls));}
+// v2.0: Market Favours and the Surveyor's Chain make the first rerolls of a decade free.
+export function rerollPrice(city){const shop=deckOf(city).shop;if(!shop)return 0;const free=perk(city,'freeRerolls');if(shop.rerolls<free)return 0;return Math.round(REROLL_PRICE*shop.unit*(1+.5*(shop.rerolls-free)));}
 
 const fail=(city,error)=>({city,error});
 const spend=(city,amount)=>({...city,funds:(city.funds||0)-amount});

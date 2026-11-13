@@ -2,7 +2,7 @@ import {FIGURES,FIGURE_INDEX} from './legacy.js';
 import {INITIAL_DEVELOPMENT,developmentOf,applyPulse,advanceDevelopment,accumulateDevelopment,productivityGrowth,developmentCapacity} from './development.js';
 import {BASIC_INDEX,BASIC_BUILDINGS,BUILDING_EFFECTS,SPECIAL_BUILDINGS,basicsForYear,TOWN_CENTER_LEVELS,TOWN_CENTER_MAX,townCenterLevel,basicLimit,CITYWIDE_COPIES} from './construction.js';
 export {TOWN_CENTER_LEVELS,TOWN_CENTER_MAX,townCenterLevel};
-import {maybeEvent,disasterEvent,eventDefinition,eventScale,timedEffects,fireproofed,eventSpot,announceOmen,resolveDueOmens,applyEventChoice,normalizeOmens,omensOf,OMEN_LEAD,AFTERMATH_YEARS} from './events.js';
+import {maybeTrial,maybeEvent,disasterEvent,eventDefinition,eventScale,timedEffects,fireproofed,eventSpot,announceOmen,resolveDueOmens,applyEventChoice,normalizeOmens,omensOf,OMEN_LEAD,AFTERMATH_YEARS} from './events.js';
 import {advanceNeeds,normalizeNeeds} from './needs.js';
 import {scoreYear,penalize,normalizeScore,emptyScore,DECLINE_YEARS_LOST,UNANSWERED_YEARS_LOST} from './score.js';
 import {CARD_INDEX,TURNING_POINTS,turningYears,turningSchedule,turningCount,eraEffects,turningMode,generateOffers,modifiers,activeSynergies,resolvedCards,currentTurningIndex} from './turningPoints.js';
@@ -15,7 +15,8 @@ import {spatial,spatialEffects,freezeSpatial,thawSpatial} from './spatial.js';
 import {POLICIES,POLICY_INDEX,activePolicies,policyIssue,policyEffects,policyHook} from './policies.js';
 import {updateDistricts,districtDetails} from './districts.js';
 import {characterOf} from './character.js';
-import {doctrineState,doctrineFlags,scoreBonus,cardType,decreesInPlay,decreeSlots,cardLevel,MAX_LEVEL,doctrinesOn,wondersDue} from './doctrines.js';
+import {perk,perkMult,hardshipOf} from './perks.js';
+import {tierOf,DOCTRINE_IDS,doctrineState,doctrineFlags,scoreBonus,cardType,decreesInPlay,decreeSlots,cardLevel,MAX_LEVEL,doctrinesOn,wondersDue} from './doctrines.js';
 import {deckOf,normalizeDeck,restockShop,shopDue,playedCopies,MAX_COPIES,YEARS_PER_INTERVAL} from './cards.js';
 export {POLICIES,POLICY_INDEX,activePolicies,policyIssue,districtDetails};
 // Influence fields for the map layers and the building inspector.
@@ -562,8 +563,14 @@ function yearTick(city,prevYear){
   // v1.6: history is announced ahead and decided while the clock runs.
   const resolved=resolveDueOmens(city,year);
   for(const r of resolved)if(!r.answered)penalize(city,'undecided',UNANSWERED_YEARS_LOST,1,`${eventDefinition(r.omen.id)?.title||'A decision'}: no decision`,year);
+  // v2.0: a doctrine's own answer to an Era Trial improves the next draft.
+  for(const r of resolved)if(r.answered&&r.choice?.boon){city.turning={...city.turning,boon:true};city.events.push({year,type:'trial',text:'The city met its trial in its own way. The next era draft will offer more.'});}
   const knock=maybeEvent(city,year,nextMilestoneOf(city)===year);
-  const lead=doctrineFlags(city).omenLead||OMEN_LEAD;
+  const lead=(doctrineFlags(city).omenLead||OMEN_LEAD)+perk(city,'omenLeadBonus');
+  // v2.0: Era Trials, set before each era draft in doctrine cities.
+  if(doctrinesOn(city)){const draft=nextMilestoneOf(city),trial=draft&&maybeTrial(city,year,draft,deepestDoctrine(city,2));
+    if(trial){announceOmen(city,trial,year,draft-1-year);city.seenEvents=[...(city.seenEvents||[]),`trial:${draft}`];
+      city.events.push({year,type:'omen',trial:true,eventId:trial.id,x:trial.x,y:trial.y,text:`Era Trial: ${trial.title} (${draft-1}). ${trial.text} Decide how the city will meet it.`});}}
   if(knock&&year+lead<END_YEAR){announceOmen(city,knock,year,lead);city.seenEvents=[...(city.seenEvents||[]),knock.id];city.lastEventYear=year;
     city.events.push({year,type:'omen',eventId:knock.id,x:knock.x,y:knock.y,text:`${knock.title} is coming (${year+lead}). ${knock.text} Decide how the city will meet it.`});}
   // v1.6: districts that lack services, a market or clean air show a need; neglected ones decline.
@@ -572,7 +579,8 @@ function yearTick(city,prevYear){
     for(const d of declines)penalize(city,'decline',DECLINE_YEARS_LOST,3*d.homes/all,`${d.name} declined`,year);}
   {const sNow=stats(city),flags=doctrineFlags(city);
    if(flags.interest&&city.funds>0){const gain=Math.min(city.funds*flags.interest,annualRevenue(city,sNow).total*.25);city.funds+=gain;}
-   scoreYear(city,sNow,scoreBonus(city,sNow));}
+   scoreYear(city,sNow,scoreBonus(city,sNow));
+   if(doctrinesOn(city)){trackTiers(city);if(city.needsOn)updateUnrest(city,year,sNow,resolved,declines);}}
   // v1.5: the Market Hall restocks every decade.
   if(year<END_YEAR&&shopDue(city)){const r=restockShop(city,stats(city));city.deck=r.deck;city.events.push({year,type:'shop',text:'The Market Hall has new cards for sale.'});}
   if(year%5!==0&&year!==END_YEAR)return;
@@ -761,9 +769,36 @@ function applyChoice(city,card,record,label){
   return next;
 }
 function nextMilestoneOf(city){return turningSchedule(city)[currentTurningIndex(city)+(city.turning?.skipped||0)];}
+// v2.0 runs: the deepest doctrine at `min` tier or more (null if none).
+function deepestDoctrine(city,min){const counts=doctrineState(city).counts||{};let best=null,n=0;
+  for(const d of DOCTRINE_IDS)if(tierOf(counts[d]||0)>=min&&(counts[d]||0)>n){best=d;n=counts[d];}return best;}
+function trackTiers(city){const counts=doctrineState(city).counts||{},peak={...(city.peakTiers||{})};let changed=false;
+  for(const d of DOCTRINE_IDS){const t=tierOf(counts[d]||0);if(t>(peak[d]||0)){peak[d]=t;changed=true;}}
+  if(changed)city.peakTiers=peak;}
+// v2.0 Ruin. Unrest builds each year prosperity sits below the Unrest line
+// (40, +2 per Hardship), and with every unanswered history and declining
+// district; it eases when the city is content. Each Hardship level makes
+// neglect weigh 40% more and Unrest ease more slowly. At 100 the city falls
+// into Ruin and the run ends. The first UNREST_GRACE years after founding are free.
+export const UNREST_LINE=40,UNREST_PER_HARDSHIP=2,UNREST_RATE=.6,UNREST_UNANSWERED=8,UNREST_DECLINE=4,UNREST_EASE=3,UNREST_GRACE=20,RUIN_AT=100;
+export function unrestLine(city){return UNREST_LINE+UNREST_PER_HARDSHIP*hardshipOf(city);}
+function updateUnrest(city,year,s,resolved,declines){
+  const founded=city.history?.[0]?.year??FIRST_YEAR;if(year-founded<UNREST_GRACE||city.awaitingCenter)return;
+  const line=unrestLine(city),before=city.unrest||0,unanswered=resolved.filter(r=>!r.answered).length;
+  const h=hardshipOf(city),neglect=1+.4*h;
+  const gain=(Math.max(0,line-(s.prosperity||0))*UNREST_RATE+(UNREST_UNANSWERED*unanswered+UNREST_DECLINE*declines.length)*neglect)*perkMult(city,'unrestMult');
+  const after=Math.max(0,Math.min(RUIN_AT,gain>0?before+gain:before-UNREST_EASE/(1+.5*h)));
+  city.unrest=Math.round(after*10)/10;
+  for(const mark of [50,80])if(before<mark&&after>=mark)city.events.push({year,type:'unrest',text:`Unrest ${mark>=80?'is close to boiling over':'is rising'} (${Math.round(after)}/100). Raise prosperity above ${line}, answer history and serve needs, or the city falls into Ruin.`});
+  if(after>=RUIN_AT){city.ruined=year;city.events.push({year,type:'ruin',text:'The city falls into Ruin. Its people scatter and the Chronicle closes early.'});}
+}
 function openTurningPoint(city){
   const index=currentTurningIndex(city)+(city.turning?.skipped||0);
-  city.turning.pending={index,year:city.year,options:generateOffers(city,index,0,eligibleFigures(city),doctrineFlags(city).draftOptions||3)};
+  // v2.0: the Brass Astrolabe adds an option; a trial's doctrine answer adds one more and better odds.
+  const boon=!!city.turning.boon,count=(doctrineFlags(city).draftOptions||3)+perk(city,'draftBonus')+(boon?1:0);
+  const source=boon?{...city,legacyBonuses:{...(city.legacyBonuses||{}),rareLuck:(city.legacyBonuses?.rareLuck||0)+1}}:city;
+  city.turning.pending={index,year:city.year,options:generateOffers(source,index,0,eligibleFigures(city),count),...(boon?{boon:true}:{})};
+  if(boon)city.turning.boon=false;
   city.events.push({year:city.year,type:'turning_point',text:`Turning Point ${index+1}: three futures await your choice.`});
 }
 function finishCity(city){
@@ -779,6 +814,7 @@ function runMonths(city,months){
     if(month>=12){
       next.month=0;next.year=prevYear+1;yearTick(next,prevYear);
       if(next.year>=END_YEAR){finishCity(next);break;}
+      if(next.ruined){next.finished=true;break;}
       const milestone=nextMilestoneOf(next);
       if(milestone!==undefined&&next.year>=milestone){monthTick(next);openTurningPoint(next);break;}
       if(next.event){monthTick(next);break;}
@@ -1089,8 +1125,8 @@ export function normalizeCity(input){
   // Old saves resume at the next future checkpoint; past opportunities are not granted retroactively.
   const campaignYears=turningSchedule(input);
   const skipped=Math.max(0,campaignYears.filter(y=>y<=c.year).length-tpChoices-(pending?1:0));
-  c.turning={...(input.turning?.mode==='era'?{mode:'era'}:{}),choices,pending:pending||null,skipped:Math.max(Number(input.turning?.skipped)||0,skipped),rerollsUsed:Math.max(0,Number(input.turning?.rerollsUsed)||0),cardPool:Array.isArray(input.turning?.cardPool)?input.turning.cardPool:undefined,figurePool:Array.isArray(input.turning?.figurePool)?input.turning.figurePool:[],featuredFigures:Array.isArray(input.turning?.featuredFigures)?input.turning.featuredFigures:[]};
-  c.finished=c.year>=END_YEAR;
+  c.turning={...(input.turning?.mode==='era'?{mode:'era'}:{}),choices,pending:pending||null,skipped:Math.max(Number(input.turning?.skipped)||0,skipped),rerollsUsed:Math.max(0,Number(input.turning?.rerollsUsed)||0),cardPool:Array.isArray(input.turning?.cardPool)?input.turning.cardPool:undefined,figurePool:Array.isArray(input.turning?.figurePool)?input.turning.figurePool:[],featuredFigures:Array.isArray(input.turning?.featuredFigures)?input.turning.featuredFigures:[],...(input.turning?.boon?{boon:true}:{})};
+  c.finished=c.year>=END_YEAR||Number.isFinite(input.ruined);
   if(c.finished)c.turning.pending=null;
   c.development=developmentOf(input);
   c.productivityStock=Number(input.productivityStock)>0?Number(input.productivityStock):Math.max(720,Number(c.history.at(-1)?.gdpPerCapita||0)/.46||720);

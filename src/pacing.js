@@ -1,6 +1,6 @@
 // CIVITAS v1.8 — pacing. The clock ticks once per in-game month. Normal speed
 // is one year every 1.5 s, so 1300–2030 takes about 18 minutes. Quiet decades
-// (nothing waiting for you) pass 1.5× faster; while you are deciding (Market
+// (nothing waiting for you) pass 1.2× faster; while you are deciding (Market
 // Hall open, history waiting in the Needs panel) time slows to a quarter
 // instead of stopping.
 import {omensOf} from './events.js';
@@ -8,7 +8,9 @@ import {needsOf} from './needs.js';
 
 // [months per second, label]
 export const SPEEDS=[[4,'½×'],[8,'1×'],[16,'2×'],[36,'MAX']];
-export const NORMAL_SPEED=8,MAX_SPEED=36,QUIET_FACTOR=1.5,DECIDING_FACTOR=.25;
+// v2.0: quiet years are most years (~88% for a steady player), so 1.5× made
+// runs ~13 minutes; at 1.2× a run takes ~16 minutes plus time spent deciding.
+export const NORMAL_SPEED=8,MAX_SPEED=36,QUIET_FACTOR=1.2,DECIDING_FACTOR=.25;
 
 export function isQuiet(city){
   return !omensOf(city).some(o=>!Number.isInteger(o.choice))&&!needsOf(city).some(n=>!n.served&&n.progress>=.5);
