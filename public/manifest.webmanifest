@@ -1,0 +1,20 @@
+{
+  "name": "CIVITAS — Chronicle of Cities",
+  "short_name": "CIVITAS",
+  "description": "Grow a city on an old map from 1300 to 2030: zone, build and play history cards, then replay it as a timelapse.",
+  "id": "./",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "display_override": ["standalone", "minimal-ui"],
+  "orientation": "any",
+  "background_color": "#f4eddd",
+  "theme_color": "#e7e0cc",
+  "lang": "en",
+  "categories": ["games", "strategy", "simulation"],
+  "icons": [
+    {"src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any"},
+    {"src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any"},
+    {"src": "icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable"}
+  ]
+}

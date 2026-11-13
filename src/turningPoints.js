@@ -3,6 +3,12 @@ import {DOMAIN_AXIS} from './character.js';
 // CIVITAS v0.4 Turning Points. Immutable card catalogue, deterministic offers,
 // and pure run modifiers. All numerical values are provisional balance targets.
 export const TURNING_POINTS=20;
+export const STACK_FACTORS=[1,.5,.25];
+export const HAND_EXTRA=.35;
+export function handTotal(list){
+ const pos=list.filter(v=>v>0).sort((a,b)=>b-a),neg=list.filter(v=>v<0);
+ return (pos[0]||0)+pos.slice(1).reduce((n,v)=>n+v*HAND_EXTRA,0)+neg.reduce((n,v)=>n+v,0);
+}
 export const CARD_TYPES=['instant','permanent','scaling','synergy','landmark','temporary'];
 const card=(id,name,domain,rarity,kind,description,effects={},opts={})=>({id,name,domain,rarity,kind,description,effects,...opts});
 export const CARDS=[
@@ -88,7 +94,8 @@ const hash=(...a)=>{let h=2166136261;for(const v of a){for(const ch of String(v)
 const rng=(n)=>()=>{n+=0x6d2b79f5;let t=n;t=Math.imul(t^t>>>15,t|1);t^=t+Math.imul(t^t>>>7,t|61);return ((t^t>>>14)>>>0)/4294967296;};
 const clamp=(n,low,high)=>Math.min(high,Math.max(low,n));
 export const turningYears=(start=1300,end=2030)=>Array.from({length:TURNING_POINTS},(_,i)=>start+Math.round((i+1)*(end-start)/(TURNING_POINTS+1)/5)*5);
-export function currentTurningIndex(city){return Math.max(0,Math.min(TURNING_POINTS,city?.turning?.choices?.length||0));}
+// Cards played from the hand (via:'hand') are not Turning Points.
+export function currentTurningIndex(city){return Math.max(0,Math.min(TURNING_POINTS,(city?.turning?.choices||[]).filter(p=>p.via!=='hand').length));}
 export function resolvedCards(city){return (city?.turning?.choices||[]).map(p=>CARD_INDEX[p.cardId]).filter(Boolean);}
 export function activeSynergies(city){
  const choices=city.turning?.choices||[];
@@ -99,18 +106,28 @@ export function activeSynergies(city){
  return SYNERGIES.filter(s=>s.needs.every(id=>owned.has(id)));
 }
 export function modifiers(city){
- const result={...(city.legacyBonuses||{})};const picks=city.turning?.choices||[],count=picks.length;
+ const result={...(city.legacyBonuses||{})};const picks=city.turning?.choices||[];
+ // Duration is measured in *all* Turning Point choices, including people;
+ // filtering figures out first would cause temporaries to expire too early.
+ // Cards played from the hand expire by year instead (pick.until).
+ const tpIndex=[];let n=0;for(const p of picks)tpIndex.push(p.via==='hand'?-1:n++);const count=n;
+ const hand={};
  for(let i=0;i<picks.length;i++){
   const c=CARD_INDEX[picks[i].cardId];if(!c||c.kind==='instant')continue;
-  // Duration is measured in *all* Turning Point choices, including people;
-  // filtering figures out first would cause temporaries to expire too early.
-  const expires=c.durationPoints&&i+c.durationPoints<count;
+  const expires=picks[i].via==='hand'?Number.isFinite(picks[i].until)&&city.year>picks[i].until:c.durationPoints&&tpIndex[i]+c.durationPoints<count;
   if(expires)continue;
   // Exceptional building cards grant a site-specific project, not a free
   // abstract bonus. Effects activate only after the player places a project.
   if(c.building && !(city.landmarks||[]).some(l=>l.source===`choice:${i}`))continue;
-  for(const [k,v] of Object.entries(c.effects)){if(k==='popInstant'||k==='masterpieces')continue;result[k]=(result[k]||0)+v;}
+  // v1.5: repeat copies of one card stack with diminishing strength (1, 1/2, 1/4).
+  const copy=picks.slice(0,i).filter(p=>p.cardId===picks[i].cardId).length,factor=STACK_FACTORS[copy]??0;
+  for(const [k,v] of Object.entries(c.effects)){if(k==='popInstant'||k==='masterpieces')continue;
+   if(picks[i].via==='hand'){(hand[k]||=[]).push(v*factor);continue;}
+   result[k]=(result[k]||0)+v*factor;}
  }
+ // v1.5: for each effect, the strongest hand-played card counts fully and the
+ // rest count at HAND_EXTRA, so a big hand helps without compounding wildly.
+ for(const [k,list] of Object.entries(hand))result[k]=(result[k]||0)+handTotal(list);
  for(const f of (city.figures||[]))for(const [k,v] of Object.entries(f.effects||{}))result[k]=(result[k]||0)+v;
  for(const synergy of activeSynergies(city))for(const [k,v] of Object.entries(synergy.effects))result[k]=(result[k]||0)+v;
  // Temporary cards accumulate once selected and expire after N more selections.

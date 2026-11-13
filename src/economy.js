@@ -5,6 +5,7 @@
 // migration. All amounts are game currency per YEAR.
 import {POP_SCALE} from './geo.js';
 import {policyCosts} from './policies.js';
+import {cardUpkeepShare} from './cards.js';
 export const TAX_LEVELS=['none','low','average','high'];
 export const TAX_LABELS={none:'None',low:'Low',average:'Average',high:'High'};
 export const TAX_SECTORS=[
@@ -58,7 +59,9 @@ export function annualExpenses(city,s){
   let institutions=0;
   for(const b of city.buildings)if(b.special&&!b.vacant)institutions+=BASIC_COST[b.special]?BASIC_COST[b.special]*.012:.8*eraCost(city.year);
   const policies=policy.cost*eraCost(city.year);
-  return {maintenance,walls,services,institutions,policies,total:maintenance+walls+services+institutions+policies};
+  // v1.5: cards in play cost a share of the city's (base-rate) revenue each year.
+  const share=cardUpkeepShare(city),cards=share?share*annualRevenue(city,s).total:0;
+  return {maintenance,walls,services,institutions,policies,cards,total:maintenance+walls+services+institutions+policies+cards};
 }
 export function annualUpkeep(city,s){return annualExpenses(city,s).total;}
 // Surveying, draining and staking out newly designated land, per parcel.

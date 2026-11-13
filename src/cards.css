@@ -1,0 +1,80 @@
+/* CIVITAS v1.5 — hand tray, card faces and the Market Hall. */
+.center{position:relative}
+.handTray{position:relative;display:flex;align-items:stretch;gap:8px;padding:8px 10px;border-top:1px solid var(--rule-light,#d6cdbb);background:var(--paper-light,#fbf7eb);min-height:104px}
+.shopDoor{position:relative;flex:0 0 64px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;border:1px solid var(--moss,#405b49);background:var(--moss,#405b49);color:#fbf7eb;font-size:12px;font-weight:600;letter-spacing:.04em;cursor:pointer;min-height:44px}
+.shopDoor:hover{background:var(--moss-dark,#2e4739)}
+.shopDoor.fresh{box-shadow:0 0 0 3px #c3a04d66}
+.shopDoor .railBadge{position:absolute;top:6px;right:6px;width:9px;height:9px;border-radius:50%;background:#c25a3c}
+.handCards{flex:1;display:flex;gap:8px;overflow-x:auto;overscroll-behavior-x:contain;scroll-snap-type:x proximity;padding-bottom:2px}
+.handCount{position:absolute;right:12px;top:-11px;font-size:12px;background:var(--paper-light,#fbf7eb);border:1px solid var(--rule-light,#d6cdbb);padding:1px 7px;color:var(--soft-ink)}
+.handEmpty{margin:auto 4px;font-size:13px;color:var(--soft-ink);max-width:420px;line-height:1.35}
+
+.hcard{position:relative;flex:0 0 96px;min-height:86px;display:flex;flex-direction:column;gap:3px;padding:7px 8px;background:#fffdf6;border:1px solid var(--rule-light,#d6cdbb);border-top:4px solid var(--rarity);box-shadow:0 1px 0 #0000000d;cursor:pointer;scroll-snap-align:start;text-align:left;transition:transform .14s cubic-bezier(.2,1.4,.5,1),box-shadow .14s}
+.hcard:hover{transform:translateY(-2px);box-shadow:0 4px 10px #302b221f}
+.hcard.selected{transform:translateY(-6px);box-shadow:0 0 0 2px var(--rarity),0 6px 14px #302b2230}
+.hcard.dim{opacity:.62}
+.hcard.slot{border:1px dashed var(--rule-light,#d6cdbb);border-top:1px dashed var(--rule-light,#d6cdbb);background:transparent;box-shadow:none;cursor:default}
+.hcard.slot:hover{transform:none}
+.hcard.rarity-epic{background:linear-gradient(160deg,#fffdf6 60%,#efe4f6)}
+.hcard.rarity-rare{background:linear-gradient(160deg,#fffdf6 65%,#e6eef6)}
+.hcardTop{display:flex;justify-content:space-between;align-items:center;font-size:11px;letter-spacing:.06em;text-transform:uppercase}
+.hcardDomain{color:var(--domain);font-size:15px;line-height:1}
+.hcardRarity{color:var(--rarity);font-weight:700}
+.hcardName{font-family:inherit;font-size:13px;line-height:1.2;color:var(--ink,#28251f)}
+.hcardText{margin:2px 0;font-size:13px;line-height:1.35;color:var(--ink,#28251f)}
+.hcardMeta{margin-top:auto;display:flex;gap:5px;align-items:center;font-size:11px;color:var(--soft-ink)}
+.hcardStack{background:var(--rarity);color:#fff;padding:0 5px;font-weight:700}
+.hcardSets{display:flex;flex-wrap:wrap;gap:4px}
+.hcardSets span{font-size:11px;border:1px solid var(--rule-light,#d6cdbb);padding:1px 5px;color:var(--soft-ink);display:inline-flex;align-items:center;gap:3px}
+.hcardSets span.done{border-color:#c3a04d;color:#7a5f1c;background:#f6edd2}
+.hcardSets.wide{margin:6px 0}
+
+.handSheet{position:absolute;left:10px;right:10px;bottom:calc(100% + 8px);z-index:20;max-width:440px;background:var(--paper-light,#fbf7eb);border:1px solid var(--rule,#9d947f);box-shadow:0 10px 30px #302b2233;padding:12px 14px}
+.handSheet h3{margin:4px 0 2px;font-size:19px}
+.handSheet p{margin:4px 0;font-size:14px;line-height:1.4}
+.handSheetHead{display:flex;justify-content:space-between;align-items:center;font-size:12px;letter-spacing:.06em;text-transform:uppercase}
+.handSheetHead button{min-width:44px;min-height:44px;border:0;background:transparent;cursor:pointer;display:grid;place-items:center}
+.handNote{color:var(--soft-ink)}
+.handIssue{color:#9b3d24}
+.handActions{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
+.handActions button{min-height:44px;padding:0 14px;display:inline-flex;align-items:center;gap:6px;font-size:14px;cursor:pointer}
+
+.marketSheet{position:absolute;left:50%;bottom:112px;transform:translateX(-50%);z-index:25;width:min(760px,calc(100% - 20px));max-height:calc(100% - 130px);overflow:auto;background:var(--paper-light,#fbf7eb);border:1px solid var(--rule,#9d947f);box-shadow:0 18px 50px #302b2240;padding:16px 18px;animation:sheetIn .22s cubic-bezier(.2,1.2,.4,1)}
+@keyframes sheetIn{from{transform:translate(-50%,18px);opacity:0}to{transform:translate(-50%,0);opacity:1}}
+.marketSheetHead{display:flex;align-items:flex-start;gap:12px}
+.marketSheetHead>div{flex:1}
+.marketSheetHead h2{margin:2px 0 0;font-size:24px}
+.marketFunds{display:inline-flex;align-items:center;gap:5px;font-weight:700;font-size:15px;padding:8px 10px;border:1px solid var(--rule-light,#d6cdbb)}
+.marketClose{min-width:44px;min-height:44px;border:0;background:transparent;cursor:pointer;display:grid;place-items:center}
+.marketNote,.marketHint{font-size:13px;color:var(--soft-ink);margin:6px 0 10px;line-height:1.4}
+.marketOffers{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+.hcard.shop{flex:none;min-height:190px;padding:10px 11px;cursor:default}
+.hcard.shop:hover{transform:none}
+.hcard.shop .hcardName{font-size:16px}
+.buyButton{margin-top:8px;min-height:44px;display:inline-flex;align-items:center;justify-content:center;gap:5px;font-weight:700;font-size:14px;background:var(--moss,#405b49);color:#fbf7eb;border:0;cursor:pointer}
+.buyButton:disabled{background:#b9b2a2;cursor:not-allowed}
+.marketExtras{display:flex;gap:10px;margin-top:12px;flex-wrap:wrap}
+.packButton,.rerollButton{min-height:52px;display:flex;align-items:center;gap:10px;padding:8px 14px;border:1px solid var(--rule,#9d947f);background:#fffdf6;cursor:pointer;text-align:left;font-size:14px}
+.packButton{flex:1 1 260px;border-top:4px solid #c3a04d}
+.packButton span{display:flex;flex-direction:column;flex:1}
+.packButton small{font-size:12px;color:var(--soft-ink)}
+.packButton em,.rerollButton em{font-style:normal;font-weight:700}
+.packButton:disabled,.rerollButton:disabled{opacity:.55;cursor:not-allowed}
+.marketOdds{display:flex;flex-wrap:wrap;gap:12px;margin-top:12px;font-size:12px;color:var(--soft-ink)}
+.marketOdds i{display:inline-block;width:10px;height:10px;background:var(--rarity);margin-right:4px;vertical-align:-1px}
+
+@media(max-width:760px){
+  .handTray{padding:8px;min-height:100px;gap:6px}
+  .shopDoor{flex-basis:56px}
+  .hcard{flex-basis:88px}
+  .marketSheet{left:0;right:0;bottom:0;transform:none;width:auto;max-height:82dvh;border-left:0;border-right:0;animation:sheetUp .22s ease-out;z-index:40}
+  @keyframes sheetUp{from{transform:translateY(24px);opacity:0}to{transform:none;opacity:1}}
+  .marketOffers{display:flex;overflow-x:auto;scroll-snap-type:x mandatory;gap:10px;padding-bottom:6px}
+  .marketOffers .hcard.shop{flex:0 0 min(72vw,240px);scroll-snap-align:center}
+  .handSheet{left:0;right:0;max-width:none}
+}
+@media(prefers-reduced-motion:reduce){.hcard,.marketSheet{transition:none;animation:none}}
+.hcard.hand .hcardRarity{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+.handEmpty{flex:1 0 220px}
+.handEmpty~.hcard.slot{display:none}
+.handTray{flex:0 0 auto}

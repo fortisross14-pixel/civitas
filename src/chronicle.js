@@ -45,7 +45,7 @@ export function peakRecord(city,metric){const series=metricSeries(city,metric);i
 export function cityRecords(city){
  const buildings=city?.buildings||[],events=city?.events||[],history=city?.history||[];
  const surviving=buildings.filter(b=>Number.isFinite(b.born)).sort((a,b)=>a.born-b.born);
- const cards=city?.turning?.choices||[];
+ const cards=(city?.turning?.choices||[]).filter(p=>p.via!=='hand');
  const born=(city?.history||[])[0]?.year??1300;
  let biggestGain=null;
  for(let i=1;i<history.length;i++){

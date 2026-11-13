@@ -22,7 +22,7 @@ export function HistoricalChart({city,metric='population',height=125}){
 }
 function HistoryRecords({city}){
  const r=cityRecords(city);
- const cards=(city.turning?.choices||[]).length;
+ const cards=(city.turning?.choices||[]).filter(p=>p.via!=='hand').length;
  const values=[['Peak population',r.population],['Peak modeled GDP',r.gdp],['Highest GDP per capita',r.gdpPerCapita],['Most cultural prestige',r.culturalPrestige],['Most religious influence',r.religiousInfluence],['Best tourism appeal',r.tourismAppeal],['Highest prosperity',r.prosperity],['Best infrastructure efficiency',r.infrastructureEfficiency],['Historic buildings peak',r.heritage]];
  return <div className="chronRecords"><div className="eyebrow">CITY RECORD BOOK</div>{values.map(([label,rec])=><div className="chronRecord" key={label}><span>{label}</span><b>{numberText(rec?.value)}</b><small>{rec?.year??'—'}</small></div>)}
  <div className="chronRecord"><span>Oldest surviving building</span><b>{r.oldestSurvivor?.born??'—'}</b><small>{r.oldestSurvivor?.special||r.oldestSurvivor?.type||''}</small></div>

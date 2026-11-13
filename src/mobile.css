@@ -1,0 +1,69 @@
+/* CIVITAS v1.5 — Milestone A: phone shell.
+   Loaded last so it overrides the earlier layered rules. Phone = ≤760px. */
+@media(max-width:760px){
+  /* Home: the primary action comes first. */
+  .home{display:flex;flex-direction:column;padding:22px 16px 40px}
+  .home>*{order:3}
+  .home>.eyebrow,.home>h1{order:0}
+  .home>.homegrid{order:1;margin-bottom:18px}
+  .home>.intro{order:2;font-size:16px;margin:0 0 16px}
+  .home h1{font-size:30px;margin:4px 0 14px}
+
+  /* Game: no app header, one compact HUD row. */
+  .app.inGame>header{display:none}
+  .app.inGame .workspace{height:100dvh}
+  .topbar{flex-wrap:nowrap;min-height:56px;gap:4px;padding:6px 8px}
+  .topbar .textbutton{min-width:44px;min-height:44px;padding:0;justify-content:center}
+  .topbar .backLabel{display:none}
+  .cityheading{flex:1 1 auto;min-width:0}
+  .cityheading strong{font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:block}
+  .cityheading span{font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:block}
+  .controls{gap:3px;margin-left:0}
+  .controls .timelapseQuick{display:none}
+  .controls button{min-width:44px;min-height:44px;padding:0 6px;font-size:12px;justify-content:center}
+  .controls button svg{display:none}
+  .controls .undoButton svg,.controls .pauseButton svg{display:inline}
+  .mobileInfo{min-width:44px;min-height:44px;justify-content:center}
+
+  /* Tool rail becomes a bottom dock; its sections open as a sheet above it. */
+  .sidebar{position:relative;display:block;max-height:none;overflow:visible;padding:0;border-top:1px solid #d5c9b5;background:#f1ebdd;grid-template-columns:none}
+  .sidebar .rail{display:flex;flex-direction:row;justify-content:space-around;align-items:stretch;gap:0;padding:0;border-right:0;overflow-x:auto;background:#f1ebdd}
+  .sidebar .rail .railRule{display:none}
+  .sidebar .rail button,.sidebar .rail .tool{flex:1 1 0;min-width:56px;min-height:56px;padding:6px 2px;margin:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;font-size:11px;white-space:nowrap}
+  .rail .rail-taxes{display:flex}
+  .sidebar .sidepanel{position:absolute;left:0;right:0;bottom:100%;z-index:30;display:block;max-height:52dvh;overflow-y:auto;padding:12px 14px 16px;background:#fbf7eb;border-top:1px solid #b8ad97;box-shadow:0 -10px 24px #302b2224}
+  .sidebar .sidepanel h3,.sidebar .sidepanel .sidecaption,.sidebar .sidepanel .hint,.sidebar .sidepanel .constructionHint{display:block}
+  .sidebar .sidepanel button{display:flex;align-items:center;gap:8px;width:100%;min-height:44px;margin:4px 0;padding:8px 10px;font-size:14px;white-space:normal;text-align:left}
+  .sidebar .sidepanel button small{margin-left:auto}
+  .sidebar .sidepanel .taxLevels{display:flex;gap:4px}
+  .sidebar .sidepanel .taxLevels button{flex:1;justify-content:center;margin:0;padding:8px 2px}
+  .sidebar .sidepanel .demandPanel,.sidebar .sidepanel .taxPanel{display:block}
+
+  /* Map controls and status line. */
+  .mapzoom button{min-width:44px;min-height:44px}
+  .bottom{font-size:12px;padding:4px 10px}
+  .bottom>span:last-child{display:none}
+
+  /* Side inspector (stats, chronicle…) as a full-height sheet. */
+  .inspector{bottom:0;width:min(360px,92vw);z-index:35}
+  .inspector .tabs button{min-height:48px;font-size:11px}
+
+  /* Every remaining control in the game screen meets the 44px touch target. */
+  .workspace button{min-height:44px}
+}
+@media(max-width:430px){
+  /* Narrow phones: keep 1×, 4× and MAX. */
+  .controls button[title^="2×"]{display:none}
+}
+@media(max-width:760px){.sidebar .rail{width:100%}}
+
+/* PWA: installed apps run edge to edge; keep the HUD and dock clear of notches. */
+.installApp{display:inline-flex;align-items:center;gap:6px;min-height:40px;padding:0 12px;margin-right:10px;border:1px solid #405b49;background:#405b49;color:#fbf7eb;font-weight:600;cursor:pointer}
+@media(max-width:760px){
+  .app.inGame{padding-top:env(safe-area-inset-top);padding-bottom:env(safe-area-inset-bottom)}
+  .app.inGame .workspace{height:calc(100dvh - env(safe-area-inset-top) - env(safe-area-inset-bottom))}
+  .installApp{min-height:44px;margin-right:6px}
+}
+/* v1.5: 11px minimum text — keep rail and tab labels inside their buttons. */
+.rail button span,.rail .tool span{letter-spacing:0;font-size:11px}
+.inspector .tabs button{letter-spacing:0;padding-left:2px;padding-right:2px}

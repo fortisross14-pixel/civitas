@@ -1,6 +1,6 @@
 # CIVITAS — Game audit and recommendations
 
-*November 2026 · based on v1.4 (`main` at `4e9ce5b`)*
+*November 2026 · based on v1.4 (`main` at `4e9ce5b`). What is being done about it, and in what order: [`ROADMAP.md`](ROADMAP.md). Milestone A and the card economy core shipped in v1.5.*
 
 How I tested: read the source, then played full 1300–2030 campaigns in a
 headless browser on desktop (1440×900) and on a phone (Pixel 7), with a bot that

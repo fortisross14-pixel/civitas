@@ -19,9 +19,10 @@ const MARKS=[1400,1550,1700,1850,1950,2030];
   await p.getByText('BEGIN CHRONICLE').click();await p.waitForTimeout(800);
   const bb=await (await p.$('canvas')).boundingBox();const cx=bb.x+bb.width/2,cy=bb.y+bb.height/2;
   await p.mouse.click(cx,cy);await p.waitForTimeout(400);
-  await p.locator('button',{hasText:/zoning/i}).first().click();
+  await p.locator('.rail button',{hasText:/zoning/i}).first().click();
   const s=mobile?0.45:1;
-  const drag=async(type,dx,dy,w,h)=>{await p.locator('button',{hasText:type}).first().click();await p.mouse.move(cx+dx*s,cy+dy*s);await p.mouse.down();await p.mouse.move(cx+(dx+w)*s,cy+(dy+h)*s,{steps:8});await p.mouse.up();await p.waitForTimeout(200);};
+  // On phones the zoning sheet closes after a tool is picked; reopen it when needed.
+  const drag=async(type,dx,dy,w,h)=>{const btn=p.locator('.sidepanel button',{hasText:type}).first();if(!(await btn.isVisible().catch(()=>false)))await p.locator('.rail button',{hasText:/zoning/i}).first().click();await btn.click();await p.mouse.move(cx+dx*s,cy+dy*s);await p.mouse.down();await p.mouse.move(cx+(dx+w)*s,cy+(dy+h)*s,{steps:8});await p.mouse.up();await p.waitForTimeout(200);};
   await drag('Residential',-200,-160,150,120);
   await drag('Commerce',-40,-40,60,60);
   await drag('Workshops',60,60,90,90);

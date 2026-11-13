@@ -45,17 +45,27 @@ export function CityMap({city,tool,layer,onZone,onPlace,onInspect,selectedId=nul
     const now=performance.now();
     const caps=liveCaptions.map(cap=>{const age=now-cap.t0;return {...cap,alpha:age<600?age/600:age>CAPTION_MS-1500?(CAPTION_MS-age)/1500:1};});
     const [line,fill]=SELECTION_STYLE[tool]||['#3c6d57','#3c895231'];
-    drawCity(ctx,city,width,height,{view:view.current,layer,selectedId,previewRing:readOnly?null:previewRing,bridgePreview,
+    drawCity(ctx,city,width,height,{view:view.current,maxStaleMs:animate?350:0,layer,selectedId,previewRing:readOnly?null:previewRing,bridgePreview,
       selection:selection?{...selection,line,fill}:null,hover,placing:tool.startsWith('place:')&&!readOnly,placingCenter:tool==='place:center'&&!readOnly,site,captions:caps,now,population,archiveYear});
   },[city,layer,selection,dimensions,frame,hover,tool,readOnly,previewRing,bridgePreview,site,selectedId,tick,captions,population,archiveYear]);
 
   const dragTool=DRAG_TOOLS.has(tool);
-  const down=e=>{if(e.button!==0)return;e.currentTarget.setPointerCapture(e.pointerId);const p=toMap(e);drag.current={start:p,cx:e.clientX,cy:e.clientY,dx:view.current.dx,dy:view.current.dy};if(dragTool&&!readOnly)setSelection({x:p.x,y:p.y,w:1,h:1});};
-  const move=e=>{const p=toMap(e);if(hover?.x!==p.x||hover?.y!==p.y)setHover(p);if(!drag.current)return;
+  // v1.5: two-finger pinch zooms and pans in any tool; it cancels a drag in progress.
+  const pointers=useRef(new Map()),pinch=useRef(null);
+  const pinchState=el=>{const [a,b]=[...pointers.current.values()],r=el.getBoundingClientRect();return {dist:Math.max(1,Math.hypot(a.x-b.x,a.y-b.y)),mx:(a.x+b.x)/2-r.left,my:(a.y+b.y)/2-r.top};};
+  const down=e=>{pointers.current.set(e.pointerId,{x:e.clientX,y:e.clientY});
+    if(pointers.current.size===2){try{e.currentTarget.setPointerCapture(e.pointerId);}catch{}drag.current=null;setSelection(null);pinch.current=pinchState(e.currentTarget);return;}
+    if(pointers.current.size>2||pinch.current)return;
+    if(e.button!==0)return;try{e.currentTarget.setPointerCapture(e.pointerId);}catch{}const p=toMap(e);drag.current={start:p,cx:e.clientX,cy:e.clientY,dx:view.current.dx,dy:view.current.dy};if(dragTool&&!readOnly)setSelection({x:p.x,y:p.y,w:1,h:1});};
+  const move=e=>{if(pointers.current.has(e.pointerId))pointers.current.set(e.pointerId,{x:e.clientX,y:e.clientY});
+    if(pinch.current&&pointers.current.size===2){const now=pinchState(e.currentTarget),last=pinch.current;
+      view.current.dx+=now.mx-last.mx;view.current.dy+=now.my-last.my;zoom(now.dist/last.dist,now.mx,now.my);pinch.current=now;redraw();return;}
+    const p=toMap(e);if(hover?.x!==p.x||hover?.y!==p.y)setHover(p);if(!drag.current)return;
     if(tool==='inspect'||readOnly&&!tool.startsWith('place:')){view.current.dx=drag.current.dx+e.clientX-drag.current.cx;view.current.dy=drag.current.dy+e.clientY-drag.current.cy;redraw();}
     else if(dragTool){const a=drag.current.start,x=Math.min(a.x,p.x),y=Math.min(a.y,p.y);setSelection({x,y,w:Math.abs(a.x-p.x)+1,h:Math.abs(a.y-p.y)+1});}
   };
-  const up=e=>{const d=drag.current;if(!d)return;drag.current=null;const p=toMap(e),still=Math.hypot(e.clientX-d.cx,e.clientY-d.cy)<9;
+  const up=e=>{pointers.current.delete(e.pointerId);if(pinch.current){if(pointers.current.size<2)pinch.current=null;drag.current=null;return;}
+    const d=drag.current;if(!d)return;drag.current=null;const p=toMap(e),still=Math.hypot(e.clientX-d.cx,e.clientY-d.cy)<9;
     if(tool==='inspect'||readOnly){if(still){const b=city.buildings.find(b=>{const f=footprint(b);return p.x>=f.x&&p.x<f.x+f.w&&p.y>=f.y&&p.y<f.y+f.h;});onInspect?.(b||null);}}
     else if(tool.startsWith('place:')){if(still)onPlace?.(tool.slice(6),p.x,p.y);}
     else if(dragTool){const x=Math.max(0,Math.min(W-1,Math.min(d.start.x,p.x))),y=Math.max(0,Math.min(H-1,Math.min(d.start.y,p.y)));
@@ -66,7 +76,7 @@ export function CityMap({city,tool,layer,onZone,onPlace,onInspect,selectedId=nul
   const hoverText=selectionText||(hover&&hover.x>=0&&hover.x<W&&hover.y>=0&&hover.y<H?`${hover.x}, ${hover.y}${site?` · ${site.error||(site.size===2?'2 × 2 site':'single parcel: no 2 × 2 site fits here')}`:''} · ${zoneCell(city,hover.x,hover.y)?ZONES[zoneCell(city,hover.x,hover.y)].label:terrain(city.type,hover.x,hover.y)==='water'?'Water':'Unzoned'}${tool==='place:bridge'?bridgePreview?` · ${bridgePreview.cells.length}-cell bridge · ${publicWorkCost(city,'bridge',bridgePreview.cells.length).toLocaleString('en-US')}`:' · no straight crossing here':''}`:null);
   const zones=Object.entries(ZONES).filter(([key])=>key!=='hotel'||tourismUnlocked(city));
   return <div className="mapwrap">
-    <canvas ref={canvas} aria-label="City map. Drag to zone, erase or demolish; click to place a building or bridge." onPointerDown={down} onPointerMove={move} onPointerUp={up} onPointerLeave={()=>setHover(null)} onPointerCancel={()=>{drag.current=null;setSelection(null)}} style={{touchAction:'none',cursor:tool==='inspect'||readOnly?'grab':'crosshair'}}/>
+    <canvas ref={canvas} aria-label="City map. Drag to zone, erase or demolish; click to place a building or bridge." onPointerDown={down} onPointerMove={move} onPointerUp={up} onPointerLeave={()=>setHover(null)} onPointerCancel={e=>{pointers.current.delete(e.pointerId);if(pointers.current.size<2)pinch.current=null;drag.current=null;setSelection(null)}} style={{touchAction:'none',cursor:tool==='inspect'||readOnly?'grab':'crosshair'}}/>
     {showLegend&&<div className="maplegend">{layer==='value'?<><b>LAND VALUE</b><span><i style={{background:'rgba(92,140,96,.55)'}}/>Prestige nearby</span><span><i style={{background:'rgba(150,95,70,.55)'}}/>Smoke and industry</span></>:layer==='pollution'?<><b>POLLUTION</b><span><i style={{background:'#5f5468'}}/>Workshop / factory</span><span><i style={{background:'#a2513f'}}/>Homes in smoke</span></>:layer==='coverage'?<><b>PUBLIC SERVICES</b><span><i style={{background:'#3f7462'}}/>Church, school, clinic…</span><span><i style={{background:'#9fb7a5'}}/>Homes served</span><span><i style={{background:'#c0806b'}}/>Homes without services</span></>:layer==='pull'?<><b>GROWTH PULL</b><span><i style={{background:'rgba(151,103,76,.55)'}}/>Draws new homes (parish, school, walls)</span><span><i style={{background:'rgba(196,150,62,.6)'}}/>Draws new shops (market, shops, walls)</span></>:layer==='districts'?<><b>DISTRICTS</b><span>Named quarters form between main roads, walls and water.</span></>:layer==='age'?<><b>BUILDING ERAS</b>{Object.entries(STYLE_NAMES).map(([key,label])=><span key={key}><i className={`legend-${key}`}/>{label}</span>)}</>:layer==='heritage'?<><b>HERITAGE</b><span><i className="legend-protected"/>Protected</span><span><i className="legend-old"/>120+ years old</span></>:<><b>MAP KEY</b><span><i className="legend-main"/>Main road</span><span><i className="legend-road"/>Street</span><span><i className="legend-wall"/>City wall</span><span><i className="legend-landmark"/>Church, hall or landmark</span><span><i className="legend-water"/>Water</span>{[['res','Homes'],['trade','Shops'],['craft','Workshops'],['civic','Civic halls'],['farm','Farms']].map(([t,label])=><span key={t}><i style={{background:roofTone(t,styleAt(city.year),0)}}/>{label} (roofs)</span>)}{layer==='zones'&&zones.map(([key,value])=><span key={key}><i style={{background:value.color}}/>{value.label}</span>)}<span><i className="legend-vacant"/>Vacant</span></>}</div>}
     <div className="mapzoom"><button aria-label={showLegend?'Hide map key':'Show map key'} aria-pressed={showLegend} className={showLegend?'keyToggle on':'keyToggle'} onClick={()=>setShowLegend(v=>!v)}>Key</button><button aria-label="Zoom in" onClick={()=>zoom(1.3)}>+</button><button aria-label="Zoom out" onClick={()=>zoom(1/1.3)}>−</button><button aria-label="Reset map view" onClick={()=>{view.current={zoom:1,dx:0,dy:0};redraw();}}><Maximize2 size={14}/></button></div>
     {hoverText&&<div className="coord">{hoverText}</div>}

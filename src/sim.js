@@ -13,6 +13,7 @@ import {spatial,spatialEffects,freezeSpatial,thawSpatial} from './spatial.js';
 import {POLICIES,POLICY_INDEX,activePolicies,policyIssue,policyEffects,policyHook} from './policies.js';
 import {updateDistricts,districtDetails} from './districts.js';
 import {characterOf} from './character.js';
+import {deckOf,normalizeDeck,restockShop,shopDue,playedCopies,MAX_COPIES,YEARS_PER_INTERVAL} from './cards.js';
 export {POLICIES,POLICY_INDEX,activePolicies,policyIssue,districtDetails};
 // Influence fields for the map layers and the building inspector.
 export function cityFields(city){return spatial(city,cityEffects(city),activePolicies(city));}
@@ -547,6 +548,8 @@ function yearTick(city,prevYear){
   if(year%5===0||!(city.districts||[]).length)city.districts=updateDistricts(city,cityOrigin(city));
   city.character=characterOf(stats(city),year);
   const knock=maybeEvent(city,year,nextMilestoneOf(city)===year);if(knock)city.event=knock;
+  // v1.5: the Market Hall restocks every decade.
+  if(year<END_YEAR&&shopDue(city)){const r=restockShop(city,stats(city));city.deck=r.deck;city.events.push({year,type:'shop',text:'The Market Hall has new cards for sale.'});}
   if(year%5!==0&&year!==END_YEAR)return;
   localEvent(city,year);
   redevelopment(city,year,rand(hash(city.seed,year,12345)));
@@ -662,8 +665,27 @@ export function rerollTurningPoint(city){
 export function selectTurningPoint(city,cardId){
   const pending=city?.turning?.pending,card=getOpportunity(cardId);
   if(!pending||!card||!pending.options.includes(cardId)||city.finished||(card.cost||0)>(city.funds||0))return city;
+  return applyChoice(city,card,{index:pending.index,year:pending.year,cardId},`Turning Point ${pending.index+1}: ${card.name} chosen.`);
+}
+// v1.5: play a card from the hand. It becomes a choice tagged via:'hand', so
+// modifiers, synergies and landmark projects treat it like a Turning Point pick.
+// Temporary cards last YEARS_PER_INTERVAL years per Turning Point interval.
+export function playCard(city,uid){
+  if(city.finished)return {city,error:'The chronicle is complete.'};
+  if(city.awaitingCenter)return {city,error:'Found the town first.'};
+  const deck=deckOf(city),held=deck.hand.find(c=>c.uid===uid),card=held&&CARD_INDEX[held.cardId];
+  if(!card)return {city,error:'That card is not in your hand.'};
+  if(playedCopies(city,card.id)>=MAX_COPIES)return {city,error:`${card.name} is already stacked ${MAX_COPIES} times.`};
+  const record={index:-1,year:city.year,cardId:card.id,via:'hand',uid};
+  if(card.durationPoints)record.until=city.year+card.durationPoints*YEARS_PER_INTERVAL;
+  const stack=playedCopies(city,card.id)+1;
+  const next=applyChoice({...city,deck:{...deck,hand:deck.hand.filter(c=>c.uid!==uid),played:deck.played+1}},card,record,`${card.name} played from the hand${stack>1?` (stack ×${stack})`:''}.`);
+  return {city:next,error:null,stack};
+}
+function applyChoice(city,card,record,label){
+  const cardId=card.id;
   // Snapshot collections are copied and the choice can only be made once.
-  const next={...city,buildings:[...city.buildings],landmarks:[...(city.landmarks||[])],figures:[...(city.figures||[])],events:[...city.events],history:[...city.history],snapshots:[...city.snapshots],projects:[...(city.projects||[])],nextProjectId:city.nextProjectId||1,turning:{...city.turning,choices:[...city.turning.choices,{index:pending.index,year:pending.year,cardId}],pending:null}};
+  const next={...city,buildings:[...city.buildings],landmarks:[...(city.landmarks||[])],figures:[...(city.figures||[])],events:[...city.events],history:[...city.history],snapshots:[...city.snapshots],projects:[...(city.projects||[])],nextProjectId:city.nextProjectId||1,turning:{...city.turning,choices:[...city.turning.choices,record],pending:record.via==='hand'?city.turning.pending:null}};
   // The choice's short-lived development pulse is separate from its permanent
   // modifier. Physical-building rewards only activate when their site is placed.
   if(!card.building||card.kind==='figure'){next.development=applyPulse(next,card.effects||{},card.rarity,card.kind==='figure'?'figure':'card',card.scorePulse||{}).development;}
@@ -680,7 +702,7 @@ export function selectTurningPoint(city,cardId){
     next.events.push({year:next.year,type:'project',text:`${kinds.length} ${kinds.length===1?'construction project is':'construction projects are'} ready to place on the map.`});
   }
   const combosBefore=activeSynergies(city),combosAfter=activeSynergies(next),newCombos=combosAfter.filter(s=>!combosBefore.some(x=>x.id===s.id));
-  next.events.push({year:next.year,type:'card',cardId,text:`Turning Point ${pending.index+1}: ${card.name} chosen. ${card.description}`});
+  next.events.push({year:next.year,type:'card',cardId,via:record.via,text:`${label} ${card.description}`});
   for(const synergy of newCombos)next.events.push({year:next.year,type:'synergy',text:`New strategic combination unlocked: ${synergy.name}. ${synergy.description}`});
   // Store exact post-choice stats without rewriting already recorded historic surveys.
   const s=stats(next);const last=next.history[next.history.length-1];
@@ -753,6 +775,7 @@ export function seedTown(city,at=null){
   const s=stats(c);
   c.history=[{year:1300,development:{...c.development},...Object.fromEntries(Object.entries(c.development).map(([k,v])=>[`${k}Score`,v])),productivityStock:c.productivityStock,population:s.population,buildings:s.buildings,prosperity:s.prosperity,gdp:s.gdp,gdpPerCapita:s.gdpPerCapita,housingPressure:s.housingPressure,infrastructureEfficiency:s.infrastructureEfficiency,unemployment:s.unemployment,treasury:s.treasury,densityPerZone:s.densityPerZone,heritage:s.heritage,culturalPrestige:s.culturalPrestige,religiousInfluence:s.religiousInfluence,tourismAppeal:s.tourismAppeal}];
   c.snapshots=[captureSnapshot(c)];
+  c.deck=restockShop({...c,deck:deckOf(c)},s).deck;
   return c;
 }
 // ───────────────────────── player edits (all usable while time runs) ─────────────────────────
@@ -1013,12 +1036,13 @@ export function normalizeCity(input){
       }
     });
   }
-  const choices=Array.isArray(input.turning?.choices)?input.turning.choices.filter(v=>getOpportunity(v?.cardId)).slice(0,TURNING_POINTS):[];
+  let tpSeen=0;const choices=Array.isArray(input.turning?.choices)?input.turning.choices.filter(v=>getOpportunity(v?.cardId)&&(v.via==='hand'||tpSeen++<TURNING_POINTS)):[];
+  const tpChoices=choices.filter(v=>v.via!=='hand').length;
   let pending=input.turning?.pending;
   if(pending&&(!Array.isArray(pending.options)||pending.options.length!==3||pending.options.some(id=>!getOpportunity(id))))pending=null;
   // Old saves resume at the next future checkpoint; past opportunities are not granted retroactively.
   const campaignYears=turningYears();
-  const skipped=Math.max(0,campaignYears.filter(y=>y<=c.year).length-choices.length-(pending?1:0));
+  const skipped=Math.max(0,campaignYears.filter(y=>y<=c.year).length-tpChoices-(pending?1:0));
   c.turning={choices,pending:pending||null,skipped:Math.max(Number(input.turning?.skipped)||0,skipped),rerollsUsed:Math.max(0,Number(input.turning?.rerollsUsed)||0),cardPool:Array.isArray(input.turning?.cardPool)?input.turning.cardPool:undefined,figurePool:Array.isArray(input.turning?.figurePool)?input.turning.figurePool:[],featuredFigures:Array.isArray(input.turning?.featuredFigures)?input.turning.featuredFigures:[]};
   c.finished=c.year>=END_YEAR;
   if(c.finished)c.turning.pending=null;
@@ -1057,6 +1081,8 @@ export function normalizeCity(input){
   const tc=input.center;
   c.center=tc&&Number.isInteger(tc.x)&&Number.isInteger(tc.y)&&within(tc.x,tc.y)?{x:tc.x,y:tc.y,level:clamp(Math.floor(Number(tc.level)||1),1,TOWN_CENTER_MAX),founded:Number(tc.founded)||c.year}:null;
   c.awaitingCenter=!!input.awaitingCenter&&!c.center&&!c.finished;
+  // v1.5 card economy (additive; older saves start with an empty hand).
+  c.deck=normalizeDeck(input.deck);
   c.schema=10;
   return c;
 }

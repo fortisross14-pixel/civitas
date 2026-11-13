@@ -1,5 +1,37 @@
 # CIVITAS changelog
 
+## v1.5 — The Market Hall (cards) and Milestone A (phone, accessibility, performance, PWA)
+
+See `docs/AUDIT.md` for the review this release responds to and `docs/ROADMAP.md` for what comes next.
+
+**History cards you buy, hold and play** (new `src/cards.js`, `src/Cards.jsx`)
+- The Market Hall restocks every decade with 3 cards and a sealed pack (2 cards, the first Uncommon or better). A new selection costs a rising fee. Rarity odds shift from 60/28/10/2% (1300) to 40/32/20/8% (2030) and are shown in the shop.
+- Prices scale with the city's income (one unit = max(40 × era cost, 5 × yearly revenue); Common 2, Uncommon 4, Rare 8, Epic 16 units), so the treasury finally has something worth saving for.
+- Hold up to 5 cards (6 at Town Center level 3, 7 at level 5) in a tray under the map. Play a card when the moment is right, sell it for half, or merge three of one rarity into one of the next.
+- The same card can be stacked up to 3 times (100% / 50% / 25%). For each effect, your strongest hand card counts fully and the rest at 35%.
+- Cards show the collections (synergies) they belong to, such as "Renaissance 1/3". Buying makes sets reachable goals instead of luck.
+- Cards in play cost a little upkeep each year (0.4–2% of revenue); the budget gains a "cards" line.
+- Played cards are recorded as choices tagged `via:'hand'`; Turning Points still count to 20. Saves keep schema 10, and older saves start with an empty hand.
+
+**Phone shell** (new `src/mobile.css`)
+- In the game, the app header is gone and the HUD is one 56 px row. The tool rail is a bottom dock (Explore · Zoning · Build · Taxes · Layers) whose sections open as a sheet; picking a tool closes the sheet. **Taxes is now reachable on phones.**
+- The home screen puts "Found a new city" first. Two-finger pinch zooms and pans the map in any tool.
+- The clock resumes automatically after a Turning Point, as it already did after events.
+
+**Accessibility**
+- Every game-screen control on phones is at least 44 × 44 px. No text is smaller than 11 px (previously 8–10 px in 120+ rules).
+- About 40 grey text colours were darkened just enough to reach 4.5:1 contrast on paper and deep-paper panels.
+
+**Performance**
+- The map's static layers are cached per canvas and composited each frame; windmills, boats, walls, labels and captions are drawn live. While the clock runs, the cache may lag by up to max(350 ms, 4× its rebuild cost). The output is pixel-identical to v1.4. Late-game draw on a 4×-throttled phone (1900 city): average 167 → 66 ms per frame.
+
+**Installable app (PWA)**
+- Web app manifest, icons (any and maskable), and a service worker that caches the app shell, fingerprinted assets and Google Fonts, so the game installs to the home screen and plays offline. An "Install app" button appears on the home screen when the browser offers it. Works at `/` (Vercel) and `/<repo>/` (GitHub Pages).
+
+**Tools**: project skills in `.claude/skills/`, including a headless playtest bot (`headless-playtest`) and vendored community game-dev skills (see `docs/AUDIT.md` §5).
+
+**Tests**: new `tests/cards.test.js` (19: shop, pricing, determinism, buy, pack, reroll, sell, merge, play, building cards, stacking, expiry, upkeep, collections, save round-trip, zone invariant over a campaign) and `tests/pwa.test.js` (3), both in the default `npm test`.
+
 ## v1.4 — Phase 4: The living map
 
 **A map with a vibe** (new `src/render.js`, drawn in the spirit of an annotated historical map)

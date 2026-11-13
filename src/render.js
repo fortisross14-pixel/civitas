@@ -319,106 +319,150 @@ function boatSpots(city){
 //        selection:{x,y,w,h,line,fill}, hover:{x,y}, placing, captions:[{text,x,y,alpha}],
 //        now (ms), cartouche (bool), population}
 export function mapTransform(width,height,view={zoom:1,dx:0,dy:0}){const scale=Math.min(width/W,height/H)*view.zoom;return {scale,ox:(width-W*scale)/2+view.dx,oy:(height-H*scale)/2+view.dy};}
+// Static-layer cache, one per target canvas. The key is a cheap signature of
+// everything the static section reads: size and transform, view, layer, the
+// buildings, streets and public works, zoning, districts and a 5-year era tick.
+const STATIC_CACHE=new WeakMap();
+function citySignature(city){
+  let h=2166136261;const mix=v=>{h^=(v|0);h=Math.imul(h,16777619);};
+  for(const b of city.buildings||[]){mix(b.id);mix(b.x*7);mix(b.y*13);mix(b.vacant?1:0);mix(b.protected?2:0);mix((b.type||'').length);mix(b.born||0);mix(b.capacity||0);mix((b.special||'').length);mix((b.style||'').length);}
+  for(const r of city.roads||[]){mix(r.x);mix(r.y);mix((r.orientation||'').length);}
+  for(const w of city.walls||[]){mix(w.r*100);mix((w.state||'').length);}
+  mix((city.bridges||[]).length);mix((city.routes||[]).length);mix((city.zones||[]).length);mix((city.districts||[]).length);
+  return h>>>0;
+}
+const STATE_KEYS=['lineCap','lineJoin','lineWidth','miterLimit','font','textAlign','textBaseline','globalAlpha','globalCompositeOperation','fillStyle','strokeStyle','imageSmoothingEnabled','lineDashOffset'];
+function captureState(ctx){const st={};for(const k of STATE_KEYS)st[k]=ctx[k];st.dash=ctx.getLineDash?ctx.getLineDash():[];return st;}
+function applyState(ctx,st){for(const k of STATE_KEYS){try{ctx[k]=st[k];}catch{}}if(ctx.setLineDash)ctx.setLineDash(st.dash||[]);}
+function staticCache(ctx,city,width,height,opts,layer){
+  const canvas=ctx.canvas;const t=ctx.getTransform?ctx.getTransform():null;
+  // Contexts without a backing canvas or transform (tests, exports) draw directly.
+  if(!canvas||!t||typeof document==='undefined')return {hit:false,ctx,canvas:null,direct:true,built(){}};
+  const v=opts.view||{};
+  // The frame key (size, transform, view, layer, city identity) must match exactly;
+  // the content key (buildings, streets…) may lag by opts.maxStaleMs while the
+  // clock runs, so a growing town is not redrawn from scratch every frame.
+  const frameKey=[canvas.width,canvas.height,t.a,t.d,t.e,t.f,width,height,v.zoom,v.dx,v.dy,layer,city.id,city.type,city.seed,opts.archiveYear||0].join('|');
+  let entry=STATIC_CACHE.get(canvas);
+  if(!entry){const c=document.createElement('canvas');entry={canvas:c,ctx:c.getContext('2d'),key:null};STATIC_CACHE.set(canvas,entry);}
+  if(entry.canvas.width!==canvas.width||entry.canvas.height!==canvas.height){entry.canvas.width=canvas.width;entry.canvas.height=canvas.height;entry.key=null;}
+  const now=typeof performance!=='undefined'?performance.now():Date.now(),stale=opts.maxStaleMs||0;
+  // Slow devices get a longer window: rebuilds stay under ~25% of the time.
+  let hit=entry.frameKey===frameKey&&stale>0&&now-entry.builtAt<Math.max(stale,4*(entry.buildMs||0));
+  if(!hit){const contentKey=`${Math.floor((city.year||0)/5)}|${citySignature(city)}`;hit=entry.frameKey===frameKey&&entry.contentKey===contentKey;
+    if(!hit){entry.ctx.setTransform(1,0,0,1,0,0);entry.ctx.clearRect(0,0,canvas.width,canvas.height);entry.frameKey=frameKey;entry.contentKey=contentKey;entry.builtAt=now;entry.building=true;}}
+  return {hit,ctx:entry.ctx,canvas:entry.canvas,get state(){return entry.state;},set state(v){entry.state=v;},built(){if(entry.building){entry.building=false;entry.buildMs=(typeof performance!=='undefined'?performance.now():Date.now())-now;}}};
+}
 export function drawCity(ctx,city,width,height,opts={}){
   const layer=opts.layer||'urban',now=opts.now||0,warp=mapWarp(city);
   const {scale,ox,oy}=mapTransform(width,height,opts.view);
-  ctx.fillStyle=paperPattern(ctx);ctx.fillRect(0,0,width,height);
-  ctx.save();ctx.translate(ox,oy);ctx.scale(scale,scale);
-  const fields=fieldsLayer(city.type,city.seed);if(fields){ctx.imageSmoothingEnabled=true;ctx.drawImage(fields,0,0,W,H);}
-  // Zoning: a wash on the zoning layer, a whisper on the urban map.
-  if(layer==='zones'||layer==='urban')for(let y=0;y<H;y++)for(let x=0;x<W;x++){const type=zoneCell(city,x,y);if(type){ctx.fillStyle=ZONES[type].color+(layer==='zones'?'66':'18');ctx.fillRect(x,y,1,1);}}
-  const influence=['value','pollution','coverage','pull'].includes(layer)?cityFields(city):null;
-  const districts=['urban','districts','zones'].includes(layer)&&city.districts?.length?districtDetails(city,cityOrigin(city)):null;
-  if(layer==='districts'&&districts)for(let k=0;k<W*H;k++){const i=districts.grid[k];if(i>=0){ctx.fillStyle=DISTRICT_COLORS[i%DISTRICT_COLORS.length]+'38';ctx.fillRect(k%W,Math.floor(k/W),1,1);}}
-  if(influence)for(let k=0;k<W*H;k++){const x=k%W,y=Math.floor(k/W);
-    if(layer==='value'){const v=Math.max(-1,Math.min(1,influence.prestige[k]*.7-influence.pollution[k]*influence.homeShield*.6));if(Math.abs(v)<.05)continue;ctx.fillStyle=v>0?`rgba(92,140,96,${Math.min(.55,v*.6)})`:`rgba(150,95,70,${Math.min(.55,-v*.6)})`;ctx.fillRect(x,y,1,1);}
-    else if(layer==='pollution'){const v=influence.pollution[k]*influence.homeShield;if(v<.1)continue;ctx.fillStyle=`rgba(96,82,104,${Math.min(.6,v*.35)})`;ctx.fillRect(x,y,1,1);}
-    else if(layer==='pull'){const hp=influence.homePull[k],sp=influence.shopPull[k],v=Math.max(hp,sp);if(v<.08)continue;ctx.fillStyle=hp>=sp?`rgba(151,103,76,${Math.min(.5,v*.32)})`:`rgba(196,150,62,${Math.min(.55,v*.36)})`;ctx.fillRect(x,y,1,1);}
-    else if(layer==='coverage'){const v=influence.service[k];if(v<.05)continue;ctx.fillStyle=v>=.35?`rgba(83,135,115,${Math.min(.45,.15+v*.15)})`:'rgba(83,135,115,.08)';ctx.fillRect(x,y,1,1);}}
-  const water=waterLayer(city.type);if(water)ctx.drawImage(water,0,0,W,H);
   const walls=city.walls||[];
-  // Canals follow the old wall line, under the quays.
-  for(const ring of walls)if(ring.state==='canal'){ctx.beginPath();for(const [a,b] of wallSegments(ring)){ctx.moveTo(a[0],a[1]);ctx.lineTo(b[0],b[1]);}ctx.lineCap='round';ctx.lineJoin='round';ctx.strokeStyle=WATER_EDGE;ctx.lineWidth=1.05;ctx.stroke();ctx.strokeStyle=WATER;ctx.lineWidth=.82;ctx.stroke();}
-  // Town ground: built plots read as one urban fabric against the fields.
-  if(layer!=='zones'){ctx.fillStyle='rgba(226,216,186,.92)';ctx.beginPath();
-    for(const b of city.buildings||[]){if(b.type==='farm')continue;const n=sizeOf(b),[x,y]=warp(Math.floor(b.x)+n/2,Math.floor(b.y)+n/2);ctx.rect(x-n/2-.1,y-n/2-.1,n+.2,n+.2);}ctx.fill();}
-  // Streets.
-  const {chains,dots}=warpChains(streetChains(city),warp);
-  const routeLines=(city.routes||[]).map(route=>chaikin(route.cells.map(([x,y])=>warp(x+.5,y+.5)),3)).filter(pts=>pts.length>=2);
-  ctx.lineCap='round';ctx.lineJoin='round';
-  for(const pass of [0,1]){
-    for(const ch of chains){const wide=streetWidth(ch.pattern),[fill,edge]=STREET_TONE[ch.pattern]||STREET_TONE.organic;
-      ctx.beginPath();strokePath(ctx,ch.pts);ctx.strokeStyle=pass?fill:edge;ctx.lineWidth=pass?wide*.58:wide;ctx.stroke();}
-  }
-  ctx.fillStyle=STREET;for(const [x,y] of dots){ctx.beginPath();ctx.arc(x,y,.16,0,Math.PI*2);ctx.fill();}
-  for(const road of city.roads||[])if(road.orientation){ctx.beginPath();ctx.strokeStyle=STREET;ctx.lineWidth=.42;if(road.orientation==='h'){ctx.moveTo(road.from,road.v);ctx.lineTo(road.to,road.v);}else{ctx.moveTo(road.v,road.from);ctx.lineTo(road.v,road.to);}ctx.stroke();}
-  // Main roads: the old country roads that became high streets.
-  for(const pts of routeLines){
-    ctx.beginPath();strokePath(ctx,pts);ctx.strokeStyle='rgba(112,94,70,.55)';ctx.lineWidth=.8;ctx.stroke();ctx.strokeStyle='#f2e7cd';ctx.lineWidth=.46;ctx.stroke();}
-  // Boulevards on the old wall line, lined with trees.
-  for(const ring of walls)if(ring.state==='boulevard'){ctx.beginPath();for(const [a,b] of wallSegments(ring)){ctx.moveTo(a[0],a[1]);ctx.lineTo(b[0],b[1]);}ctx.strokeStyle='rgba(112,94,70,.5)';ctx.lineWidth=1.05;ctx.stroke();ctx.strokeStyle='#f2e7cd';ctx.lineWidth=.62;ctx.stroke();}
-  // Canal quays.
-  for(const ring of walls)if(ring.state==='canal'){ctx.beginPath();for(const [a,b] of wallSegments(ring)){ctx.moveTo(a[0],a[1]);ctx.lineTo(b[0],b[1]);}ctx.strokeStyle='rgba(255,255,255,.25)';ctx.lineWidth=.12;ctx.stroke();}
-  // Bridges: decks with piers.
-  for(const b of city.bridges||[]){if(!b.cells?.length)continue;const [ax,ay]=b.cells[0],[bx,by]=b.cells.at(-1),h=b.axis==='h';
-    const x0=h?ax-.15:ax+.2,y0=h?ay+.2:ay-.15,w=h?bx-ax+1.3:.6,hh=h?.6:by-ay+1.3;
-    ctx.fillStyle='rgba(60,50,40,.25)';ctx.fillRect(x0+.06,y0+.08,w,hh);ctx.fillStyle='#b7a27f';ctx.fillRect(x0,y0,w,hh);ctx.fillStyle=STREET;ctx.fillRect(h?x0:x0+.14,h?y0+.14:y0,h?w:.32,h?.32:hh);}
-  // Buildings: shadows, then roofs grouped by colour.
-  const roadSet=new Set(),mainSet=new Set();for(const r of city.roads||[])if(Number.isFinite(r.x)&&r.cls!=='bridge'){roadSet.add(r.y*W+r.x);if(r.cls==='main')mainSet.add(r.y*W+r.x);}
-  const buckets=new Map(),shadows=[],vacant=[],saws=[],outlines=[],ridges=[],parapets=[];
-  for(const b of city.buildings||[]){
-    const look=buildingShapes(b,roadSet,mainSet,warp);
-    let layerColor=null;
-    if(layer==='age')layerColor=({timber:'#6d6252',stone:'#967d61',classical:'#c0a887',brick:'#ab765e',modernist:'#7c8d8b',contemporary:'#597f8b'})[b.style||styleAt(b.born||1300)];
-    else if(layer==='coverage')layerColor=b.type==='civic'||['chapel','school','clinic','hospital','town_hall','library','civic_center','monastery','shrine','university','waterworks'].includes(b.special)?'#3f7462':b.type==='res'?(influence&&influence.service[Math.floor(b.y)*W+Math.floor(b.x)]>=.35?'#9fb7a5':'#c0806b'):'#c8c1b2';
-    else if(layer==='pollution')layerColor=b.type==='craft'?'#5f5468':b.type==='res'?(influence&&influence.pollution[Math.floor(b.y)*W+Math.floor(b.x)]*influence.homeShield>=.8?'#a2513f':'#bcb3a2'):'#cdc6b6';
-    else if(layer==='districts'&&districts){const i=districts.grid[Math.floor(b.y)*W+Math.floor(b.x)];layerColor=i>=0?DISTRICT_COLORS[i%DISTRICT_COLORS.length]:'#bdb6a4';}
-    else if(layer==='economy')layerColor=b.type==='hotel'?'#ba7b9e':b.type==='trade'?'#d09e52':b.type==='craft'?'#9c8272':b.type==='farm'?'#b5bf79':b.type==='civic'?'#7d9a7e':'#b5aea1';
-    else if(layer==='heritage')layerColor=b.protected?'#9a7149':city.year-(b.born||city.year)>=120?'#c09a67':'#c7c0ad';
-    else if(layer==='influence')layerColor=b.special?(['workshop','monument','museum'].includes(b.special)?'#a27aa1':['monastery','shrine','chapel'].includes(b.special)?'#b6a16c':b.special==='university'?'#6d9aa4':'#7d9a7e'):b.type==='civic'?'#c0ac8a':'#c8c1b2';
-    else if(layer==='zones')layerColor=ZONES[b.type]?.color;
-    else if(layer==='pull')layerColor=b.type==='res'?'#977b60':b.type==='trade'?'#c2a064':b.special?'#7d9a7e':'#c8c1b2';
-    for(const sh of look.shapes){
-      if(b.vacant){vacant.push(sh.pts);continue;}
-      if(!['green','square','water','yard'].includes(sh.tone))shadows.push(sh.pts);
-      if(sh.tone==='roof'&&sh.pts.length===4&&layer==='urban'){const sty=b.style||styleAt(b.born||1300);(sty==='modernist'||sty==='contemporary'?parapets:ridges).push(sh.pts);}
-      const col=toneColor(sh.tone,b,look,layerColor),alpha=b.informal?.78:1,key=`${col}|${alpha}`;
-      if(!buckets.has(key))buckets.set(key,[]);buckets.get(key).push(sh.pts);
-      if(sh.saw)saws.push(sh.pts);
+  const districts=['urban','districts','zones'].includes(layer)&&city.districts?.length?districtDetails(city,cityOrigin(city)):null;
+  // v1.5: everything up to the building layer is static between changes to the
+  // city, so it is drawn once into an offscreen cache and composited each frame.
+  // Animated parts (windmills, boats, captions) and overlays are drawn live.
+  const cache=staticCache(ctx,city,width,height,opts,layer);
+  if(!cache.hit){const live=ctx;{const ctx=cache.ctx;ctx.save();if(!cache.direct)ctx.setTransform(live.getTransform());
+    ctx.fillStyle=paperPattern(ctx);ctx.fillRect(0,0,width,height);
+    ctx.save();ctx.translate(ox,oy);ctx.scale(scale,scale);
+    const fields=fieldsLayer(city.type,city.seed);if(fields){ctx.imageSmoothingEnabled=true;ctx.drawImage(fields,0,0,W,H);}
+    // Zoning: a wash on the zoning layer, a whisper on the urban map.
+    if(layer==='zones'||layer==='urban')for(let y=0;y<H;y++)for(let x=0;x<W;x++){const type=zoneCell(city,x,y);if(type){ctx.fillStyle=ZONES[type].color+(layer==='zones'?'66':'18');ctx.fillRect(x,y,1,1);}}
+    const influence=['value','pollution','coverage','pull'].includes(layer)?cityFields(city):null;
+    if(layer==='districts'&&districts)for(let k=0;k<W*H;k++){const i=districts.grid[k];if(i>=0){ctx.fillStyle=DISTRICT_COLORS[i%DISTRICT_COLORS.length]+'38';ctx.fillRect(k%W,Math.floor(k/W),1,1);}}
+    if(influence)for(let k=0;k<W*H;k++){const x=k%W,y=Math.floor(k/W);
+      if(layer==='value'){const v=Math.max(-1,Math.min(1,influence.prestige[k]*.7-influence.pollution[k]*influence.homeShield*.6));if(Math.abs(v)<.05)continue;ctx.fillStyle=v>0?`rgba(92,140,96,${Math.min(.55,v*.6)})`:`rgba(150,95,70,${Math.min(.55,-v*.6)})`;ctx.fillRect(x,y,1,1);}
+      else if(layer==='pollution'){const v=influence.pollution[k]*influence.homeShield;if(v<.1)continue;ctx.fillStyle=`rgba(96,82,104,${Math.min(.6,v*.35)})`;ctx.fillRect(x,y,1,1);}
+      else if(layer==='pull'){const hp=influence.homePull[k],sp=influence.shopPull[k],v=Math.max(hp,sp);if(v<.08)continue;ctx.fillStyle=hp>=sp?`rgba(151,103,76,${Math.min(.5,v*.32)})`:`rgba(196,150,62,${Math.min(.55,v*.36)})`;ctx.fillRect(x,y,1,1);}
+      else if(layer==='coverage'){const v=influence.service[k];if(v<.05)continue;ctx.fillStyle=v>=.35?`rgba(83,135,115,${Math.min(.45,.15+v*.15)})`:'rgba(83,135,115,.08)';ctx.fillRect(x,y,1,1);}}
+    const water=waterLayer(city.type);if(water)ctx.drawImage(water,0,0,W,H);
+    // Canals follow the old wall line, under the quays.
+    for(const ring of walls)if(ring.state==='canal'){ctx.beginPath();for(const [a,b] of wallSegments(ring)){ctx.moveTo(a[0],a[1]);ctx.lineTo(b[0],b[1]);}ctx.lineCap='round';ctx.lineJoin='round';ctx.strokeStyle=WATER_EDGE;ctx.lineWidth=1.05;ctx.stroke();ctx.strokeStyle=WATER;ctx.lineWidth=.82;ctx.stroke();}
+    // Town ground: built plots read as one urban fabric against the fields.
+    if(layer!=='zones'){ctx.fillStyle='rgba(226,216,186,.92)';ctx.beginPath();
+      for(const b of city.buildings||[]){if(b.type==='farm')continue;const n=sizeOf(b),[x,y]=warp(Math.floor(b.x)+n/2,Math.floor(b.y)+n/2);ctx.rect(x-n/2-.1,y-n/2-.1,n+.2,n+.2);}ctx.fill();}
+    // Streets.
+    const {chains,dots}=warpChains(streetChains(city),warp);
+    const routeLines=(city.routes||[]).map(route=>chaikin(route.cells.map(([x,y])=>warp(x+.5,y+.5)),3)).filter(pts=>pts.length>=2);
+    ctx.lineCap='round';ctx.lineJoin='round';
+    for(const pass of [0,1]){
+      for(const ch of chains){const wide=streetWidth(ch.pattern),[fill,edge]=STREET_TONE[ch.pattern]||STREET_TONE.organic;
+        ctx.beginPath();strokePath(ctx,ch.pts);ctx.strokeStyle=pass?fill:edge;ctx.lineWidth=pass?wide*.58:wide;ctx.stroke();}
     }
-    if(b.special&&!b.vacant&&layer==='urban')outlines.push(look.shapes);
-  }
-  const g=buildingLayer(ctx)||ctx;
-  const fillPolys=(list)=>{g.beginPath();for(const pts of list){g.moveTo(pts[0][0],pts[0][1]);for(let i=1;i<pts.length;i++)g.lineTo(pts[i][0],pts[i][1]);g.closePath();}g.fill();};
-  g.save();g.translate(.07,.09);g.fillStyle='rgba(58,44,32,.22)';fillPolys(shadows);g.restore();
-  for(const [key,list] of buckets){const [col,alpha]=key.split('|');g.globalAlpha=Number(alpha);g.fillStyle=col;fillPolys(list);}
-  g.globalAlpha=1;
-  // Sawtooth roofs on industrial sheds.
-  if(saws.length){g.strokeStyle='rgba(40,34,30,.45)';g.lineWidth=.04;g.beginPath();for(const p of saws){const [a,b,c2,d]=p;for(let t=.15;t<1;t+=.2){g.moveTo(a[0]+(b[0]-a[0])*t,a[1]+(b[1]-a[1])*t);g.lineTo(d[0]+(c2[0]-d[0])*t,d[1]+(c2[1]-d[1])*t);}}g.stroke();}
-  // Landmarks get a fine ink outline.
-  g.strokeStyle=STONE_EDGE;g.lineWidth=.05;for(const shapes of outlines){g.beginPath();for(const sh of shapes){const pts=sh.pts;g.moveTo(pts[0][0],pts[0][1]);for(let i=1;i<pts.length;i++)g.lineTo(pts[i][0],pts[i][1]);g.closePath();}g.stroke();}
-  if(vacant.length){g.setLineDash([.1,.08]);g.strokeStyle='rgba(110,96,78,.8)';g.lineWidth=.05;g.beginPath();for(const pts of vacant){g.moveTo(pts[0][0],pts[0][1]);for(let i=1;i<pts.length;i++)g.lineTo(pts[i][0],pts[i][1]);g.closePath();}g.stroke();g.setLineDash([]);}
-  // Pitched roofs: a ridge along the long axis and a lit slope; flat modern roofs: a parapet.
-  if(ridges.length){g.fillStyle='rgba(255,246,226,.13)';g.beginPath();
-    for(const [a,b,c2,d] of ridges){const long=Math.hypot(b[0]-a[0],b[1]-a[1])>=Math.hypot(c2[0]-b[0],c2[1]-b[1]);
-      const [p,q,r2,t]=long?[a,b,c2,d]:[b,c2,d,a],m1=[(t[0]+p[0])/2,(t[1]+p[1])/2],m2=[(q[0]+r2[0])/2,(q[1]+r2[1])/2];
-      g.moveTo(p[0],p[1]);g.lineTo(q[0],q[1]);g.lineTo(m2[0],m2[1]);g.lineTo(m1[0],m1[1]);g.closePath();}
-    g.fill();g.strokeStyle='rgba(42,30,22,.32)';g.lineWidth=.028;g.beginPath();
-    for(const [a,b,c2,d] of ridges){const long=Math.hypot(b[0]-a[0],b[1]-a[1])>=Math.hypot(c2[0]-b[0],c2[1]-b[1]);
-      const [p,q,r2,t]=long?[a,b,c2,d]:[b,c2,d,a],m1=[(t[0]+p[0])/2,(t[1]+p[1])/2],m2=[(q[0]+r2[0])/2,(q[1]+r2[1])/2],ins=.12;
-      g.moveTo(m1[0]+(m2[0]-m1[0])*ins,m1[1]+(m2[1]-m1[1])*ins);g.lineTo(m2[0]+(m1[0]-m2[0])*ins,m2[1]+(m1[1]-m2[1])*ins);}
-    g.stroke();}
-  if(parapets.length){g.strokeStyle='rgba(255,252,244,.3)';g.lineWidth=.035;g.beginPath();
-    for(const pts of parapets){const cx=pts.reduce((n,v)=>n+v[0],0)/4,cy=pts.reduce((n,v)=>n+v[1],0)/4;pts.forEach(([x,y],i)=>{const px=x+(cx-x)*.16,py=y+(cy-y)*.16;if(i)g.lineTo(px,py);else g.moveTo(px,py);});g.closePath();}
-    g.stroke();}
-  // Keep every building clear of the streets: cut the street network (with a
-  // small setback) out of the building layer, then lay the layer on the map.
-  if(g!==ctx){g.globalCompositeOperation='destination-out';g.lineCap='round';g.lineJoin='round';g.strokeStyle='#000';
-    for(const ch of chains){g.beginPath();strokePath(g,ch.pts);g.lineWidth=streetWidth(ch.pattern)+.08;g.stroke();}
-    for(const pts of routeLines){g.beginPath();strokePath(g,pts);g.lineWidth=.88;g.stroke();}
-    for(const ring of walls)if(ring.state==='boulevard'){g.beginPath();for(const [a,b] of wallSegments(ring)){g.moveTo(a[0],a[1]);g.lineTo(b[0],b[1]);}g.lineWidth=1.1;g.stroke();}
-    g.globalCompositeOperation='source-over';
-    ctx.save();ctx.setTransform(1,0,0,1,0,0);ctx.globalAlpha=1;ctx.drawImage(g.canvas,0,0);ctx.restore();}
+    ctx.fillStyle=STREET;for(const [x,y] of dots){ctx.beginPath();ctx.arc(x,y,.16,0,Math.PI*2);ctx.fill();}
+    for(const road of city.roads||[])if(road.orientation){ctx.beginPath();ctx.strokeStyle=STREET;ctx.lineWidth=.42;if(road.orientation==='h'){ctx.moveTo(road.from,road.v);ctx.lineTo(road.to,road.v);}else{ctx.moveTo(road.v,road.from);ctx.lineTo(road.v,road.to);}ctx.stroke();}
+    // Main roads: the old country roads that became high streets.
+    for(const pts of routeLines){
+      ctx.beginPath();strokePath(ctx,pts);ctx.strokeStyle='rgba(112,94,70,.55)';ctx.lineWidth=.8;ctx.stroke();ctx.strokeStyle='#f2e7cd';ctx.lineWidth=.46;ctx.stroke();}
+    // Boulevards on the old wall line, lined with trees.
+    for(const ring of walls)if(ring.state==='boulevard'){ctx.beginPath();for(const [a,b] of wallSegments(ring)){ctx.moveTo(a[0],a[1]);ctx.lineTo(b[0],b[1]);}ctx.strokeStyle='rgba(112,94,70,.5)';ctx.lineWidth=1.05;ctx.stroke();ctx.strokeStyle='#f2e7cd';ctx.lineWidth=.62;ctx.stroke();}
+    // Canal quays.
+    for(const ring of walls)if(ring.state==='canal'){ctx.beginPath();for(const [a,b] of wallSegments(ring)){ctx.moveTo(a[0],a[1]);ctx.lineTo(b[0],b[1]);}ctx.strokeStyle='rgba(255,255,255,.25)';ctx.lineWidth=.12;ctx.stroke();}
+    // Bridges: decks with piers.
+    for(const b of city.bridges||[]){if(!b.cells?.length)continue;const [ax,ay]=b.cells[0],[bx,by]=b.cells.at(-1),h=b.axis==='h';
+      const x0=h?ax-.15:ax+.2,y0=h?ay+.2:ay-.15,w=h?bx-ax+1.3:.6,hh=h?.6:by-ay+1.3;
+      ctx.fillStyle='rgba(60,50,40,.25)';ctx.fillRect(x0+.06,y0+.08,w,hh);ctx.fillStyle='#b7a27f';ctx.fillRect(x0,y0,w,hh);ctx.fillStyle=STREET;ctx.fillRect(h?x0:x0+.14,h?y0+.14:y0,h?w:.32,h?.32:hh);}
+    // Buildings: shadows, then roofs grouped by colour.
+    const roadSet=new Set(),mainSet=new Set();for(const r of city.roads||[])if(Number.isFinite(r.x)&&r.cls!=='bridge'){roadSet.add(r.y*W+r.x);if(r.cls==='main')mainSet.add(r.y*W+r.x);}
+    const buckets=new Map(),shadows=[],vacant=[],saws=[],outlines=[],ridges=[],parapets=[];
+    for(const b of city.buildings||[]){
+      const look=buildingShapes(b,roadSet,mainSet,warp);
+      let layerColor=null;
+      if(layer==='age')layerColor=({timber:'#6d6252',stone:'#967d61',classical:'#c0a887',brick:'#ab765e',modernist:'#7c8d8b',contemporary:'#597f8b'})[b.style||styleAt(b.born||1300)];
+      else if(layer==='coverage')layerColor=b.type==='civic'||['chapel','school','clinic','hospital','town_hall','library','civic_center','monastery','shrine','university','waterworks'].includes(b.special)?'#3f7462':b.type==='res'?(influence&&influence.service[Math.floor(b.y)*W+Math.floor(b.x)]>=.35?'#9fb7a5':'#c0806b'):'#c8c1b2';
+      else if(layer==='pollution')layerColor=b.type==='craft'?'#5f5468':b.type==='res'?(influence&&influence.pollution[Math.floor(b.y)*W+Math.floor(b.x)]*influence.homeShield>=.8?'#a2513f':'#bcb3a2'):'#cdc6b6';
+      else if(layer==='districts'&&districts){const i=districts.grid[Math.floor(b.y)*W+Math.floor(b.x)];layerColor=i>=0?DISTRICT_COLORS[i%DISTRICT_COLORS.length]:'#bdb6a4';}
+      else if(layer==='economy')layerColor=b.type==='hotel'?'#ba7b9e':b.type==='trade'?'#d09e52':b.type==='craft'?'#9c8272':b.type==='farm'?'#b5bf79':b.type==='civic'?'#7d9a7e':'#b5aea1';
+      else if(layer==='heritage')layerColor=b.protected?'#9a7149':city.year-(b.born||city.year)>=120?'#c09a67':'#c7c0ad';
+      else if(layer==='influence')layerColor=b.special?(['workshop','monument','museum'].includes(b.special)?'#a27aa1':['monastery','shrine','chapel'].includes(b.special)?'#b6a16c':b.special==='university'?'#6d9aa4':'#7d9a7e'):b.type==='civic'?'#c0ac8a':'#c8c1b2';
+      else if(layer==='zones')layerColor=ZONES[b.type]?.color;
+      else if(layer==='pull')layerColor=b.type==='res'?'#977b60':b.type==='trade'?'#c2a064':b.special?'#7d9a7e':'#c8c1b2';
+      for(const sh of look.shapes){
+        if(b.vacant){vacant.push(sh.pts);continue;}
+        if(!['green','square','water','yard'].includes(sh.tone))shadows.push(sh.pts);
+        if(sh.tone==='roof'&&sh.pts.length===4&&layer==='urban'){const sty=b.style||styleAt(b.born||1300);(sty==='modernist'||sty==='contemporary'?parapets:ridges).push(sh.pts);}
+        const col=toneColor(sh.tone,b,look,layerColor),alpha=b.informal?.78:1,key=`${col}|${alpha}`;
+        if(!buckets.has(key))buckets.set(key,[]);buckets.get(key).push(sh.pts);
+        if(sh.saw)saws.push(sh.pts);
+      }
+      if(b.special&&!b.vacant&&layer==='urban')outlines.push(look.shapes);
+    }
+    const g=buildingLayer(ctx)||ctx;
+    const fillPolys=(list)=>{g.beginPath();for(const pts of list){g.moveTo(pts[0][0],pts[0][1]);for(let i=1;i<pts.length;i++)g.lineTo(pts[i][0],pts[i][1]);g.closePath();}g.fill();};
+    g.save();g.translate(.07,.09);g.fillStyle='rgba(58,44,32,.22)';fillPolys(shadows);g.restore();
+    for(const [key,list] of buckets){const [col,alpha]=key.split('|');g.globalAlpha=Number(alpha);g.fillStyle=col;fillPolys(list);}
+    g.globalAlpha=1;
+    // Sawtooth roofs on industrial sheds.
+    if(saws.length){g.strokeStyle='rgba(40,34,30,.45)';g.lineWidth=.04;g.beginPath();for(const p of saws){const [a,b,c2,d]=p;for(let t=.15;t<1;t+=.2){g.moveTo(a[0]+(b[0]-a[0])*t,a[1]+(b[1]-a[1])*t);g.lineTo(d[0]+(c2[0]-d[0])*t,d[1]+(c2[1]-d[1])*t);}}g.stroke();}
+    // Landmarks get a fine ink outline.
+    g.strokeStyle=STONE_EDGE;g.lineWidth=.05;for(const shapes of outlines){g.beginPath();for(const sh of shapes){const pts=sh.pts;g.moveTo(pts[0][0],pts[0][1]);for(let i=1;i<pts.length;i++)g.lineTo(pts[i][0],pts[i][1]);g.closePath();}g.stroke();}
+    if(vacant.length){g.setLineDash([.1,.08]);g.strokeStyle='rgba(110,96,78,.8)';g.lineWidth=.05;g.beginPath();for(const pts of vacant){g.moveTo(pts[0][0],pts[0][1]);for(let i=1;i<pts.length;i++)g.lineTo(pts[i][0],pts[i][1]);g.closePath();}g.stroke();g.setLineDash([]);}
+    // Pitched roofs: a ridge along the long axis and a lit slope; flat modern roofs: a parapet.
+    if(ridges.length){g.fillStyle='rgba(255,246,226,.13)';g.beginPath();
+      for(const [a,b,c2,d] of ridges){const long=Math.hypot(b[0]-a[0],b[1]-a[1])>=Math.hypot(c2[0]-b[0],c2[1]-b[1]);
+        const [p,q,r2,t]=long?[a,b,c2,d]:[b,c2,d,a],m1=[(t[0]+p[0])/2,(t[1]+p[1])/2],m2=[(q[0]+r2[0])/2,(q[1]+r2[1])/2];
+        g.moveTo(p[0],p[1]);g.lineTo(q[0],q[1]);g.lineTo(m2[0],m2[1]);g.lineTo(m1[0],m1[1]);g.closePath();}
+      g.fill();g.strokeStyle='rgba(42,30,22,.32)';g.lineWidth=.028;g.beginPath();
+      for(const [a,b,c2,d] of ridges){const long=Math.hypot(b[0]-a[0],b[1]-a[1])>=Math.hypot(c2[0]-b[0],c2[1]-b[1]);
+        const [p,q,r2,t]=long?[a,b,c2,d]:[b,c2,d,a],m1=[(t[0]+p[0])/2,(t[1]+p[1])/2],m2=[(q[0]+r2[0])/2,(q[1]+r2[1])/2],ins=.12;
+        g.moveTo(m1[0]+(m2[0]-m1[0])*ins,m1[1]+(m2[1]-m1[1])*ins);g.lineTo(m2[0]+(m1[0]-m2[0])*ins,m2[1]+(m1[1]-m2[1])*ins);}
+      g.stroke();}
+    if(parapets.length){g.strokeStyle='rgba(255,252,244,.3)';g.lineWidth=.035;g.beginPath();
+      for(const pts of parapets){const cx=pts.reduce((n,v)=>n+v[0],0)/4,cy=pts.reduce((n,v)=>n+v[1],0)/4;pts.forEach(([x,y],i)=>{const px=x+(cx-x)*.16,py=y+(cy-y)*.16;if(i)g.lineTo(px,py);else g.moveTo(px,py);});g.closePath();}
+      g.stroke();}
+    // Keep every building clear of the streets: cut the street network (with a
+    // small setback) out of the building layer, then lay the layer on the map.
+    if(g!==ctx){g.globalCompositeOperation='destination-out';g.lineCap='round';g.lineJoin='round';g.strokeStyle='#000';
+      for(const ch of chains){g.beginPath();strokePath(g,ch.pts);g.lineWidth=streetWidth(ch.pattern)+.08;g.stroke();}
+      for(const pts of routeLines){g.beginPath();strokePath(g,pts);g.lineWidth=.88;g.stroke();}
+      for(const ring of walls)if(ring.state==='boulevard'){g.beginPath();for(const [a,b] of wallSegments(ring)){g.moveTo(a[0],a[1]);g.lineTo(b[0],b[1]);}g.lineWidth=1.1;g.stroke();}
+      g.globalCompositeOperation='source-over';
+      ctx.save();ctx.setTransform(1,0,0,1,0,0);ctx.globalAlpha=1;ctx.drawImage(g.canvas,0,0);ctx.restore();}
+  cache.state=captureState(ctx);ctx.restore();ctx.restore();}cache.built();}
+  if(!cache.direct){ctx.save();ctx.setTransform(1,0,0,1,0,0);ctx.globalAlpha=1;ctx.drawImage(cache.canvas,0,0);ctx.restore();}
+  ctx.save();ctx.translate(ox,oy);ctx.scale(scale,scale);
+  // The live part used to inherit drawing state from the static part; restore it.
+  if(!cache.direct&&cache.state)applyState(ctx,cache.state);
   // Windmills on farms and, in the Dutch manner, on the bastions (before 1900).
   if(city.year<1900){const turn=now/2600;
     for(const b of city.buildings||[])if(b.type==='farm'&&!b.vacant&&(hash(Math.floor(b.x),Math.floor(b.y),5)&3)===0)windmill(ctx,b.x+.75,b.y+.75,turn+(b.x+b.y),1);}
