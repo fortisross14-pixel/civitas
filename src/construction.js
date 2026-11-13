@@ -28,14 +28,23 @@ export const SPECIAL_BUILDINGS={
  monastery:{name:'Monastery',domain:'religion',description:'Religious institutions and sacred scholarship.'},
  shrine:{name:'Sacred Monument',domain:'religion',description:'Religious prestige and pilgrimage.'},
  monument:{name:'Masterpiece Monument',domain:'culture',description:'Cultural prestige and future tourism.'},
- boulevard:{name:'Grand Boulevard',domain:'trade',description:'A monumental civic avenue (construction follows the street plan).'}
+ boulevard:{name:'Grand Boulevard',domain:'trade',description:'A monumental civic avenue (construction follows the street plan).'},
+ // v1.9 Wonders (doctrine evolutions).
+ cathedral:{name:'The Cathedral',domain:'religion',description:'Faith doubles; every home nearby is served.'},
+ great_foundry:{name:'The Great Foundry',domain:'industry',description:'Industry soars; smoke is tamed.'},
+ grand_exchange:{name:'The Grand Exchange',domain:'trade',description:'Commerce, credit and two more Market Hall offers.'},
+ palace_muses:{name:'Palace of the Muses',domain:'culture',description:'Prestige across the city; visitors from abroad.'},
+ great_university:{name:'The Great University',domain:'education',description:'Learning, invention and long foresight.'},
+ metropolis_tower:{name:'The Metropolis Charter',domain:'population',description:'Housing for the many.'}
 };
 export const BUILDING_EFFECTS={
  market:{trade:.10},chapel:{faith:.10},granary:{housing:.08,migration:.05},town_hall:{treasury:.12},school:{education:.15},guildhall:{trade:.10,arts:.06},garden:{arts:.12,prosperity:2},
  clinic:{services:.20},waterworks:{services:.18,prosperity:3},station:{transport:.25},hospital:{services:.35},powerworks:{industry:.14,transport:.10},library:{education:.25},
  civic_center:{services:.25,treasury:.08},museum:{arts:.18,heritage:.14},research_center:{education:.30,innovation:.18},transit_hub:{transport:.30,trade:.12},metropolis_charter:{housing:.18,transport:.22,services:.25,trade:.16,education:.10},
  workshop:{arts:.10},university:{education:.25},port:{trade:.25},monastery:{faith:.20,faithEducation:.12},
- shrine:{faith:.30},monument:{arts:.08},boulevard:{transport:.12}
+ shrine:{faith:.30},monument:{arts:.08},boulevard:{transport:.12},
+ cathedral:{faith:.5,pilgrimage:.3,services:.15,prosperity:2},great_foundry:{industry:.5,treasury:.1},grand_exchange:{trade:.4,treasury:.15},
+ palace_muses:{arts:.5,tourismIncome:.4,prosperity:2},great_university:{education:.4,innovation:.15},metropolis_tower:{housing:.2,migration:.06,prosperity:1}
 };
 // v1.6: one of each basic building per district (at least two per city). Only
 // the first two of a kind add their city-wide effect; the rest serve their

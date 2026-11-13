@@ -12,11 +12,11 @@ import {insideWall} from './growth.js';
 import {doctrineFlags} from './doctrines.js';
 const RELIGIOUS_KINDS=new Set(['chapel','monastery','shrine']);
 
-const PRESTIGE={monument:1,museum:1,workshop:.8,garden:.8,university:.7,shrine:.6,monastery:.5,guildhall:.4,town_hall:.4,library:.4,boulevard:.4,research_center:.4};
-const SERVICE={chapel:9,school:9,clinic:9,hospital:11,town_hall:9,library:9,civic_center:11,monastery:9,shrine:8,university:8,waterworks:10,research_center:8};
-const TRADE={market:7,port:9,station:9,transit_hub:10,guildhall:5};
+const PRESTIGE={cathedral:1.2,great_foundry:.3,grand_exchange:.8,palace_muses:1.4,great_university:1,metropolis_tower:.6,monument:1,museum:1,workshop:.8,garden:.8,university:.7,shrine:.6,monastery:.5,guildhall:.4,town_hall:.4,library:.4,boulevard:.4,research_center:.4};
+const SERVICE={cathedral:14,great_university:10,metropolis_tower:9,chapel:9,school:9,clinic:9,hospital:11,town_hall:9,library:9,civic_center:11,monastery:9,shrine:8,university:8,waterworks:10,research_center:8};
+const TRADE={grand_exchange:12,market:7,port:9,station:9,transit_hub:10,guildhall:5};
 // v1.6: gardens and parks clear the air for the homes around them.
-const GREEN={garden:6,boulevard:4};
+const GREEN={garden:6,boulevard:4,palace_muses:6};
 // v1.5 growth pull: what draws new homes and shops to a neighbourhood.
 // Parishes, churches, schools and the Town Center draw homes; markets, guild
 // halls, stations and ports draw shops, and shops draw more shops. The inside

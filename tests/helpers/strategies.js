@@ -3,10 +3,10 @@
 // sensible: every five years builds the cheapest building that answers each
 //   need at the need's spot, answers history with the first response, and buys
 //   and plays the cheapest card it can comfortably afford.
-import {makeCity,seedTown,advance,selectTurningPoint,stats,placeConstruction,playCard} from '../../src/sim.js';
+import {makeCity,seedTown,advance,selectTurningPoint,stats,placeConstruction,playCard,cityOrigin} from '../../src/sim.js';
 import {needsOf,needAnswers} from '../../src/needs.js';
 import {omensOf,answerOmen} from '../../src/events.js';
-import {buyCard,deckOf} from '../../src/cards.js';
+import {buyCard,deckOf,rerollShop,rerollPrice} from '../../src/cards.js';
 import {scoreOf} from '../../src/score.js';
 import {cardDoctrines,DOCTRINE_IDS,doctrineState} from '../../src/doctrines.js';
 import {CARD_INDEX} from '../../src/turningPoints.js';
@@ -23,8 +23,17 @@ export function buildNear(city,id,x,y,maxRadius=7){
   return null;
 }
 
-// Shared by every scripted player: build what needs ask for, answer history.
+// Shared by every scripted player: place awarded projects, build what needs
+// ask for, answer history.
+function placeProjects(c){
+  for(const p of [...(c.projects||[])]){
+    const need=needsOf(c).find(n=>!n.served),o=need||cityOrigin(c);
+    const built=buildNear(c,p.id,o.x,o.y,12);if(built)c=built;
+  }
+  return c;
+}
 function tendCity(c){
+  c=placeProjects(c);
   for(const n of needsOf(c)){if(n.served)continue;
     const options=needAnswers(n.kind,c.year).filter(b=>b.cost<=c.funds).sort((a,b)=>a.cost-b.cost);
     for(const b of options){const built=buildNear(c,b.id,n.x,n.y);if(built){c=built;break;}}
@@ -49,10 +58,13 @@ function preferFor(strategy,c){
 }
 function doctrineTurn(strategy,c){
   c=tendCity(c);const prefer=preferFor(strategy,c);
+  let rerolled=false;
   for(let k=0;k<2;k++){
-    const offers=[...(deckOf(c).shop?.offers||[])].filter(o=>prefer(o.cardId)>0).sort((a,b)=>prefer(b.cardId)-prefer(a.cardId)||a.price-b.price);
+    let offers=[...(deckOf(c).shop?.offers||[])].filter(o=>prefer(o.cardId)>0).sort((a,b)=>prefer(b.cardId)-prefer(a.cardId)||a.price-b.price);
+    // Nothing for my build: pay once a decade for a new selection, as a player would.
+    if(!offers.length&&!rerolled&&strategy.startsWith('focused:')&&deckOf(c).shop&&c.funds>=rerollPrice(c)*4){const r=rerollShop(c,stats(c));rerolled=true;if(!r.error){c=r.city;k--;continue;}}
     const offer=offers[0];if(!offer||c.funds<offer.price*2)break;
-    const b=buyCard(c,offer.uid);if(b.error)break;const p=playCard(b.city,offer.uid);c=p.error?b.city:p.city;
+    const b=buyCard(c,offer.uid);if(b.error)break;const p=playCard(b.city,offer.uid);c=p.error?b.city:placeProjects(p.city);
   }
   return c;
 }

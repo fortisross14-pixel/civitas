@@ -1,3 +1,5 @@
+// Set by src/doctrines.js (avoids a circular import).
+let developmentFloorHook=null;export function setDevelopmentFloorHook(fn){developmentFloorHook=fn;}
 // CIVITAS v0.7.1 — development momentum versus enduring accumulated prosperity.
 // Scores are volatile 0–100 *conditions*, not permanent asset totals. Investments
 // create bursts of progress; progress made while conditions are excellent persists.
@@ -62,6 +64,9 @@ export function institutionalSupport(city){
 }
 export function advanceDevelopment(city,years){
  const source=developmentOf(city),support=institutionalSupport(city),next={};
+ // v1.9: a deep doctrine holds the economy and technology up like institutions do.
+ const doctrine=developmentFloorHook?developmentFloorHook(city):0;
+ if(doctrine){support.economy=(support.economy||0)+doctrine;support.technology=(support.technology||0)+doctrine;}
  for(const k of AXES){
   // Institutions establish a *maintenance floor*, not continuous compounding.
   // E.g. 88 economy becomes about 61 after 35 years without reinvestment.

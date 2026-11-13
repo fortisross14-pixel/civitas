@@ -13,7 +13,7 @@ its exit test is measured, not judged by eye.
 | **B** | Card economy: Market Hall, hand, stack, merge | ✅ Core done in v1.5; tuning and drag-to-play remain |
 | **C** | Pressure: needs on the map, telegraphed history, score | ✅ Shipped in v1.6; closed in v1.7 by era drafts |
 | **D** | Art pass: roofs, landmarks, living countryside, era styles | ✅ Core shipped in v1.7; transitions and card art remain |
-| **R** | **Doctrines and runs: roguelite deckbuilding** (design: [`CARD_DESIGN.md`](CARD_DESIGN.md)) | **In progress**: pacing and R1 engine shipped in v1.8; R2 next |
+| **R** | **Doctrines and runs: roguelite deckbuilding** (design: [`CARD_DESIGN.md`](CARD_DESIGN.md)) | **In progress**: R1 (v1.8) ✅; R2 content (v1.9) ✅, balance exit tests open; R3 next |
 | **E** | Modes: era challenges | Planned; meta items moved into R; daily map dropped (offline game) |
 | **F** | Polish: game feel, audio, onboarding, copy | Planned (runs alongside C–E) |
 
@@ -136,6 +136,17 @@ Addresses: *houses are flat rectangles*, *landmarks don't stand out*, *countrysi
 CIVITAS is a roguelite with cards: each run is one city, and you win by
 committing to a build (a Holy City, a Forge City…), not by owning one of
 everything. The full design is in [`CARD_DESIGN.md`](CARD_DESIGN.md).
+
+**Status (v1.9), R2 first pass:**
+- ✅ 90 cards (14 building cards, 15 new, 7 hybrids), 6 Patrons, 6 Wonders, power budget, Renown, focus perk, `npm run balance:doctrines`.
+- ❌ Exit targets not met yet (median of 4 seeds): Learning 68.5k, Trade 57.5k, People 57.4k, Faith 57.2k, spread 53.8k, Arts 31.9k, Industry 29.4k.
+
+R2 open items, in order:
+1. **Diagnose Arts and Industry.** Their scores barely move with their parameters, so something blocks them. Suspects: Industry's smoke (air needs and declines) and Arts' 1.5× upkeep starving the treasury. Inspect one run of each, as was done for Faith (prosperity was capping at 98).
+2. **Spread is too strong** now that building cards work: it collects Faith and People buildings too. Give Renown and tier power more weight at tiers 3–4 relative to tiers 1–2.
+3. **Learning leads (+36%)** through its schools and universities, which hold the technology axis up as institutions. In doctrine cities, count institution floors toward the doctrine floor instead of on top of it.
+4. Run the harness on 8 seeds (4 seeds are noisy: Arts ranges 16k–108k).
+5. **Era Trials** (from the design) are not built yet; they move to R3.
 
 **Status (v1.8):** ~20-minute pacing ✅ · R1 engine ✅ · R2 next. R1's measured baseline: focus does **not** yet reliably beat spread (spread 17k–55k vs focused 13k–65k). The causes are content, which R2 owns:
 - Learning and People cards compound over 700 years and swamp tier bonuses: re-budget them to the §6 power budget.

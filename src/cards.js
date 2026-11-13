@@ -4,10 +4,10 @@
 // Playing a card records it as a choice with `via:'hand'`, so the existing
 // modifier, synergy and landmark-placement code applies it unchanged.
 // Everything here is pure: each action returns {city, error}.
-import {CARDS,CARD_INDEX,SYNERGIES} from './turningPoints.js';
+import {CARDS,ERA_CARDS,CARD_INDEX,SYNERGIES} from './turningPoints.js';
 import {eraCost,annualRevenue} from './economy.js';
 import {DOMAIN_AXIS} from './character.js';
-import {doctrineFlags,doctrineWeight,cardDoctrines,doctrinesOn,cardLevel,MAX_LEVEL} from './doctrines.js';
+import {doctrineFlags,doctrineWeight,cardDoctrines,doctrinesOn,cardLevel,MAX_LEVEL,doctrineState,FOCUS_DISCOUNT,tierOf} from './doctrines.js';
 
 export const RARITIES=['common','uncommon','rare','epic'];
 export const RARITY_LABEL={common:'Common',uncommon:'Uncommon',rare:'Rare',epic:'Epic'};
@@ -56,7 +56,9 @@ export function priceUnit(city,s){
 export const cardPrice=(card,unit,city=null)=>{
   // v1.8: Trade 2 makes the Market Hall 10% cheaper; Learning 8 halves Learning cards.
   const f=city?doctrineFlags(city):{},learning=f.learningDiscount&&cardDoctrines(card).includes('learning')?f.learningDiscount:1;
-  return Math.max(1,Math.round(RARITY_PRICE[card.rarity]*unit*(f.priceMult||1)*learning));
+  // Focus perk: a doctrine with tier 1+ (2 cards in play) sells its cards for 20% less.
+  const st=city?doctrineState(city):null,focus=st?.on&&cardDoctrines(card).some(d=>tierOf(st.counts[d]||0)>=1)?FOCUS_DISCOUNT:1;
+  return Math.max(1,Math.round(RARITY_PRICE[card.rarity]*unit*(f.priceMult||1)*learning*focus));
 };
 export const BANISHES_PER_RUN=3;
 
@@ -76,6 +78,7 @@ export function playedCopies(city,cardId){return (city.turning?.choices||[]).fil
 // Cards the shop may offer now. Figures stay in Turning Points.
 export function shopEligible(card,city){
   if(!card||card.kind==='figure')return false;
+  if(card.eraOnly&&!doctrinesOn(city))return false;
   if(city.year<(card.minYear??-Infinity)||city.year>(card.maxYear??Infinity))return false;
   if(Array.isArray(city.turning?.cardPool)&&!city.turning.cardPool.includes(card.id))return false;
   if(card.geographies&&!card.geographies.includes(city.type))return false;
@@ -90,7 +93,7 @@ export function shopEligible(card,city){
 
 function drawCard(city,roll,{minRarity='common',exclude=new Set()}={}){
   const w=rarityWeights(city.year),min=RARITIES.indexOf(minRarity);
-  const pool=CARDS.filter(c=>shopEligible(c,city)&&!exclude.has(c.id)&&RARITIES.indexOf(c.rarity)>=min);
+  const pool=(doctrinesOn(city)?ERA_CARDS:CARDS).filter(c=>shopEligible(c,city)&&!exclude.has(c.id)&&RARITIES.indexOf(c.rarity)>=min);
   if(!pool.length)return null;
   // Pick a rarity first (only among rarities present), then a card within it,
   // favouring the city's character and cards that advance a collection.
@@ -196,7 +199,7 @@ export function mergeCards(city,uids){
   const count={};for(const d of defs)count[tag(d)]=(count[tag(d)]||0)+1;
   const domain=Object.keys(count).sort((a,b)=>count[b]-count[a]||a.localeCompare(b))[0];
   const remaining={...city,deck:{...deck,hand:deck.hand.filter(c=>!uids.includes(c.uid))}};
-  const pool=CARDS.filter(c=>c.rarity===target&&shopEligible(c,remaining));
+  const pool=(doctrinesOn(city)?ERA_CARDS:CARDS).filter(c=>c.rarity===target&&shopEligible(c,remaining));
   const preferred=pool.filter(c=>era?(cardDoctrines(c).includes(domain)||(domain==='civic'&&!cardDoctrines(c).length)):c.domain===domain),options=preferred.length?preferred:pool;
   if(!options.length)return fail(city,`No ${target} card is available in this era yet.`);
   const roll=rng(hash(city.seed,city.year,'merge',uids.join(',')));

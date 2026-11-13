@@ -255,6 +255,13 @@ function church(u,v0,len,scale=1){
 }
 function specialPlan(b,r){
   const k=b.special;
+  // v1.9 Wonders: larger, distinct silhouettes.
+  if(k==='cathedral')return [...church(0,-.02,.98,1.55),{poly:rect(-.34,-.06,-.16,.12),tone:'tower'},{poly:rect(.16,-.06,.34,.12),tone:'tower'}];
+  if(k==='great_foundry')return [{poly:rect(-.48,.02,.48,.62),tone:'shed',saw:true},{poly:circle(-.3,.8,.08,8),tone:'chimney'},{poly:circle(0,.84,.09,8),tone:'chimney'},{poly:circle(.3,.8,.08,8),tone:'chimney'}];
+  if(k==='grand_exchange')return [{poly:rect(-.48,0,.48,.9),tone:'square'},{poly:rect(-.4,.08,.4,.3),tone:'stone'},{poly:rect(-.4,.6,.4,.82),tone:'stone'},{poly:rect(-.4,.3,-.26,.6),tone:'stone'},{poly:rect(.26,.3,.4,.6),tone:'stone'},...[-.18,0,.18].map(u=>({poly:circle(u,.45,.04,8),tone:'tower'}))];
+  if(k==='palace_muses')return [{poly:rect(-.48,-.02,.48,.92),tone:'green'},{poly:rect(-.4,.04,.4,.3),tone:'stone'},{poly:rect(-.4,.3,-.2,.62),tone:'stone'},{poly:rect(.2,.3,.4,.62),tone:'stone'},{poly:circle(0,.74,.12,14),tone:'water'}];
+  if(k==='great_university')return [{poly:rect(-.48,0,.48,.24),tone:'stone'},{poly:rect(-.48,.7,.48,.94),tone:'stone'},{poly:rect(-.48,.24,-.28,.7),tone:'stone'},{poly:rect(.28,.24,.48,.7),tone:'stone'},{poly:rect(-.22,.3,.22,.64),tone:'green'},{poly:rect(-.08,-.08,.08,.08),tone:'tower'}];
+  if(k==='metropolis_tower')return [{poly:rect(-.44,.04,-.06,.44),tone:'tower'},{poly:rect(.04,.1,.44,.74),tone:'tower'},{poly:rect(-.44,.54,-.06,.9),tone:'tower'}];
   if(['chapel','shrine'].includes(k))return church(0,.05,.86,1.15);
   if(k==='monastery')return [...church(-.12,.05,.8,1),{poly:rect(.08,.35,.46,.78),tone:'cloister'}];
   if(k==='market')return [{poly:rect(-.46,-.02,.46,.9),tone:'square'},...[[-.25,.25],[.15,.2],[-.1,.6],[.25,.6]].map(([u,v])=>({poly:rect(u,v,u+.12,v+.1),tone:'awning'}))];

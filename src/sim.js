@@ -5,7 +5,7 @@ export {TOWN_CENTER_LEVELS,TOWN_CENTER_MAX,townCenterLevel};
 import {maybeEvent,disasterEvent,eventDefinition,eventScale,timedEffects,fireproofed,eventSpot,announceOmen,resolveDueOmens,applyEventChoice,normalizeOmens,omensOf,OMEN_LEAD,AFTERMATH_YEARS} from './events.js';
 import {advanceNeeds,normalizeNeeds} from './needs.js';
 import {scoreYear,penalize,normalizeScore,emptyScore,DECLINE_YEARS_LOST,UNANSWERED_YEARS_LOST} from './score.js';
-import {CARD_INDEX,TURNING_POINTS,turningYears,turningSchedule,turningCount,generateOffers,modifiers,activeSynergies,resolvedCards,currentTurningIndex} from './turningPoints.js';
+import {CARD_INDEX,TURNING_POINTS,turningYears,turningSchedule,turningCount,eraEffects,turningMode,generateOffers,modifiers,activeSynergies,resolvedCards,currentTurningIndex} from './turningPoints.js';
 import {W,H,CELLS,DIRS4,clamp,within,key,kx,ky,rand,hash,terrain,waterGrid,footprint,POP_SCALE} from './geo.js';
 const K=POP_SCALE;
 import {buildGrids,markRoad,markBuilding,pickParcel,growRoads,patternFor,layMainRoads,addRoute,routeBetween,fitWall,ringCells,findBridge,roadClass,homeLand,wallPolygon,insideWall,wallSegments,wallLength} from './growth.js';
@@ -15,7 +15,7 @@ import {spatial,spatialEffects,freezeSpatial,thawSpatial} from './spatial.js';
 import {POLICIES,POLICY_INDEX,activePolicies,policyIssue,policyEffects,policyHook} from './policies.js';
 import {updateDistricts,districtDetails} from './districts.js';
 import {characterOf} from './character.js';
-import {doctrineState,doctrineFlags,scoreBonus,cardType,decreesInPlay,decreeSlots,cardLevel,MAX_LEVEL,doctrinesOn} from './doctrines.js';
+import {doctrineState,doctrineFlags,scoreBonus,cardType,decreesInPlay,decreeSlots,cardLevel,MAX_LEVEL,doctrinesOn,wondersDue} from './doctrines.js';
 import {deckOf,normalizeDeck,restockShop,shopDue,playedCopies,MAX_COPIES,YEARS_PER_INTERVAL} from './cards.js';
 export {POLICIES,POLICY_INDEX,activePolicies,policyIssue,districtDetails};
 // Influence fields for the map layers and the building inspector.
@@ -595,8 +595,9 @@ function yearTick(city,prevYear){
 // A Turning Point awards a commission, NEVER instant construction. This is also
 // used for historical figures with a building commission.
 export function enqueueProject(city,kind,source,label){
- if(!SPECIAL_BUILDINGS[kind])return false;
- const project={id:`p${city.nextProjectId++}`,kind,source,label:SPECIAL_BUILDINGS[kind].name,origin:label||'Turning Point',issuedYear:city.year,free:true};
+ // v1.9: building cards award basic buildings (chapel, market…) as free projects too.
+ const def=SPECIAL_BUILDINGS[kind]||BASIC_INDEX[kind];if(!def)return false;
+ const project={id:`p${city.nextProjectId++}`,kind,source,label:def.name,origin:label||'Turning Point',issuedYear:city.year,free:true};
  city.projects.push(project);return true;
 }
 export function placementIssue(city,kind,x,y){
@@ -675,6 +676,7 @@ export function placeConstruction(city,kindOrProject,x,y){
  if(last?.year===next.year){const updated=stats(next);next.history=[...next.history.slice(0,-1),{...last,population:updated.population,buildings:updated.buildings,gdp:updated.gdp,gdpPerCapita:updated.gdpPerCapita,prosperity:updated.prosperity,unemployment:updated.unemployment,infrastructureEfficiency:updated.infrastructureEfficiency,treasury:updated.treasury,development:{...next.development},...Object.fromEntries(Object.entries(next.development).map(([k,v])=>[`${k}Score`,v])),culturalPrestige:updated.culturalPrestige,religiousInfluence:updated.religiousInfluence,educationIndex:updated.educationIndex,tourismAppeal:updated.tourismAppeal}];}
  const index=next.snapshots.findIndex(v=>v.year===next.year);
  if(index>=0){next.snapshots=[...next.snapshots];next.snapshots[index]=captureSnapshot(next);}
+ if(project&&doctrinesOn(next))awardWonders(next);
  return {city:next,placed,error:null};
 }
 export function getOpportunity(id){if(typeof id!=='string')return null;if(CARD_INDEX[id])return CARD_INDEX[id];if(!id.startsWith('figure:'))return null;
@@ -709,9 +711,17 @@ export function playCard(city,uid){
   if(card.durationPoints)record.until=city.year+card.durationPoints*YEARS_PER_INTERVAL;
   const stack=playedCopies(city,card.id)+1;
   const next=applyChoice({...city,deck:{...deck,hand:deck.hand.filter(c=>c.uid!==uid),played:deck.played+1}},card,record,`${card.name} played from the hand${stack>1?` (stack ×${stack})`:''}.`);
-  return {city:next,error:null,stack};
+  const wonders=awardWonders(next);
+  return {city:next,error:null,stack,wonders};
 }
 // v1.8: retire a Decree or Patron to free its slot. Its copies stop counting.
+// v1.9: a Lv3 card with its Patron evolves into a Wonder to place on the map.
+function awardWonders(city){
+  const due=wondersDue(city);
+  for(const w of due){city.wonders=[...(city.wonders||[]),w.id];enqueueProject(city,w.id,`wonder:${w.id}`,w.name);
+    city.events.push({year:city.year,type:'project',text:`Evolution! ${w.name} can now be built. ${w.description} Choose its place on the map.`});}
+  return due;
+}
 export function retireCard(city,cardId){
   const card=CARD_INDEX[cardId];if(!card)return {city,error:'Unknown card.'};
   if(!['decree','patron'].includes(cardType(card)))return {city,error:'Only Decrees and Patrons take slots.'};
@@ -725,7 +735,8 @@ function applyChoice(city,card,record,label){
   const next={...city,buildings:[...city.buildings],landmarks:[...(city.landmarks||[])],figures:[...(city.figures||[])],events:[...city.events],history:[...city.history],snapshots:[...city.snapshots],projects:[...(city.projects||[])],nextProjectId:city.nextProjectId||1,turning:{...city.turning,choices:[...city.turning.choices,record],pending:record.via==='hand'?city.turning.pending:null}};
   // The choice's short-lived development pulse is separate from its permanent
   // modifier. Physical-building rewards only activate when their site is placed.
-  if(!card.building||card.kind==='figure'){next.development=applyPulse(next,card.effects||{},card.rarity,card.kind==='figure'?'figure':'card',card.scorePulse||{}).development;}
+  // v1.9: in doctrine cities the development pulse uses the budgeted effects too.
+  if(!card.building||card.kind==='figure'){next.development=applyPulse(next,turningMode(city)==='era'&&card.kind!=='figure'?eraEffects(card):card.effects||{},card.rarity,card.kind==='figure'?'figure':'card',card.scorePulse||{}).development;}
   if(card.kind==='figure'){next.funds=Math.max(0,next.funds-(card.cost||0));next.figures.push({id:card.figureId,year:city.year,effects:card.effects||{},rarity:card.rarity,name:card.name,domain:card.domain});}
   if(card.effects.popInstant){
     const before=next.residents;
@@ -1120,6 +1131,7 @@ export function normalizeCity(input){
   c.needs=normalizeNeeds(input.needs);
   c.declines=Math.max(0,Math.floor(Number(input.declines)||0));
   c.score=normalizeScore(input.score);
+  c.wonders=Array.isArray(input.wonders)?input.wonders.filter(id=>typeof id==='string'):[];
   // v1.5 Town Center.
   const tc=input.center;
   c.center=tc&&Number.isInteger(tc.x)&&Number.isInteger(tc.y)&&within(tc.x,tc.y)?{x:tc.x,y:tc.y,level:clamp(Math.floor(Number(tc.level)||1),1,TOWN_CENTER_MAX),founded:Number(tc.founded)||c.year}:null;

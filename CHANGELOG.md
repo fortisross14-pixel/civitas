@@ -1,5 +1,54 @@
 # CIVITAS changelog
 
+## v1.9 — Doctrine cards (Milestone R, step 2: content and balance, first pass)
+
+**90 cards in doctrine cities** (new `src/doctrineCards.js`; classic games keep their 54)
+- **14 building cards:** Parish Chapel, Market Square, Stone Granary, Guild Hall, Public School, Public Gardens, Power Works, City Museum, Town Hall, Clinic, Waterworks, Rail Station, Hospital, Library. Playing one awards a free project to place; it answers needs and counts for its doctrine.
+- **15 new doctrine cards:** Pilgrim Road, Tithe Barn, Relic of the Saint, Confraternity, Water Mills, Coal Wharf, Toll Bridges, Letters of Credit, Theatre District, Printing Press, The Almanac, Learned Society, The Observatory, and two new Patrons, **The Bourse** (Trade) and **Vertical Metropolis** (People).
+- **7 hybrids** that count for two doctrines: Workshop Renaissance, Pilgrim Fairs, Model Village, Plan of Modernization, Cathedral School, Opera House, Patent Office.
+- **Six Patrons**, one per doctrine, grow their doctrine's main output by 4% per card of that doctrine in play.
+
+**Evolutions: six Wonders.** A card at Lv3 plus its doctrine's Patron awards a unique landmark to place:
+
+| Card at Lv3 | + Patron | → Wonder |
+|---|---|---|
+| Parish Chapel | Sacred City | The Cathedral |
+| Power Works | Industrial Revolution | The Great Foundry |
+| Market Square | The Bourse | The Grand Exchange |
+| Hire Artists | Cultural Renaissance | Palace of the Muses |
+| Free University | Knowledge Economy | The Great University |
+| Stone Granary | Vertical Metropolis | The Metropolis Charter |
+
+Each Wonder has its own map silhouette, wider influence and a strong effect (the Grand Exchange adds 2 Market Hall offers; the Great University announces history 14 years ahead).
+
+**Power budget** (doctrine cities)
+- Compounding effects count less (migration ×0.45, housing ×0.55, births ×0.45, innovation ×0.25, education ×0.4, GDP ×0.6). This applies to cards, doctrine effects and the development pulse when a card is played.
+- Each doctrine's cards have a strength scale so none dominates on its own.
+- **Tier power**: deep tiers add prosperity, migration, housing, GDP, and an economy and technology development floor (like institutions do), weighted per doctrine.
+- **Renown**: yearly score × 1.1 / 1.3 / 1.6 for the single deepest doctrine at tier 2 / 3 / 4. One deep doctrine beats many shallow ones.
+- **Focus perk**: once a doctrine has 2 cards in play, its cards cost 20% less.
+- Learning's tier-8 discount is now 25% (was 50%), Learning's tier-6 innovation +1.5% per card (was 5%), and Faith's tithe −5% (was −10%).
+
+**Fixed:** building cards awarded no project (the project queue accepted only special buildings). Basic buildings can now be awarded as free projects.
+
+**Balance tooling:** `npm run balance:doctrines` plays every focused-doctrine player and a spread player on 4 seeds in parallel and checks the two R2 exit targets. The scripted players now place the projects they are awarded and reroll the shop once a decade when nothing matches their build.
+
+**Measured** (median of 4 seeds, final score):
+
+| Player | Median | vs spread | vs doctrine mean |
+|---|---|---|---|
+| Learning | 68,507 | 1.27× | +36% |
+| Trade | 57,529 | 1.07× | +14% |
+| People | 57,386 | 1.07× | +14% |
+| Faith | 57,206 | 1.06× | +14% |
+| Spread | 53,798 | 1.00× | — |
+| Arts | 31,871 | 0.59× | −37% |
+| Industry | 29,423 | 0.55× | −42% |
+
+Neither exit target passes yet: focus ≥ 1.3× spread, and all doctrines within ±20% of the mean. Four doctrines cluster within +14%; Learning leads, and Arts and Industry lag regardless of their parameters (see ROADMAP, R2 open items).
+
+**Tests**: `tests/doctrines.test.js` grows to 13 (pool size and classic isolation, a full Cathedral evolution, the focus perk). Full suite: 213 passing.
+
 ## v1.8 — Doctrines (Milestone R, step 1: the engine) and ~20-minute runs
 
 Design: `docs/CARD_DESIGN.md`. Everything below applies to cities founded in the game (era mode); older saves and engine/balance runs are unchanged.

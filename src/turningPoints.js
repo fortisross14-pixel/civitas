@@ -1,11 +1,19 @@
 import {POP_SCALE} from './geo.js';
 import {DOMAIN_AXIS} from './character.js';
+import {DOCTRINE_ONLY_CARDS} from './doctrineCards.js';
 // CIVITAS v0.4 Turning Points. Immutable card catalogue, deterministic offers,
 // and pure run modifiers. All numerical values are provisional balance targets.
 export const TURNING_POINTS=20;
 export const STACK_FACTORS=[1,.5,.25];
 // v1.8 era (doctrine) cities: copies level a card up instead: Lv2 ×1.5, Lv3 ×2.
 export const LEVEL_FACTORS=[1,.5,.5];
+// v1.9 power budget (docs/CARD_DESIGN.md §6): effects that compound over the
+// centuries count less in doctrine cities, so tiers decide a run, not one lucky card.
+// Set by src/doctrines.js (avoids a circular import): per-card strength scale.
+let cardScale=null;export function setCardScale(fn){cardScale=fn;}
+// A card's effects after the power budget (doctrine cities), e.g. for development pulses.
+export function eraEffects(card){const out={};for(const [k,v] of Object.entries(card?.effects||{}))out[k]=typeof v==='number'?v*(ERA_KEY_SCALE[k]??1)*(cardScale?cardScale(card):1):v;return out;}
+export const ERA_KEY_SCALE={migration:.45,housing:.55,births:.45,innovation:.25,education:.4,gdp:.6,popInstant:.6};
 export const HAND_EXTRA=.35;
 export function handTotal(list){
  const pos=list.filter(v=>v>0).sort((a,b)=>b-a),neg=list.filter(v=>v<0);
@@ -76,7 +84,8 @@ export const CARDS=[
  card('city_reinvention','City of Reinvention','wildcard','epic','permanent','Redevelopment +60%, but historic preservation suffers.',{renewal:.60,heritage:-.30},{minYear:1800}),
  card('world_exposition','World Exposition','wildcard','rare','temporary','A global fair boosts culture, commerce and prosperity for three choices.',{arts:.18,trade:.18,prosperity:5},{durationPoints:3,minYear:1850})
 ];
-export const CARD_INDEX=Object.fromEntries(CARDS.map(c=>[c.id,c]));
+export const ERA_CARDS=[...CARDS,...DOCTRINE_ONLY_CARDS];
+export const CARD_INDEX=Object.fromEntries(ERA_CARDS.map(c=>[c.id,c]));
 export const SYNERGIES=[
  {id:'renaissance',name:'The Renaissance',domain:'culture',needs:['hire_artists','grand_workshops','cultural_renaissance'],effects:{arts:.55,tourismIncome:.25},description:'Masterpieces and academies turn the city into a cultural center.'},
  {id:'industrial_giant',name:'Industrial Giant',domain:'industry',needs:['industrial_expansion','factory_town','transport_network'],effects:{industry:.40,industrialDevelopment:.35},description:'Connected factories produce at extraordinary scale.'},
@@ -133,7 +142,7 @@ export function modifiers(city){
   const copy=picks.slice(0,i).filter(p=>p.cardId===picks[i].cardId&&!p.retired).length,factor=(era?LEVEL_FACTORS:STACK_FACTORS)[copy]??0;
   for(const [k,v] of Object.entries(c.effects)){if(k==='popInstant'||k==='masterpieces')continue;
    if(picks[i].via==='hand'&&!era){(hand[k]||=[]).push(v*factor);continue;}
-   result[k]=(result[k]||0)+v*factor;}
+   result[k]=(result[k]||0)+v*factor*(era?(ERA_KEY_SCALE[k]??1)*(cardScale?cardScale(c):1):1);}
  }
  // v1.5: for each effect, the strongest hand-played card counts fully and the
  // rest count at HAND_EXTRA, so a big hand helps without compounding wildly.
@@ -145,6 +154,7 @@ export function modifiers(city){
 }
 export function canDraw(card,city){
  if(!card||city.year<(card.minYear??-Infinity)||city.year>(card.maxYear??Infinity))return false;
+ if(card.eraOnly&&turningMode(city)!=='era')return false;
  if(card.kind==='figure'){if(!card.generic&&!city.turning?.figurePool?.includes(card.figureId))return false; if(!card.generic&&(city.figures||[]).some(f=>f.id===card.figureId))return false; if(card.generic&&(city.turning?.choices||[]).filter(p=>p.cardId===card.id).length>=2)return false;}
  else if(Array.isArray(city.turning?.cardPool)&&!city.turning.cardPool.includes(card.id))return false;
  if(card.geographies&&!card.geographies.includes(city.type))return false;
@@ -164,7 +174,7 @@ export function generateOffers(city,index,reroll=0,extra=[],count=3){
  const owned=resolvedCards(city),dominance={};for(const c of owned)dominance[c.domain]=(dominance[c.domain]||0)+1;
  const leading=Object.keys(dominance).sort((a,b)=>dominance[b]-dominance[a]||a.localeCompare(b))[0];
  const roll=rng(hash(city.seed,index,reroll,owned.map(c=>c.id).join('|'),(city.figures||[]).map(f=>f.id).join('|')));
- let available=[...CARDS,...extra].filter(c=>canDraw(c,city));
+ let available=[...(turningMode(city)==='era'?ERA_CARDS:CARDS),...extra].filter(c=>canDraw(c,city));
  // Era drafts offer Rare cards or better whenever at least three are open.
  if(turningMode(city)==='era'){const premium=available.filter(c=>PREMIUM_RARITIES.includes(c.rarity));if(premium.length>=3)available=premium;}
  const selected=new Set(),slots=[];
