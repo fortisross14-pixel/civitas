@@ -1,5 +1,29 @@
 # CIVITAS changelog
 
+## v1.9.1 — Doctrines balanced (Milestone R2 exit tests pass)
+
+**Both R2 exit tests now pass on 8 seeds** (`npm run balance:doctrines -- --seeds 7,11,3,19,23,29,31,37`, four of the seeds never used for tuning):
+
+| Focused player | Median score | vs spread | vs doctrine mean |
+|---|---|---|---|
+| Learning | 77,752 | 1.86× | +18% |
+| Faith | 68,874 | 1.65× | +5% |
+| Arts | 67,479 | 1.61× | +3% |
+| People | 63,351 | 1.52× | −4% |
+| Trade | 60,331 | 1.44× | −8% |
+| Industry | 56,314 | 1.35× | −14% |
+| *Spread (one of everything)* | 41,798 | 1.00× | — |
+
+Targets: every focused doctrine ≥ 1.3× spread ✅, and all within ±20% of the mean ✅.
+
+**What changed** (doctrine cities only)
+- **Arts and Industry were starving, not weak.** Arts had 6 cards before 1500 and its buildings only from 1750, so its city stayed poor and bought one card in 730 years; Industry's cards mostly unlocked after 1750, but the score is cumulative. New early Commons from 1300: *Mystery Plays*, *Painters' Guild* (Arts), *Tanners' Row*, *Rope Walk* (Industry). Arts upkeep weakness ×1.25 (was ×1.5). The doctrine pool is now 94 cards.
+- **Renown pays only for depth:** ×1.45 at tier 3 and ×2.0 at tier 4 for the deepest doctrine, nothing at tiers 1–2, so a spread city earns none.
+- **Learning gets a real weakness** ("slow fame: 65% of the usual Renown"), and its four-card era drafts move to tier 3. Its new tier 2 ("Scholars advise the council: history that costs money costs half") replaces them. Schools and universities hold technology up half as much in doctrine cities, and an institution floor and the doctrine floor no longer add up. Learning's tier-8 discount is 15%.
+- Per-doctrine strength settings retuned (see `src/doctrines.js`: `DOCTRINE_POWER`, `DEV_WEIGHT`, `CARD_SCALE`, `RENOWN_WEIGHT`).
+
+**Tests**: 213 passing.
+
 ## v1.9 — Doctrine cards (Milestone R, step 2: content and balance, first pass)
 
 **90 cards in doctrine cities** (new `src/doctrineCards.js`; classic games keep their 54)

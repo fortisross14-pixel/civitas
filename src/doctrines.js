@@ -20,10 +20,10 @@ export const DOCTRINES={
     weakness:'From tier 4: business swings are doubled and history costs 50% more'},
   arts:{name:'Arts',glyph:'✦',color:'#8e6896',build:'City of the Arts',
     tiers:['Gardens and landmarks clear the smoke around them','Landmarks raise land value over twice the radius','The Renaissance: tourism income grows with every Arts card','Capital of Culture: score grows with prestige'],
-    weakness:'Arts cards cost 1.5× upkeep'},
+    weakness:'Arts cards cost 1.25× upkeep'},
   learning:{name:'Learning',glyph:'◆',color:'#557f95',build:'Seat of Learning',
-    tiers:['Foresight: history is announced 10 years ahead','Era drafts offer 4 cards','Knowledge Capital: innovation compounds with every Learning card','City of Reason: Learning cards cost 25% less in the Market Hall'],
-    weakness:'Slow: Learning payoffs grow over decades'},
+    tiers:['Foresight: history is announced 10 years ahead','Scholars advise the council: history that costs money costs half','Knowledge Capital: era drafts offer 4 cards; innovation compounds with every Learning card','City of Reason: Learning cards cost 15% less in the Market Hall'],
+    weakness:'Slow fame: a scholar city earns 65% of the usual Renown'},
   people:{name:'People',glyph:'◉',color:'#64875a',build:'Teeming Metropolis',
     tiers:['Declines empty half as many homes','Districts form at 7 buildings instead of 10','Vertical Metropolis: needs fill 30% slower; housing +20%, migration +25%','World City: score ×1.2 from population above 100,000'],
     weakness:'Crowding: prosperity −1 per tier'}
@@ -58,7 +58,7 @@ export const TIER_GDP=[0,0,.08,.2,.4];
 // Development floors by tier (economy and technology axes drive productivity
 // growth; institutions hold them up, and so does a deep doctrine).
 export const TIER_DEV_FLOOR=[0,0,10,20,30];
-export const DEV_WEIGHT={faith:1.7,industry:2.0,trade:.35,arts:2.0,learning:0,people:.8};
+export const DEV_WEIGHT={faith:1.3,industry:1.7,trade:.8,arts:2.1,learning:0,people:1.5};
 // Focus perk: once a doctrine has 2 cards in play, its cards cost 20% less.
 export const FOCUS_DISCOUNT=.8;
 export function doctrineDevelopmentFloor(city){
@@ -67,14 +67,16 @@ export function doctrineDevelopmentFloor(city){
 }
 // Calibrated with the scripted players (docs/ROADMAP.md, R2): doctrines whose own
 // effects reach the score less directly get more tier power.
-export const DOCTRINE_POWER={faith:2.6,industry:3.0,trade:.45,arts:3.0,learning:.3,people:.8};
+export const DOCTRINE_POWER={faith:2.0,industry:2.6,trade:.9,arts:3.0,learning:.3,people:1.5};
 // Growth by tier (migration, housing), weighted the same way.
 export const TIER_GROWTH=[0,0,.03,.08,.15];
 // Raw card strength by doctrine, so no doctrine's cards dominate on their own.
-export const CARD_SCALE={faith:1.8,industry:2.4,trade:.7,arts:2.6,learning:.25,people:.9};
+export const CARD_SCALE={faith:1.6,industry:2.2,trade:.95,arts:3.2,learning:.1,people:1.2};
 // Renown: a city known for one thing. Yearly score × (1 + RENOWN[tier]) of the
 // single deepest doctrine, so one deep doctrine beats many shallow ones.
-export const RENOWN=[0,0,.1,.3,.6];
+export const RENOWN=[0,0,0,.45,1.0];
+// Learning's weakness: a scholar city's fame spreads slowly.
+export const RENOWN_WEIGHT={faith:1,industry:1.1,trade:1,arts:1,learning:.65,people:1};
 setCardScale(card=>{const t=cardDoctrines(card);return t.length?Math.max(...t.map(d=>CARD_SCALE[d]??1)):1;});
 // Evolutions (§5): a Lv3 card plus its doctrine's Patron awards a Wonder to place.
 export const WONDERS=[
@@ -150,16 +152,17 @@ function computeState(city){
   if(tiers.trade>=3){f.sellShare=1;f.interest=.015;}
   if(tiers.trade>=4)f.scorePerThousandFunds=1;
   // Arts
-  if(counts.arts>0)f.artsUpkeep=1.5;
+  if(counts.arts>0)f.artsUpkeep=1.25;
   if(tiers.arts>=1)f.artsGreen=true;
   if(tiers.arts>=2)f.prestigeReach=2;
   if(tiers.arts>=3)add('tourismIncome',.03*counts.arts);
   if(tiers.arts>=4)f.scorePrestige=.3;
   // Learning
   if(tiers.learning>=1)f.omenLead=10;
-  if(tiers.learning>=2)f.draftOptions=4;
-  if(tiers.learning>=3){add('innovation',.015*counts.learning);add('education',.1);}
-  if(tiers.learning>=4)f.learningDiscount=.75;
+  if(tiers.learning>=2)f.eventFundsMult=(f.eventFundsMult||1)*.5;
+  if(tiers.learning>=3)f.draftOptions=4;
+  if(tiers.learning>=3)add('innovation',.015*counts.learning);
+  if(tiers.learning>=4)f.learningDiscount=.85;
   // People
   if(tiers.people>=1)f.declineShare=.5;
   if(tiers.people>=2)f.districtMin=7;
@@ -181,7 +184,10 @@ function computeState(city){
 export const doctrineFlags=city=>doctrineState(city).flags;
 // Score multiplier and bonus for this year (tier-8 payoffs).
 export function scoreBonus(city,s){
-  const st=doctrineState(city),f=st.flags;let mult=1+(st.on?RENOWN[Math.max(0,...Object.values(st.tiers))]:0),add=0;
+  const st=doctrineState(city),f=st.flags;
+  // Renown from the single deepest doctrine (ties: the one with the most cards).
+  const deepest=st.on?DOCTRINE_IDS.reduce((b,d)=>st.tiers[d]>st.tiers[b]||(st.tiers[d]===st.tiers[b]&&st.counts[d]>st.counts[b])?d:b,DOCTRINE_IDS[0]):null;
+  let mult=1+(deepest?RENOWN[st.tiers[deepest]]*RENOWN_WEIGHT[deepest]:0),add=0;
   if(f.scoreSacred&&(s.prosperity||0)>=60)mult*=f.scoreSacred;
   if(f.scorePopulation&&(s.population||0)>100000)mult*=1+(f.scorePopulation-1)*Math.min(1,((s.population||0)-100000)/100000);
   if(f.scorePrestige)mult*=1+Math.min(f.scorePrestige,(s.culturalPrestige||0)/2000);

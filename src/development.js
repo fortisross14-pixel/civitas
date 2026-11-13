@@ -55,7 +55,8 @@ export function institutionalSupport(city){
  }
  return {
   economy:Math.min(28,figureFloor.economy+n('port')*5+n('market')*1.5+n('station')*2),
-  technology:Math.min(38,figureFloor.technology+n('university')*8+n('research_center')*8+n('school')*1.5),
+  // v1.9: in doctrine cities schools and universities hold technology up half as much (Learning's tiers do the rest).
+  technology:Math.min(38,figureFloor.technology+(n('university')*8+n('research_center')*8+n('school')*1.5)*(city?.turning?.mode==='era'?.5:1)),
   culture:Math.min(38,figureFloor.culture+n('monument')*4+n('workshop')*6+n('museum')*5),
   faith:Math.min(38,figureFloor.faith+n('shrine')*7+n('monastery')*7+n('chapel')*2),
   infrastructure:Math.min(28,figureFloor.infrastructure+n('station')*4+n('transit_hub')*6+n('boulevard')*4),
@@ -66,7 +67,8 @@ export function advanceDevelopment(city,years){
  const source=developmentOf(city),support=institutionalSupport(city),next={};
  // v1.9: a deep doctrine holds the economy and technology up like institutions do.
  const doctrine=developmentFloorHook?developmentFloorHook(city):0;
- if(doctrine){support.economy=(support.economy||0)+doctrine;support.technology=(support.technology||0)+doctrine;}
+ // The higher of institutions and doctrine holds, not both added (so Learning's schools don't count twice).
+ if(doctrine){support.economy=Math.max(support.economy||0,doctrine);support.technology=Math.max(support.technology||0,doctrine);}
  for(const k of AXES){
   // Institutions establish a *maintenance floor*, not continuous compounding.
   // E.g. 88 economy becomes about 61 after 35 years without reinvestment.

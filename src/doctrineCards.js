@@ -32,12 +32,16 @@ export const NEW_DOCTRINE_CARDS=[
   card('confraternity','Confraternity','religion','uncommon','permanent','Lay brotherhoods care for the poor: services and prosperity improve.',{services:.15,faith:.1,prosperity:1}),
   // Industry
   card('water_mill','Water Mills','industry','common','permanent','Mills on every stream: manufacturing grows.',{industry:.15,industrialDevelopment:.1},{maxYear:1849}),
+  card('tannery_row','Tanners\' Row','industry','common','permanent','Tanneries and dyers by the water: early manufacturing and revenue.',{industry:.12,treasury:.04}),
+  card('rope_walk','Rope Walk','industry','common','permanent','A long rope walk by the quays: crafts and transport grow.',{industry:.1,transport:.06}),
   card('coal_wharf','Coal Wharf','industry','common','permanent','Coal by barge: factories run harder, and smokier.',{industry:.18,transport:.05,pollution:.1},{minYear:1750}),
   // Trade
   card('toll_bridge','Toll Bridges','trade','common','permanent','Tolls on the crossings: transport and the treasury grow.',{transport:.12,treasury:.06}),
   card('letters_credit','Letters of Credit','trade','uncommon','permanent','Merchants trust the city\'s paper: commerce and the treasury grow.',{trade:.15,treasury:.08}),
   card('bourse','The Bourse','trade','epic','synergy','The exchange of the realm: commerce grows with every Trade card.',{trade:.1}),
-  // Arts
+  // Arts (two early commons: Arts needs cards before 1750)
+  card('mystery_plays','Mystery Plays','culture','common','temporary','The guilds stage the town\'s plays for 40 years: art, visitors and settlers.',{arts:.12,migration:.04,tourismIncome:.05},{durationPoints:2}),
+  card('painters_guild','Painters\' Guild','culture','common','permanent','A guild of painters and carvers: the arts and their trade grow.',{arts:.12,trade:.05}),
   card('theatre_district','Theatre District','culture','uncommon','permanent','Stages and taverns: arts, visitors and good humour.',{arts:.18,tourismIncome:.1,prosperity:1}),
   // Learning
   card('printing_press','Printing Press','education','common','permanent','Books for the town: learning and new ideas spread.',{education:.12,innovation:.04}),

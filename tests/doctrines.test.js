@@ -80,10 +80,10 @@ test('banish removes an offer for the rest of the run; Trade 4 can lock an offer
   assert.ok(cardPrice(CARD_INDEX[keep.cardId],100,t)<cardPrice(CARD_INDEX[keep.cardId],100,null),'Trade 2 discount');
 });
 
-test('rule-benders: Learning foresight and four-card drafts; Faith churches serve as markets',()=>{
+test('rule-benders: Learning foresight, cheaper history and four-card drafts; Faith churches serve as markets',()=>{
   // Learning has only three Decrees open in 1300 (a content gap for R2), so this uses the hybrid and later cards.
-  let l=rich(newCity(11));for(const x of CARDS.filter(x=>cardDoctrines(x).includes('learning')&&cardType(x)!=='building'&&x.kind!=='instant').slice(0,4))l=play(l,x.id);
-  assert.ok(doctrineState(l).tiers.learning>=2);assert.equal(doctrineFlags(l).omenLead,10);assert.equal(doctrineFlags(l).draftOptions,4);
+  let l=rich(newCity(11));for(const x of ERA_CARDS.filter(x=>cardDoctrines(x).includes('learning')&&cardType(x)!=='building'&&x.kind!=='instant'&&!PATRONS.has(x.id)).slice(0,6))l=play(l,x.id);
+  assert.ok(doctrineState(l).tiers.learning>=3);assert.equal(doctrineFlags(l).omenLead,10);assert.equal(doctrineFlags(l).draftOptions,4);assert.equal(doctrineFlags(l).eventFundsMult,.5,'tier 2: history costs half');
   while(!l.turning.pending&&l.year<1510)l=advance(l,10);
   assert.equal(l.turning.pending.options.length,4,'era draft offers four');
   let f=rich(newCity(7));while(f.year<1400)f=advance(f,10);
@@ -117,9 +117,9 @@ import {placeConstruction} from '../src/sim.js';
 import {shopEligible} from '../src/cards.js';
 import {buildNear} from './helpers/strategies.js';
 
-test('the doctrine pool has 90 cards: the 54 classic ones, 14 building cards, 22 new; classic games keep 54',()=>{
-  assert.equal(ERA_CARDS.length,90);assert.equal(DOCTRINE_ONLY_CARDS.length,36);assert.equal(HYBRID_CARDS.length,7);
-  assert.equal(new Set(ERA_CARDS.map(c=>c.id)).size,90,'ids are unique');
+test('the doctrine pool has 94 cards: the 54 classic ones, 14 building cards, 26 new; classic games keep 54',()=>{
+  assert.equal(ERA_CARDS.length,94);assert.equal(DOCTRINE_ONLY_CARDS.length,40);assert.equal(HYBRID_CARDS.length,7);
+  assert.equal(new Set(ERA_CARDS.map(c=>c.id)).size,94,'ids are unique');
   for(const c of HYBRID_CARDS)assert.equal(cardDoctrines(c).length,2,`${c.id} counts for two doctrines`);
   const classic=seedTown(makeCity('Classic','river',7));
   assert.ok(DOCTRINE_ONLY_CARDS.every(c=>!shopEligible(c,classic)),'never sold in classic cities');

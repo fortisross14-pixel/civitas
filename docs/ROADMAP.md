@@ -13,7 +13,7 @@ its exit test is measured, not judged by eye.
 | **B** | Card economy: Market Hall, hand, stack, merge | ✅ Core done in v1.5; tuning and drag-to-play remain |
 | **C** | Pressure: needs on the map, telegraphed history, score | ✅ Shipped in v1.6; closed in v1.7 by era drafts |
 | **D** | Art pass: roofs, landmarks, living countryside, era styles | ✅ Core shipped in v1.7; transitions and card art remain |
-| **R** | **Doctrines and runs: roguelite deckbuilding** (design: [`CARD_DESIGN.md`](CARD_DESIGN.md)) | **In progress**: R1 (v1.8) ✅; R2 content (v1.9) ✅, balance exit tests open; R3 next |
+| **R** | **Doctrines and runs: roguelite deckbuilding** (design: [`CARD_DESIGN.md`](CARD_DESIGN.md)) | **In progress**: R1 (v1.8) ✅; R2 (v1.9.1) ✅, exit tests 1–2 pass on 8 seeds; R3 next |
 | **E** | Modes: era challenges | Planned; meta items moved into R; daily map dropped (offline game) |
 | **F** | Polish: game feel, audio, onboarding, copy | Planned (runs alongside C–E) |
 
@@ -137,7 +137,11 @@ CIVITAS is a roguelite with cards: each run is one city, and you win by
 committing to a build (a Holy City, a Forge City…), not by owning one of
 everything. The full design is in [`CARD_DESIGN.md`](CARD_DESIGN.md).
 
-**Status (v1.9), R2 first pass:**
+**Status (v1.9.1): R2 done.** Both exit tests pass on 8 seeds: every focused doctrine scores 1.35–1.86× the spread player, and all six are within +18% / −14% of their mean. Era Trials move to R3.
+
+**R3 next:** Era Trials; Founders; Starter Pool and doctrine mastery unlocks; Legacy Market artifacts and boosters; Ruin; end-of-run summary with past-run and historical-city comparison; optional Hardships.
+
+**Status (v1.9), R2 first pass (superseded):**
 - ✅ 90 cards (14 building cards, 15 new, 7 hybrids), 6 Patrons, 6 Wonders, power budget, Renown, focus perk, `npm run balance:doctrines`.
 - ❌ Exit targets not met yet (median of 4 seeds): Learning 68.5k, Trade 57.5k, People 57.4k, Faith 57.2k, spread 53.8k, Arts 31.9k, Industry 29.4k.
 
