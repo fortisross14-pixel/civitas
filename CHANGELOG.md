@@ -1,5 +1,19 @@
 # CIVITAS changelog
 
+## v1.7 — Era drafts and a living map (Milestone C closed, Milestone D art pass)
+
+**Era drafts**
+- Cities founded in the game make five drafts, one as each era begins (1500, 1750, 1850, 1950, 2000), offering Rare cards or better. They replace the 20 Turning Points; the decade Market Hall supplies the rest. Older saves and engine/balance runs keep 20 Turning Points.
+- This closes Milestone C's last exit criterion: the scripted sensible player now makes **86%** of its decisions on a place or a moment (was 66–68%). Neglect still loses: passive 2.2k–2.7k vs sensible 14.3k–20.0k prosperity-years. Cities are smaller than with 20 Turning Points, since 15 permanent card bonuses are gone.
+
+**A living map** (art pass, `src/render.js`; before/after sheets in `docs/audit/art-before-after-zoom1.jpg` and `…zoom3.jpg`)
+- **The countryside changes with the centuries**: medieval open fields in long narrow strips (before 1600), hedged enclosures with hedgerow trees (1600–1899), and large consolidated parcels (1900+). The ground tone shifts with each epoch, and archive maps and the timelapse show the right epoch.
+- **Roofs read as roofs**: every pitched roof is lit from the top-left, like the rest of the map (the slope facing north-west is lighter, the other darker), with an inked ridge. Squarish stone, classical and brick roofs are hipped; narrow row houses keep their gables.
+- **Landmarks stand out**: churches gain a round apse and a darker west tower, and every special building has a heavier ink outline.
+- **Decline shows**: a quarter in decline reads greyer for as long as the decline lasts, alongside the dashed outlines of its empty homes.
+
+**Tests**: new `tests/eras.test.js` (4, including the 80% place-or-moment exit test).
+
 ## v1.6 — Needs & History (Milestone C: pressure, telegraphed history, score)
 
 **Needs on the map** (new `src/needs.js`, `src/Needs.jsx`)

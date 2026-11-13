@@ -45,27 +45,45 @@ const STONE='#cbb995',STONE_EDGE='#6c5945';
 const S=10; // offscreen pixels per map cell
 const layerCache=new Map();
 function offscreen(w,h){if(typeof document==='undefined')return null;const c=document.createElement('canvas');c.width=w;c.height=h;return c;}
-// Polder fields: the map is split into irregular plots, each striped with
-// drainage ditches at its own angle, bounded by hedgerows, with tree clumps.
-function fieldsLayer(type,seed){
-  const id=`fields:${type}:${seed}`;if(layerCache.has(id))return layerCache.get(id);
-  const c=offscreen(W*S,H*S);if(!c)return null;const g=c.getContext('2d'),r=rand(hash(seed,8081));
-  g.fillStyle=LAND;g.fillRect(0,0,c.width,c.height);
+// v1.7 the countryside changes with the centuries (one cached bitmap per epoch):
+//   0 open fields (before 1600): long narrow strips ploughed close, low balks, no hedges
+//   1 enclosures (1600–1899): medium plots bounded by hedgerows with hedge trees
+//   2 consolidated (1900+): large machine-worked parcels, sparse hedges, few trees
+export const fieldEpoch=year=>year<1600?0:year<1900?1:2;
+const EPOCH={
+  0:{land:'#ddd3aa',depth:8,stop:(w,h,r)=>Math.min(w,h)<4||(w<10&&h<10&&r()<.5),strip:.85,spacing:[.45,.35],line:'rgba(150,140,98,.5)',hedge:null,trees:.12,
+     tones:['rgba(214,200,150,.55)','rgba(200,196,146,.5)','rgba(222,210,168,.45)','rgba(190,186,138,.45)']},
+  1:{land:'#d9d3ad',depth:6,stop:(w,h,r)=>w<6||h<6||(w<14&&h<14&&r()<.65),strip:.5,spacing:[.7,.6],line:'rgba(150,146,104,.45)',hedge:['rgba(110,124,80,.6)',1.2],trees:.22,hedgeTrees:true,
+     tones:['rgba(196,199,150,.55)','rgba(214,206,166,.5)','rgba(188,192,140,.45)','rgba(222,214,178,.35)']},
+  2:{land:'#d2d6aa',depth:4,stop:(w,h,r)=>w<12||h<12||(w<22&&h<22&&r()<.5),strip:.5,spacing:[1.7,.9],line:'rgba(140,146,100,.3)',hedge:['rgba(110,124,80,.35)',.9],trees:.06,
+     tones:['rgba(190,204,140,.6)','rgba(222,212,150,.55)','rgba(176,196,132,.55)','rgba(206,210,160,.45)']}
+};
+function fieldsLayer(type,seed,epoch=1){
+  const id=`fields:${type}:${seed}:${epoch}`;if(layerCache.has(id))return layerCache.get(id);
+  const c=offscreen(W*S,H*S);if(!c)return null;const g=c.getContext('2d'),r=rand(hash(seed,8081,epoch)),e=EPOCH[epoch]||EPOCH[1];
+  g.fillStyle=e.land;g.fillRect(0,0,c.width,c.height);
   const plots=[];const split=(x,y,w,h,depth)=>{
-    if(depth>6||(w<14&&h<14&&r()<.65)||w<6||h<6){plots.push({x,y,w,h});return;}
-    if(w>h?r()<.8:r()<.2){const cut=Math.round(w*(.3+r()*.4));split(x,y,cut,h,depth+1);split(x+cut,y,w-cut,h,depth+1);}
-    else{const cut=Math.round(h*(.3+r()*.4));split(x,y,w,cut,depth+1);split(x,y+cut,w,h-cut,depth+1);}
+    if(depth>e.depth||e.stop(w,h,r)){plots.push({x,y,w,h});return;}
+    // Open fields are cut again and again across their width into strips.
+    const across=epoch===0?(w>h?r()<.85:r()<.15):(w>h?r()<.8:r()<.2);
+    if(across){const cut=Math.max(2,Math.round(w*(epoch===0?.18+r()*.2:.3+r()*.4)));split(x,y,cut,h,depth+1);split(x+cut,y,w-cut,h,depth+1);}
+    else{const cut=Math.max(2,Math.round(h*(epoch===0?.18+r()*.2:.3+r()*.4)));split(x,y,w,cut,depth+1);split(x,y+cut,w,h-cut,depth+1);}
   };split(0,0,W,H,0);
   for(const p of plots){
-    const tone=r();g.fillStyle=tone<.3?'rgba(196,199,150,.55)':tone<.55?'rgba(214,206,166,.5)':tone<.75?'rgba(188,192,140,.45)':'rgba(222,214,178,.35)';
+    g.fillStyle=e.tones[Math.floor(r()*e.tones.length)];
     g.fillRect(p.x*S,p.y*S,p.w*S,p.h*S);
     g.save();g.beginPath();g.rect(p.x*S,p.y*S,p.w*S,p.h*S);g.clip();
-    const ang=(r()<.5?0:Math.PI/2)+(r()-.5)*.5,spacing=(.7+r()*.6)*S,cx=(p.x+p.w/2)*S,cy=(p.y+p.h/2)*S,len=Math.hypot(p.w,p.h)*S;
-    g.strokeStyle=FIELD_LINE;g.lineWidth=.6;g.beginPath();
+    // Furrows run along the plot's long side (strips) or at the plot's own angle.
+    const alongLong=p.w>=p.h?0:Math.PI/2,ang=(r()<e.strip?alongLong:alongLong+Math.PI/2)+(r()-.5)*(epoch===0?.15:.5);
+    const spacing=(e.spacing[0]+r()*e.spacing[1])*S,cx=(p.x+p.w/2)*S,cy=(p.y+p.h/2)*S,len=Math.hypot(p.w,p.h)*S;
+    g.strokeStyle=e.line;g.lineWidth=.6;g.beginPath();
     for(let t=-len/2;t<=len/2;t+=spacing){const ox=Math.cos(ang+Math.PI/2)*t,oy=Math.sin(ang+Math.PI/2)*t;g.moveTo(cx+ox-Math.cos(ang)*len,cy+oy-Math.sin(ang)*len);g.lineTo(cx+ox+Math.cos(ang)*len,cy+oy+Math.sin(ang)*len);}
     g.stroke();g.restore();
-    g.strokeStyle=HEDGE;g.lineWidth=1.1;g.strokeRect(p.x*S+.5,p.y*S+.5,p.w*S-1,p.h*S-1);
-    if(r()<.18){g.fillStyle='rgba(112,128,86,.55)';const tx=(p.x+r()*p.w)*S,ty=(p.y+r()*p.h)*S;for(let i=0;i<5+r()*6;i++){g.beginPath();g.arc(tx+(r()-.5)*28,ty+(r()-.5)*22,3+r()*3,0,Math.PI*2);g.fill();}}
+    if(e.hedge){g.strokeStyle=e.hedge[0];g.lineWidth=e.hedge[1];g.strokeRect(p.x*S+.5,p.y*S+.5,p.w*S-1,p.h*S-1);}
+    else{g.strokeStyle='rgba(160,150,108,.35)';g.lineWidth=.5;g.strokeRect(p.x*S+.5,p.y*S+.5,p.w*S-1,p.h*S-1);}
+    // Hedgerow trees dot the enclosure boundaries.
+    if(e.hedgeTrees&&r()<.45){g.fillStyle='rgba(104,122,80,.6)';const n=2+Math.floor(r()*4);for(let i=0;i<n;i++){const side=Math.floor(r()*4),t=r();const tx=(side<2?p.x+t*p.w:side===2?p.x:p.x+p.w)*S,ty=(side===0?p.y:side===1?p.y+p.h:p.y+t*p.h)*S;g.beginPath();g.arc(tx,ty,2.2+r()*1.6,0,Math.PI*2);g.fill();}}
+    if(r()<e.trees){g.fillStyle='rgba(112,128,86,.55)';const tx=(p.x+r()*p.w)*S,ty=(p.y+r()*p.h)*S;for(let i=0;i<5+r()*6;i++){g.beginPath();g.arc(tx+(r()-.5)*28,ty+(r()-.5)*22,3+r()*3,0,Math.PI*2);g.fill();}}
   }
   layerCache.set(id,c);return c;
 }
@@ -229,8 +247,11 @@ function plan(b,r){
 }
 // The local plan of one building (for tests and tools): shapes with tones.
 export function buildingPlan(b){return plan(b,rand(hash(Math.floor(b.x),Math.floor(b.y),b.born|0,(b.id||'').length*7919)));}
+// A church in plan: west tower on the street, nave, transept and a round apse.
 function church(u,v0,len,scale=1){
-  const w=.13*scale;return [{poly:rect(u-w,v0+.12,u+w,v0+len),tone:'stone'},{poly:rect(u-.3*scale,v0+len*.55,u+.3*scale,v0+len*.55+.15*scale),tone:'stone'},{poly:rect(u-.09*scale,v0-.06,u+.09*scale,v0+.14),tone:'tower'}];
+  const w=.13*scale,end=v0+len;
+  const apse=Array.from({length:9},(_,i)=>{const a=Math.PI*i/8;return [u+Math.cos(a)*w,end+Math.sin(a)*w*.95];});
+  return [{poly:rect(u-w,v0+.12,u+w,end),tone:'stone'},{poly:[[u+w,end],...apse.slice(1,-1),[u-w,end]],tone:'stone'},{poly:rect(u-.3*scale,v0+len*.55,u+.3*scale,v0+len*.55+.15*scale),tone:'stone'},{poly:rect(u-.1*scale,v0-.06,u+.1*scale,v0+.16),tone:'tower'}];
 }
 function specialPlan(b,r){
   const k=b.special;
@@ -273,7 +294,7 @@ function toneColor(tone,b,look,layerColor){
     // Sheds (workshops, barns) are a darker shade of their use's roof.
     case 'shed':return roofTone(b.type,sty,3);
     case 'awning':return '#c49a5a';
-    case 'stone':return STONE;case 'tower':return '#a8936f';case 'cloister':return '#bfae8c';
+    case 'stone':return STONE;case 'tower':return '#8a7354';case 'cloister':return '#bfae8c';
     case 'square':return '#e2d6b8';case 'yard':return '#cfc79f';case 'green':return '#9fb084';case 'tree':return '#6f8a5f';
     case 'water':return WATER;case 'chimney':return '#4f4640';
     default:return roofTone(b.type,sty,0);
@@ -328,6 +349,7 @@ function citySignature(city){
   for(const b of city.buildings||[]){mix(b.id);mix(b.x*7);mix(b.y*13);mix(b.vacant?1:0);mix(b.protected?2:0);mix((b.type||'').length);mix(b.born||0);mix(b.capacity||0);mix((b.special||'').length);mix((b.style||'').length);}
   for(const r of city.roads||[]){mix(r.x);mix(r.y);mix((r.orientation||'').length);}
   for(const w of city.walls||[]){mix(w.r*100);mix((w.state||'').length);}
+  for(const t of city.effectsTimed||[])if(String(t.source||'').startsWith('decline:'))mix(t.until);
   mix((city.bridges||[]).length);mix((city.routes||[]).length);mix((city.zones||[]).length);mix((city.districts||[]).length);
   return h>>>0;
 }
@@ -365,7 +387,7 @@ export function drawCity(ctx,city,width,height,opts={}){
   if(!cache.hit){const live=ctx;{const ctx=cache.ctx;ctx.save();if(!cache.direct)ctx.setTransform(live.getTransform());
     ctx.fillStyle=paperPattern(ctx);ctx.fillRect(0,0,width,height);
     ctx.save();ctx.translate(ox,oy);ctx.scale(scale,scale);
-    const fields=fieldsLayer(city.type,city.seed);if(fields){ctx.imageSmoothingEnabled=true;ctx.drawImage(fields,0,0,W,H);}
+    const fields=fieldsLayer(city.type,city.seed,fieldEpoch(opts.archiveYear||city.year||1300));if(fields){ctx.imageSmoothingEnabled=true;ctx.drawImage(fields,0,0,W,H);}
     // Zoning: a wash on the zoning layer, a whisper on the urban map.
     if(layer==='zones'||layer==='urban')for(let y=0;y<H;y++)for(let x=0;x<W;x++){const type=zoneCell(city,x,y);if(type){ctx.fillStyle=ZONES[type].color+(layer==='zones'?'66':'18');ctx.fillRect(x,y,1,1);}}
     const influence=['value','pollution','coverage','pull','needs'].includes(layer)?cityFields(city):null;
@@ -407,7 +429,10 @@ export function drawCity(ctx,city,width,height,opts={}){
       ctx.fillStyle='rgba(60,50,40,.25)';ctx.fillRect(x0+.06,y0+.08,w,hh);ctx.fillStyle='#b7a27f';ctx.fillRect(x0,y0,w,hh);ctx.fillStyle=STREET;ctx.fillRect(h?x0:x0+.14,h?y0+.14:y0,h?w:.32,h?.32:hh);}
     // Buildings: shadows, then roofs grouped by colour.
     const roadSet=new Set(),mainSet=new Set();for(const r of city.roads||[])if(Number.isFinite(r.x)&&r.cls!=='bridge'){roadSet.add(r.y*W+r.x);if(r.cls==='main')mainSet.add(r.y*W+r.x);}
-    const buckets=new Map(),shadows=[],vacant=[],saws=[],outlines=[],ridges=[],parapets=[];
+    const buckets=new Map(),shadows=[],vacant=[],saws=[],outlines=[],ridges=[],parapets=[],faded=[];
+    // v1.7: quarters in decline read greyer for as long as the decline lasts.
+    const declining=new Set((city.effectsTimed||[]).filter(t=>t.until>(city.year||0)&&String(t.source||'').startsWith('decline:')).map(t=>t.source.slice(8)));
+    const fadedIdx=layer==='urban'&&districts&&declining.size?new Set(districts.list.map((d,i)=>declining.has(d.id)?i:-1).filter(i=>i>=0)):null;
     for(const b of city.buildings||[]){
       const look=buildingShapes(b,roadSet,mainSet,warp);
       let layerColor=null;
@@ -423,33 +448,46 @@ export function drawCity(ctx,city,width,height,opts={}){
       for(const sh of look.shapes){
         if(b.vacant){vacant.push(sh.pts);continue;}
         if(!['green','square','water','yard'].includes(sh.tone))shadows.push(sh.pts);
-        if(sh.tone==='roof'&&sh.pts.length===4&&layer==='urban'){const sty=b.style||styleAt(b.born||1300);(sty==='modernist'||sty==='contemporary'?parapets:ridges).push(sh.pts);}
+        if(sh.tone==='roof'&&sh.pts.length===4&&layer==='urban'){const sty=b.style||styleAt(b.born||1300);if(sty==='modernist'||sty==='contemporary')parapets.push(sh.pts);else ridges.push({pts:sh.pts,hip:sty==='stone'||sty==='classical'||sty==='brick'});}
         const col=toneColor(sh.tone,b,look,layerColor),alpha=b.informal?.78:1,key=`${col}|${alpha}`;
         if(!buckets.has(key))buckets.set(key,[]);buckets.get(key).push(sh.pts);
         if(sh.saw)saws.push(sh.pts);
       }
       if(b.special&&!b.vacant&&layer==='urban')outlines.push(look.shapes);
+      if(fadedIdx&&!b.vacant&&fadedIdx.has(districts.grid[Math.floor(b.y)*W+Math.floor(b.x)]))for(const sh of look.shapes)faded.push(sh.pts);
     }
     const g=buildingLayer(ctx)||ctx;
     const fillPolys=(list)=>{g.beginPath();for(const pts of list){g.moveTo(pts[0][0],pts[0][1]);for(let i=1;i<pts.length;i++)g.lineTo(pts[i][0],pts[i][1]);g.closePath();}g.fill();};
     g.save();g.translate(.07,.09);g.fillStyle='rgba(58,44,32,.22)';fillPolys(shadows);g.restore();
     for(const [key,list] of buckets){const [col,alpha]=key.split('|');g.globalAlpha=Number(alpha);g.fillStyle=col;fillPolys(list);}
     g.globalAlpha=1;
+    if(faded.length){g.fillStyle='rgba(158,152,140,.5)';fillPolys(faded);}
     // Sawtooth roofs on industrial sheds.
     if(saws.length){g.strokeStyle='rgba(40,34,30,.45)';g.lineWidth=.04;g.beginPath();for(const p of saws){const [a,b,c2,d]=p;for(let t=.15;t<1;t+=.2){g.moveTo(a[0]+(b[0]-a[0])*t,a[1]+(b[1]-a[1])*t);g.lineTo(d[0]+(c2[0]-d[0])*t,d[1]+(c2[1]-d[1])*t);}}g.stroke();}
     // Landmarks get a fine ink outline.
-    g.strokeStyle=STONE_EDGE;g.lineWidth=.05;for(const shapes of outlines){g.beginPath();for(const sh of shapes){const pts=sh.pts;g.moveTo(pts[0][0],pts[0][1]);for(let i=1;i<pts.length;i++)g.lineTo(pts[i][0],pts[i][1]);g.closePath();}g.stroke();}
+    g.strokeStyle=STONE_EDGE;g.lineWidth=.075;g.lineJoin='round';for(const shapes of outlines){g.beginPath();for(const sh of shapes){const pts=sh.pts;g.moveTo(pts[0][0],pts[0][1]);for(let i=1;i<pts.length;i++)g.lineTo(pts[i][0],pts[i][1]);g.closePath();}g.stroke();}
     if(vacant.length){g.setLineDash([.1,.08]);g.strokeStyle='rgba(110,96,78,.8)';g.lineWidth=.05;g.beginPath();for(const pts of vacant){g.moveTo(pts[0][0],pts[0][1]);for(let i=1;i<pts.length;i++)g.lineTo(pts[i][0],pts[i][1]);g.closePath();}g.stroke();g.setLineDash([]);}
-    // Pitched roofs: a ridge along the long axis and a lit slope; flat modern roofs: a parapet.
-    if(ridges.length){g.fillStyle='rgba(255,246,226,.13)';g.beginPath();
-      for(const [a,b,c2,d] of ridges){const long=Math.hypot(b[0]-a[0],b[1]-a[1])>=Math.hypot(c2[0]-b[0],c2[1]-b[1]);
+    // v1.7 pitched roofs, lit from the top-left like the rest of the map: the
+    // slope facing north-west is lighter, the other darker, with an inked ridge.
+    // Squarish stone, classical and brick roofs are hipped (the ridge stops short
+    // and hip lines run to the corners); narrow row houses keep their gables.
+    if(ridges.length){const lit=[],shade=[],lines=[];
+      for(const {pts:[a,b,c2,d],hip} of ridges){const la=Math.hypot(b[0]-a[0],b[1]-a[1]),lb=Math.hypot(c2[0]-b[0],c2[1]-b[1]),long=la>=lb;
         const [p,q,r2,t]=long?[a,b,c2,d]:[b,c2,d,a],m1=[(t[0]+p[0])/2,(t[1]+p[1])/2],m2=[(q[0]+r2[0])/2,(q[1]+r2[1])/2];
-        g.moveTo(p[0],p[1]);g.lineTo(q[0],q[1]);g.lineTo(m2[0],m2[1]);g.lineTo(m1[0],m1[1]);g.closePath();}
-      g.fill();g.strokeStyle='rgba(42,30,22,.32)';g.lineWidth=.028;g.beginPath();
-      for(const [a,b,c2,d] of ridges){const long=Math.hypot(b[0]-a[0],b[1]-a[1])>=Math.hypot(c2[0]-b[0],c2[1]-b[1]);
-        const [p,q,r2,t]=long?[a,b,c2,d]:[b,c2,d,a],m1=[(t[0]+p[0])/2,(t[1]+p[1])/2],m2=[(q[0]+r2[0])/2,(q[1]+r2[1])/2],ins=.12;
-        g.moveTo(m1[0]+(m2[0]-m1[0])*ins,m1[1]+(m2[1]-m1[1])*ins);g.lineTo(m2[0]+(m1[0]-m2[0])*ins,m2[1]+(m1[1]-m2[1])*ins);}
-      g.stroke();}
+        const ratio=Math.min(la,lb)/Math.max(la,lb),ins=hip&&ratio>.55?Math.min(.42,ratio/2):.1;
+        const e1=[m1[0]+(m2[0]-m1[0])*ins,m1[1]+(m2[1]-m1[1])*ins],e2=[m2[0]+(m1[0]-m2[0])*ins,m2[1]+(m1[1]-m2[1])*ins];
+        // Which slope faces the light? Compare the outward direction of the p–q eave with (−1,−1).
+        const out=[(p[0]+q[0])/2-(m1[0]+m2[0])/2,(p[1]+q[1])/2-(m1[1]+m2[1])/2],faces=-out[0]-out[1]>0;
+        const half1=[p,q,e2,e1],half2=[t,r2,e2,e1];(faces?lit:shade).push(half1);(faces?shade:lit).push(half2);
+        lines.push([e1,e2]);if(hip&&ratio>.55)lines.push([p,e1,1],[t,e1,1],[q,e2,1],[r2,e2,1]);}
+      const poly=list=>{g.beginPath();for(const pts of list){g.moveTo(pts[0][0],pts[0][1]);for(let i=1;i<pts.length;i++)g.lineTo(pts[i][0],pts[i][1]);g.closePath();}};
+      g.fillStyle='rgba(255,244,222,.24)';poly(lit);g.fill();
+      g.fillStyle='rgba(36,24,16,.17)';poly(shade);g.fill();
+      // Ridges are inked firmly; hip lines are fainter so small roofs don't read as crosses.
+      g.lineCap='round';g.strokeStyle='rgba(38,26,18,.5)';g.lineWidth=.032;g.beginPath();
+      for(const [u,v,hipLine] of lines)if(!hipLine){g.moveTo(u[0],u[1]);g.lineTo(v[0],v[1]);}g.stroke();
+      g.strokeStyle='rgba(38,26,18,.24)';g.lineWidth=.022;g.beginPath();
+      for(const [u,v,hipLine] of lines)if(hipLine){g.moveTo(u[0],u[1]);g.lineTo(v[0],v[1]);}g.stroke();}
     if(parapets.length){g.strokeStyle='rgba(255,252,244,.3)';g.lineWidth=.035;g.beginPath();
       for(const pts of parapets){const cx=pts.reduce((n,v)=>n+v[0],0)/4,cy=pts.reduce((n,v)=>n+v[1],0)/4;pts.forEach(([x,y],i)=>{const px=x+(cx-x)*.16,py=y+(cy-y)*.16;if(i)g.lineTo(px,py);else g.moveTo(px,py);});g.closePath();}
       g.stroke();}
