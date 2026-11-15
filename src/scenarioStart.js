@@ -15,7 +15,7 @@ export function startScenario(id,legacy,setup={},prebuilt=null,random=Math.rando
   if(def.start.from!=='fresh'){
     const p=normalizeCity(prebuilt);if(!p)return {error:'The scenario city could not be loaded'};
     city={...p,id:`${Date.now()}-${Math.floor(random()*1e9).toString(36)}`,name:def.name,founder:founded.city.founder,perks:founded.city.perks,trinkets:founded.city.trinkets,
-      legacyBonuses:founded.city.legacyBonuses,hardship:0,artifacts:[],boostersUsed:[],finished:false,ruined:null,unrest:0,peakTiers:p.peakTiers||{},snapshots:[],eventsOn:true,needsOn:true,
+      legacyBonuses:founded.city.legacyBonuses,hardship:0,ageWelcome:null,charter:null,charterOffer:null,event:null,funds:Math.max(Number(p.funds)||0,Math.round(600+stats(p).population/40)),artifacts:[],boostersUsed:[],finished:false,ruined:null,unrest:0,peakTiers:p.peakTiers||{},snapshots:[],eventsOn:true,needsOn:true,
       deck:{...p.deck,hand:founded.city.deck.hand,shop:null,nextUid:Math.max(p.deck?.nextUid||1,founded.city.deck.nextUid||1)+100},
       turning:{...p.turning,mode:'era',pending:null,cardPool:founded.city.turning.cardPool,figurePool:founded.city.turning.figurePool,featuredFigures:[]},
       events:[...(p.events||[]).slice(-12),{year:p.year,type:'scenario',text:`${def.name}: ${def.blurb}`}]};

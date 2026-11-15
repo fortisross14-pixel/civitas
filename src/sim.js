@@ -9,6 +9,7 @@ import {CARD_EVENT_EVERY,CARD_INDEX,TURNING_POINTS,turningYears,turningSchedule,
 import {W,H,CELLS,DIRS4,clamp,within,key,kx,ky,rand,hash,terrain,waterGrid,footprint,POP_SCALE} from './geo.js';
 const K=POP_SCALE;
 import {scenarioYear,SCENARIO_INDEX} from './scenarios.js';
+import {charterOptions,charterYear} from './charters.js';
 import {trinketEffects,trinketDemand,DEMAND_KEYS} from './trinkets.js';
 import {wallCells,buildGrids,markRoad,markBuilding,pickParcel,growRoads,patternFor,layMainRoads,addRoute,routeBetween,fitWall,ringCells,findBridge,roadClass,homeLand,wallPolygon,insideWall,wallSegments,wallLength} from './growth.js';
 export {wallPolygon,insideWall,wallSegments};
@@ -855,6 +856,9 @@ function openTurningPoint(city){
   if(boon)city.turning.boon=false;
   city.events.push({year:city.year,type:'turning_point',text:doctrinesOn(city)?`The Almanac of ${city.year}: a card event. Choose one card that cannot be bought.`:`Turning Point ${index+1}: three futures await your choice.`});
 }
+// v3: Chronicle cities (card era, not scenarios) sign a charter each Age.
+export const chartersOn=city=>doctrinesOn(city)&&!city.scenario&&city.eventsOn!==false;
+export function offerCharters(city){const s=stats(city);city.charterOffer=charterOptions(city,s,annualRevenue(city,s,cityEffects(city)).total);}
 function finishCity(city){
   city.finished=true;
   if(city.scenario){city.events.push({year:city.year,type:'scenario',text:`The scenario ends with ${city.scenario.stars} star${city.scenario.stars===1?'':'s'}.`});return;}
@@ -869,6 +873,9 @@ function runMonths(city,months){
     if(month>=12){
       next.month=0;next.year=prevYear+1;yearTick(next,prevYear);
       // v2.6 scenarios: scripted history, goals and stars; the run ends at the scenario's last year.
+      // v3 charters: pay or penalise the Age's charter; a new Age offers three more.
+      if(next.charter)charterYear(next,prevYear,()=>stats(next),rand(hash(next.seed,prevYear,9311)));
+      if(next.ageWelcome&&chartersOn(next)&&!next.charterOffer)offerCharters(next);
       if(next.scenario&&!next.scenario.done){scenarioYear(next,prevYear,()=>stats(next),rand(hash(next.seed,prevYear,7717)));if(next.scenario.done){finishCity(next);break;}}
       if(next.year>=END_YEAR){finishCity(next);break;}
       if(next.ruined){next.finished=true;break;}
@@ -1120,6 +1127,7 @@ export function placeTownCenter(city,x,y){
   const {awaitingCenter:_a,...rest}=city;
   const next=seedTown({...rest,center},center);
   next.events=[...next.events,event];
+  if(chartersOn(next)&&!next.charter&&!next.charterOffer)offerCharters(next);
   return {city:next,undo:null,error:null};
 }
 export function upgradeTownCenter(city){

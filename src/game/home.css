@@ -1,0 +1,64 @@
+/* CIVITAS v3 home. */
+.h3{--ink:var(--alm-ink,#2b241a);--soft:var(--alm-soft,#5a4d39);--paper:var(--alm-surface,#f8f0dc);--paper2:var(--alm-paper,#efe3c4);--deep:var(--alm-paper-deep,#e6d7b2);--red:var(--alm-red,#8a2f1f);--title:var(--alm-title,Georgia,serif);--text:var(--alm-text,Georgia,serif);
+  max-width:620px;margin:0 auto;padding:20px 16px 48px;display:flex;flex-direction:column;gap:12px;color:var(--ink);font-family:var(--text)}
+.app .h3 button{all:unset;box-sizing:border-box;cursor:pointer;font-family:var(--text);color:inherit}
+.app .h3 button:disabled{opacity:.45;cursor:default}
+.app .h3 button:focus-visible{outline:2px solid var(--red);outline-offset:2px}
+.h-hero{padding:8px 2px 6px}
+.h-hero small{font:700 12px var(--text);letter-spacing:.3em;color:var(--red)}
+.h-hero h1{margin:6px 0 4px;font:400 clamp(30px,8vw,44px)/1.05 var(--title);letter-spacing:.01em}
+.h-hero p{margin:0;font:italic 16px var(--text);color:var(--soft)}
+.app .h3 .h-continue{display:flex;align-items:center;gap:14px;padding:16px;border-radius:22px;background:var(--ink);color:var(--paper);box-shadow:0 12px 30px #2b241a40}
+.h-play{width:54px;height:54px;border-radius:50%;display:grid;place-items:center;background:var(--red);color:#fff6e4;flex:none}
+.h-cText{flex:1;min-width:0;display:flex;flex-direction:column}
+.h-cText small{font:700 11px var(--text);letter-spacing:.2em;opacity:.7}
+.h-cText b{font:400 22px/1.15 var(--title);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.h-cText em{font-style:normal;font-size:14px;opacity:.8}
+.app .h3 .h-new{display:flex;align-items:center;gap:12px;padding:16px;border-radius:20px;background:var(--paper);border:1px solid #2b241a22;box-shadow:0 4px 14px #2b241a18}
+.app .h3 .h-new.solo{background:var(--ink);color:var(--paper)}
+.h-new span{flex:1;display:flex;flex-direction:column}.h-new b{font:400 19px var(--title)}.h-new small{font-size:13px;opacity:.75}
+.h-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.app .h3 .h-tile{display:flex;flex-direction:column;gap:4px;padding:16px;min-height:104px;border-radius:20px;background:var(--paper);border:1px solid #2b241a22;box-shadow:0 4px 14px #2b241a14}
+.h-tile svg{color:var(--ink)}.h-tile.red svg{color:var(--red)}
+.h-tile b{font:400 18px var(--title);margin-top:auto}.h-tile small{font-size:13px;color:var(--soft);display:inline-flex;align-items:center;gap:4px}
+.h-saves{margin-top:6px}
+.h-savesHead{display:flex;align-items:center;justify-content:space-between;margin:0 2px 6px}
+.h-savesHead h2{margin:0;font:700 12px var(--text);letter-spacing:.16em;text-transform:uppercase;color:var(--soft)}
+.app .h3 .h-savesHead button{width:36px;height:36px;display:inline-grid;place-items:center;border-radius:50%;color:var(--soft)}
+.h-save{display:flex;align-items:center;border-bottom:1px solid #2b241a1c}
+.app .h3 .h-saveOpen{flex:1;display:flex;flex-direction:column;padding:12px 2px;min-width:0}
+.h-saveOpen b{font-size:16px}.h-saveOpen small{font-size:13px;color:var(--soft)}
+.app .h3 .h-del{width:40px;height:40px;display:grid;place-items:center;color:var(--soft)}
+.h-back{position:fixed;inset:0;z-index:60;background:#2b241a73;display:flex;align-items:flex-end;justify-content:center;animation:hFade 160ms ease-out}
+@keyframes hFade{from{opacity:0}to{opacity:1}}
+@keyframes hUp{from{transform:translateY(30px);opacity:0}to{transform:none;opacity:1}}
+.h-sheet{width:min(600px,100%);max-height:92dvh;overflow-y:auto;background:var(--paper);border-radius:24px 24px 0 0;padding:16px 16px calc(18px + env(safe-area-inset-bottom));display:flex;flex-direction:column;gap:12px;animation:hUp 200ms cubic-bezier(.2,.8,.2,1)}
+.h-sheetHead{display:flex;align-items:center;justify-content:space-between}
+.h-sheetHead h2{margin:0;font:400 26px var(--title)}
+.app .h3 .h-x{width:40px;height:40px;border-radius:50%;display:grid;place-items:center;background:var(--paper2)}
+.h-field{display:flex;flex-direction:column;gap:6px}
+.h-field>span{font:700 12px var(--text);letter-spacing:.14em;text-transform:uppercase;color:var(--soft)}
+.app .h3 .h-field input{font:400 17px var(--text);padding:12px 14px;border-radius:14px;border:1px solid #2b241a33;background:var(--paper2);color:var(--ink)}
+.h-geos{display:flex;flex-wrap:wrap;gap:6px}
+.app .h3 .h-geos button{padding:9px 13px;border-radius:14px;background:var(--paper2);font-size:14px;font-weight:700}
+.app .h3 .h-geos button.on{background:var(--ink);color:var(--paper)}
+.app .h3 .h-go{display:flex;align-items:center;justify-content:center;gap:8px;min-height:54px;border-radius:16px;background:var(--red);color:#fff6e4;font:700 17px var(--text);margin-top:4px;position:sticky;bottom:0;box-shadow:0 -8px 16px var(--paper)}
+@media(min-width:900px){.h-back{align-items:center}.h-sheet{border-radius:24px}}
+
+/* Founding options inside the New Chronicle sheet */
+.h3 .runSetup{display:flex;flex-direction:column;gap:14px}
+.h3 .setupBlock>b{display:flex;align-items:center;gap:6px;font:700 12px var(--text);letter-spacing:.14em;text-transform:uppercase;color:var(--soft);margin-bottom:6px}
+.h3 .founderRow{display:grid;grid-template-columns:repeat(auto-fill,minmax(96px,1fr));gap:6px}
+.app .h3 .founderChip{display:flex;flex-direction:column;align-items:center;gap:2px;padding:10px 4px;border-radius:14px;background:var(--paper2);border-top:3px solid var(--doctrine);font-size:13px;font-weight:700;text-align:center}
+.app .h3 .founderChip.selected{background:var(--ink);color:var(--paper)}
+.h3 .founderGlyph{font-size:18px}
+.h3 .chipRow,.h3 .trinketRow{display:flex;flex-wrap:wrap;gap:6px}
+.app .h3 .chip{padding:9px 12px;border-radius:14px;background:var(--paper2);font-size:14px;font-weight:700}
+.app .h3 .chip.selected{background:var(--ink);color:var(--paper)}
+.h3 .hardshipRow{display:flex;align-items:center;gap:14px}
+.app .h3 .hardshipRow button{width:44px;height:44px;border-radius:50%;display:grid;place-items:center;background:var(--paper2)}
+.h3 .hardshipRow strong{font:400 24px var(--title);min-width:24px;text-align:center}
+.app .h3 .info .infoButton{width:24px;height:24px;border-radius:50%;display:inline-grid;place-items:center;border:1px solid #2b241a44;font-size:12px;font-style:italic;background:var(--paper)}
+.app .h3 .trinketChip{display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:14px;background:var(--paper2);min-height:56px;flex:1 1 200px}
+.app .h3 .trinketChip.selected{background:var(--ink);color:var(--paper)}
+.h3 .setupBlock>b .infoButton{text-transform:none;letter-spacing:0}

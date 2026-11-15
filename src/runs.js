@@ -128,14 +128,14 @@ export function recordRun(legacy,city,stats){
   const l=normalizeLegacy(legacy);
   if(!city?.finished||l.completed.includes(city.id))return {legacy:l,run:l.runs.find(r=>r.id===city?.id)||null,unlocked:[]};
   const reward=scoreCity(city,stats),h=Math.max(0,Math.floor(city.hardship||0)),ruined=!!city.ruined;
-  const points=Math.round(reward.points*(ruined?RUIN_SHARE:1)*hardshipLP(h));
+  const points=Math.round(reward.points*(ruined?RUIN_SHARE:1)*hardshipLP(h))+Math.round(Number(city.charterLP)||0);
   const tiers=runTiers(city),mastery={...l.mastery},unlocked=[];
   for(const d of DOCTRINE_IDS){const before=mastery[d]||0,t=Math.max(before,tiers[d]||0);
     if(t>before){for(let k=before+1;k<=t;k++)for(const id of masteryUnlocks(d,k))unlocked.push(id);mastery[d]=t;}}
   const top=DOCTRINE_IDS.reduce((a,d)=>(tiers[d]||0)>(tiers[a]||0)?d:a,DOCTRINE_IDS[0]);
   const run={id:city.id,name:city.name,type:city.type,founder:city.founder||'wanderer',hardship:h,ruined:ruined?city.ruined:null,
     year:city.year,score:Math.round(city.score?.total||0),population:Math.round(stats.population||0),prosperity:Math.round(stats.prosperity||0),
-    doctrine:(tiers[top]||0)>0?top:null,tier:tiers[top]||0,lp:points,at:Date.now()};
+    doctrine:(tiers[top]||0)>0?top:null,tier:tiers[top]||0,lp:points,at:Date.now(),charters:city.chartersMet||0};
   // v2.6 World Cities: the run's standing at the end of each Age it lived through.
   const entry=worldEntry(city,run.at);run.placings=placingsOf(entry,l.worldEntries).slice(0,6);
   // v2.6 scenarios: best stars, plays, and the trinket on the first star.

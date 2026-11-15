@@ -1,5 +1,23 @@
 # CIVITAS changelog
 
+## v3.0 — A new game screen
+
+The game is rebuilt around four verbs and a clear goal.
+
+- **The map is the screen.** On top: back, year, population, coins and the **speed bubble** (tap it: the game pauses and you pick ½×, 1×, 2× or MAX). One goal chip under it. At the bottom, four buttons: **Zone**, **Build**, **Govern**, **Details**.
+- **Zone**: a palette replaces the dock (Homes, Shops, Works, Farms, Civic, Erase, Clear), the parcel cost shows while you drag, Undo and Done.
+- **Build**: one sheet with *Hand* (tap a card: what it does, Play or Sell), *Market* (buy, pack, new selection) and *Works* (Town Center, walls and what they become, bridges).
+- **Govern**: *Needs* (each district's bar and the card that answers it), *Decisions* (history ahead), *Taxes* (net per year, four levels per sector) and *Path* (doctrines and decrees).
+- **Details**: *Mission* (the charter or scenario goals, and where the city would stand in World Cities right now), *City* (key numbers and the population chart) and *History*.
+- **Sheets** come up from the bottom one at a time and close with ✕, a tap outside, a swipe down or Esc. On desktop they sit beside the map. Decisions that stop the clock (charters, card events, history, a new Age) are centred cards with one choice each.
+- **Charters** (`src/charters.js`): when the town is founded and when each Age begins you sign one of three: *Steady* (a population target), *Calling* (renown in the city's own doctrine, plus a rare card) or *World Top 20* (enter the table in one category this Age, plus an epic card and Legacy Points). Met: the reward is paid at once. Missed at the Age's end: Unrest +18.
+- **How to play**: a one-page guide after the first charter, reopened from Details.
+- **Home**: Continue first, then New Chronicle (founding options in a sheet), Scenarios, World Cities, Legacy, Atlas and your cities.
+- Removed from the screen: the side rail, the right-hand panel, map layers and legend, timelapse, achievement ledger, policies, district renaming, merging, banishing and locking cards. The engine keeps them for old saves.
+
+**Tests**: new `tests/charters.test.js`; scripted players sign the first charter.
+
+
 ## v2.6 — Scenarios, Trinkets and World Cities
 
 **Home.** Two new doors above the founding panel: *Scenarios* (stars earned) and *World Cities* (your best placing).

@@ -1,7 +1,7 @@
 // CIVITAS service worker: makes the game installable and playable offline.
 // Paths are relative to this file, so it works at "/" (Vercel) and at
 // "/<repo>/" (GitHub Pages). Saves live in localStorage and are never touched.
-const VERSION='civitas-v2.6.0';
+const VERSION='civitas-v3.0.0';
 const SHELL=['./','./index.html','./manifest.webmanifest','./icons/icon-192.png','./icons/icon-512.png','./icons/icon-maskable-512.png','./icons/apple-touch-icon.png','./icons/favicon-64.png'];
 const FONT_HOSTS=['fonts.googleapis.com','fonts.gstatic.com'];
 

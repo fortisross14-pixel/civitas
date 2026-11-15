@@ -11,6 +11,7 @@ import {scoreOf} from '../../src/score.js';
 import {cardDoctrines,DOCTRINE_IDS,doctrineState,doctrinesOn} from '../../src/doctrines.js';
 import {CARD_INDEX} from '../../src/turningPoints.js';
 import {foundRun} from '../../src/runs.js';
+import {signCharter} from '../../src/charters.js';
 
 // opts.legacy: found through the v2.0 run setup (that profile's card pool,
 // founder, artifacts, boosters). opts.hardship alone: the full card pool at that Hardship.
@@ -107,6 +108,8 @@ function draftPick(strategy,c){
 }
 // One decision round for a scripted player (draft pick, then its turn).
 export function takeTurn(strategy,c){
+  // v3: a new Age offers charters; scripted players sign the first (the steady one).
+  if(c.charterOffer)c={...signCharter(c,0).city,ageWelcome:null};
   const doctrinal=strategy.startsWith('focused:')||strategy==='spread'||strategy==='opportunist';
   if(c.turning?.pending)c=selectTurningPoint(c,doctrinal?draftPick(strategy,c):c.turning.pending.options[0]);
   if(strategy==='sensible')c=sensibleTurn(c);
