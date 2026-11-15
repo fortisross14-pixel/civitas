@@ -107,14 +107,21 @@ const clamp=(n,low,high)=>Math.min(high,Math.max(low,n));
 // v1.7 era drafts: cities founded in the game (turning.mode 'era') get five
 // picks, one as each new era begins, offering Rare cards or better. The decade
 // Market Hall supplies the rest. Older saves and engine runs keep 20 Turning Points.
-export const ERA_DRAFT_YEARS=[1500,1750,1850,1950,2000];
+// v2.1: a card event every 25 years (1325 … 2025) replaces the five era
+// drafts. Its cards (Rare or better, and historical figures) are never sold in
+// the Market Hall, and the one chosen steers what the Market Hall stocks next.
+export const CARD_EVENT_EVERY=25;
+export const CARD_EVENT_YEARS=Array.from({length:29},(_,i)=>1325+i*CARD_EVENT_EVERY);
+export const ERA_DRAFT_YEARS=CARD_EVENT_YEARS;
+
 export const PREMIUM_RARITIES=['rare','epic','legend'];
 export function turningMode(city){return city?.turning?.mode==='era'?'era':'classic';}
 export function turningCount(city){return turningMode(city)==='era'?ERA_DRAFT_YEARS.length:TURNING_POINTS;}
 export function turningSchedule(city){return turningMode(city)==='era'?ERA_DRAFT_YEARS:turningYears();}
 export const turningYears=(start=1300,end=2030)=>Array.from({length:TURNING_POINTS},(_,i)=>start+Math.round((i+1)*(end-start)/(TURNING_POINTS+1)/5)*5);
 // Cards played from the hand (via:'hand') are not Turning Points.
-export function currentTurningIndex(city){return Math.max(0,Math.min(turningCount(city),(city?.turning?.choices||[]).filter(p=>p.via!=='hand').length));}
+// v2.1: doctrine cities count card events in turning.eventsTaken (event cards go to the hand).
+export function currentTurningIndex(city){if(turningMode(city)==='era'&&Number.isFinite(city?.turning?.eventsTaken))return Math.min(turningCount(city),city.turning.eventsTaken);return Math.max(0,Math.min(turningCount(city),(city?.turning?.choices||[]).filter(p=>p.via!=='hand').length));}
 export function resolvedCards(city){return (city?.turning?.choices||[]).map(p=>CARD_INDEX[p.cardId]).filter(Boolean);}
 export function activeSynergies(city){
  const choices=city.turning?.choices||[];

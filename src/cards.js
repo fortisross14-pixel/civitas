@@ -32,7 +32,7 @@ export function deckOf(city){
 export function normalizeDeck(input){
   const d=input&&typeof input==='object'?input:{};
   const okCard=c=>c&&Number.isInteger(c.uid)&&CARD_INDEX[c.cardId];
-  const hand=(Array.isArray(d.hand)?d.hand:[]).filter(okCard).map(c=>({uid:c.uid,cardId:c.cardId,paid:Math.max(0,Number(c.paid)||0)}));
+  const hand=(Array.isArray(d.hand)?d.hand:[]).filter(okCard).map(c=>({uid:c.uid,cardId:c.cardId,paid:Math.max(0,Number(c.paid)||0),...(c.gift?{gift:true}:{})}));
   let shop=null;
   if(d.shop&&Number.isFinite(d.shop.year)&&Array.isArray(d.shop.offers)){
     shop={year:d.shop.year,offers:d.shop.offers.filter(okCard).map(o=>({uid:o.uid,cardId:o.cardId,price:Math.max(1,Math.round(Number(o.price)||1))})),
@@ -63,6 +63,10 @@ export const cardPrice=(card,unit,city=null)=>{
   return Math.max(1,Math.round(RARITY_PRICE[card.rarity]*unit*(f.priceMult||1)*learning*focus*(city?perkMult(city,'priceMult'):1)));
 };
 export const BANISHES_PER_RUN=3;
+// v2.1: what the Market Hall sells in doctrine cities; the doctrine of the
+// last card-event pick is FAVOUR times as likely there for 25 years.
+export const STORE_RARITIES=['common','uncommon'],EVENT_FAVOUR=2.5;
+export const storeFavour=city=>{const f=city?.turning?.favour;return f&&city.year<f.until?f.doctrine:null;};
 // v2.0: the Founder's doctrine is this many times as likely in the Market Hall.
 export const FOUNDER_FAVOUR=3;
 
@@ -83,6 +87,9 @@ export function playedCopies(city,cardId){return (city.turning?.choices||[]).fil
 export function shopEligible(card,city){
   if(!card||card.kind==='figure')return false;
   if(card.eraOnly&&!doctrinesOn(city))return false;
+  // v2.1: Rare and Epic cards come only from card events in doctrine cities.
+  if(doctrinesOn(city)&&!STORE_RARITIES.includes(card.rarity))return false;
+  if(card.requiresMegacity&&!city.legacyBonuses?.megacityCharter)return false;
   if(city.year<(card.minYear??-Infinity)||city.year>(card.maxYear??Infinity))return false;
   if(Array.isArray(city.turning?.cardPool)&&!city.turning.cardPool.includes(card.id))return false;
   if(card.geographies&&!card.geographies.includes(city.type))return false;
@@ -105,14 +112,15 @@ function drawCard(city,roll,{minRarity='common',exclude=new Set()}={}){
   let total=present.reduce((n,r)=>n+w[r],0),t=roll()*total,rarity=present.at(-1);
   for(const r of present){t-=w[r];if(t<=0){rarity=r;break;}}
   const items=pool.filter(c=>c.rarity===rarity),owned=new Set((city.turning?.choices||[]).map(p=>p.cardId));
-  const favour=city.perks?.favour,weight=c=>doctrineWeight(city,c)*(favour&&cardDoctrines(c).includes(favour)?FOUNDER_FAVOUR:1)*(1+(SYNERGIES.some(s=>s.needs.includes(c.id)&&s.needs.some(id=>id!==c.id&&owned.has(id)))?1.5:0)+1.5*(city.character?.shares?.[DOMAIN_AXIS[c.domain]]||0));
+  const favour=city.perks?.favour,steer=storeFavour(city),weight=c=>doctrineWeight(city,c)*(favour&&cardDoctrines(c).includes(favour)?FOUNDER_FAVOUR:1)*(steer&&cardDoctrines(c).includes(steer)?EVENT_FAVOUR:1)*(1+(SYNERGIES.some(s=>s.needs.includes(c.id)&&s.needs.some(id=>id!==c.id&&owned.has(id)))?1.5:0)+1.5*(city.character?.shares?.[DOMAIN_AXIS[c.domain]]||0));
   total=items.reduce((n,c)=>n+weight(c),0);t=roll()*total;
   for(const c of items){t-=weight(c);if(t<=0)return c;}
   return items.at(-1);
 }
 
 // Restock the Market Hall. Called at founding and every RESTOCK_YEARS.
-export function restockShop(city,s,salt=0){
+// opts.need: a building card that answers the city's most pressing need; it is always stocked.
+export function restockShop(city,s,salt=0,opts={}){
   const deck={...deckOf(city)},roll=rng(hash(city.seed,city.year,'shop',salt,deck.nextUid));
   const unit=priceUnit(city,s),offers=[],exclude=new Set(),f=doctrineFlags(city);
   // v1.8 Trade 4: an offer locked last decade stays (repriced), and one extra offer is drawn.
@@ -121,6 +129,7 @@ export function restockShop(city,s,salt=0){
   const size=SHOP_SIZE+(f.extraOffer||0);
   // v2.0: boosters and the Reliquary add their cards to the first Market Hall.
   let bonus=0;
+  if(opts.need&&CARD_INDEX[opts.need]&&shopEligible(CARD_INDEX[opts.need],{...city,deck})){exclude.add(opts.need);bonus++;offers.push({uid:deck.nextUid++,cardId:opts.need,price:cardPrice(CARD_INDEX[opts.need],unit,city),need:true});}
   if(!salt&&!deck.shop)for(const id of city.perks?.firstOffers||[]){const c=CARD_INDEX[id];if(c&&!exclude.has(id)){exclude.add(id);bonus++;offers.push({uid:deck.nextUid++,cardId:id,price:cardPrice(c,unit,city)});}}
   for(let i=offers.length;i<size+bonus;i++){
     const c=drawCard({...city,deck},roll,{exclude});if(!c)break;

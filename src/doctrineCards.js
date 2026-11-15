@@ -2,27 +2,36 @@
 // classic cards in doctrine (era-mode) cities only; classic games keep 54.
 // Shape matches src/turningPoints.js cards. Hybrids get two doctrines in
 // src/doctrines.js; `civic` cards have none.
+import {BASIC_BUILDINGS} from './construction.js';
 const card=(id,name,domain,rarity,kind,description,effects={},opts={})=>({id,name,domain,rarity,kind,description,effects,eraOnly:true,...opts});
 
 // Today's basic buildings as cards: buying and playing one awards a free
 // project of that building (it answers needs like any other building).
 const building=(id,kind,name,domain,rarity,description,opts={})=>card(id,name,domain,rarity,'landmark',description,{},{building:kind,...opts});
-export const BUILDING_CARDS=[
-  building('b_chapel','chapel','Parish Chapel','religion','common','Build a parish chapel: it serves the homes around it and counts for Faith.'),
-  building('b_market','market','Market Square','trade','common','Build a market square: homes around it have a market, shops nearby thrive.'),
-  building('b_granary','granary','Stone Granary','population','common','Build a granary: food reserves steady housing and draw settlers.'),
-  building('b_guildhall','guildhall','Guild Hall','trade','uncommon','Build a guild hall: crafts and commerce gather around it.',{minYear:1500,maxYear:1749}),
-  building('b_school','school','Public School','education','common','Build a school: it serves the homes around it and counts for Learning.',{minYear:1500,maxYear:1749}),
-  building('b_garden','garden','Public Gardens','culture','common','Build public gardens: they clear the smoke around them and lift land value.',{minYear:1750}),
-  building('b_powerworks','powerworks','Power Works','industry','uncommon','Build a power works: industry and transport gain reliable power.',{minYear:1850,maxYear:1949}),
-  building('b_museum','museum','City Museum','culture','uncommon','Build a museum: heritage and prestige become a civic asset.',{minYear:1950}),
-  building('b_town_hall','town_hall','Town Hall','civic','common','Build a town hall: administration lifts treasury income.',{minYear:1500,maxYear:1749}),
-  building('b_clinic','clinic','City Clinic','civic','common','Build a clinic: it serves the homes around it.',{minYear:1750,maxYear:1849}),
-  building('b_waterworks','waterworks','Waterworks','civic','uncommon','Build waterworks: services and resilience improve.',{minYear:1750,maxYear:1849}),
-  building('b_station','station','Rail Station','civic','uncommon','Build a station: transport improves and shops gather around it.',{minYear:1850,maxYear:1949}),
-  building('b_hospital','hospital','Public Hospital','civic','uncommon','Build a hospital: it serves the homes around it.',{minYear:1850,maxYear:1949}),
-  building('b_library','library','Civic Library','civic','common','Build a library: it serves the homes around it.',{minYear:1950})
-];
+// v2.1: landmarks come only from cards in doctrine cities, so every basic
+// building has a card, available in the same years as the building itself.
+const BUILDING_CARD_TEXT={
+  chapel:['religion','common','Build a parish chapel: it serves the homes around it and counts for Faith.'],
+  market:['trade','common','Build a market square: homes around it have a market, shops nearby thrive.'],
+  granary:['population','common','Build a granary: food reserves steady housing and draw settlers.'],
+  guildhall:['trade','uncommon','Build a guild hall: crafts and commerce gather around it.'],
+  school:['education','common','Build a school: it serves the homes around it and counts for Learning.'],
+  garden:['culture','common','Build public gardens: they clear the smoke around them and lift land value.'],
+  powerworks:['industry','uncommon','Build a power works: industry and transport gain reliable power.'],
+  museum:['culture','uncommon','Build a museum: heritage and prestige become a civic asset.'],
+  town_hall:['civic','common','Build a town hall: administration lifts treasury income.'],
+  clinic:['civic','common','Build a clinic: it serves the homes around it.'],
+  waterworks:['civic','uncommon','Build waterworks: services and resilience improve.'],
+  station:['civic','uncommon','Build a station: transport improves and shops gather around it.'],
+  hospital:['civic','uncommon','Build a hospital: it serves the homes around it.'],
+  library:['civic','common','Build a library: it serves the homes around it.'],
+  civic_center:['civic','uncommon','Build a civic centre: services and administration for a large city.'],
+  research_center:['education','uncommon','Build a research centre: innovation and learning grow around it.'],
+  transit_hub:['civic','uncommon','Build a transit hub: transport and commerce gather around it.'],
+  metropolis_charter:['education','uncommon','Found the Metropolis Charter district (needs the Legacy upgrade and 144,000 residents).']
+};
+export const BUILDING_CARDS=BASIC_BUILDINGS.filter(b=>BUILDING_CARD_TEXT[b.kind]).map(b=>{const [domain,rarity,text]=BUILDING_CARD_TEXT[b.kind];
+  return building(`b_${b.kind}`,b.kind,b.name,domain,rarity,text,{minYear:b.start,maxYear:b.end,cost:0,...(b.requiresMegacity?{requiresMegacity:true}:{})});});
 
 export const NEW_DOCTRINE_CARDS=[
   // Faith

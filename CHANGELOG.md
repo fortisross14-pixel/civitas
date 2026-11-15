@@ -1,5 +1,24 @@
 # CIVITAS changelog
 
+## v2.1 — Cards you understand, a map you can see (Milestone S)
+
+**Cards only, for landmarks.** In doctrine cities every landmark (chapel, market, school, guild hall, clinic and the rest) comes from a building card; there are now 18, one per landmark, sold in the same years as the building. The treasury still pays for the Town Center, walls and bridges. Homes, shops and farms still grow by themselves on zoned land.
+
+**Where cards come from**
+- **The Market Hall** (always open, restocks every decade) sells Common and Uncommon cards for treasury, and always stocks the building card for your most pressing need.
+- **Card events every 25 years** (1325 … 2025) replace the five era drafts. Choose one of three Rare-or-better cards that are never sold; it goes to your hand, free, to play when you choose within your Decree slots. Your pick makes the Market Hall favour its doctrine for 25 years. Historical figures in an event still join at once.
+
+**What a card does, in plain numbers.** Every card face lists its effects ("+19% Faith output", "+10% Treasury income"; "Builds: Market Square"). Open a card to see how long it lasts, which need it answers, and *Right now*: the city figures that change the moment you play it (e.g. Faith influence 20 → 22). Cards that act on growth say so instead of showing nothing.
+
+**The map is the game.** On tablets and desktops the map fills the screen; the clock, the city cartouche, the tool rail, the hand and the layer switch float around it, and panels open as drawers. Three layers, each with its own legend: *Buildings*, *Zones*, *Roads & land*. The Needs drawer shows which homes are served.
+
+**The almanac look.** Menus, card events, the Market Hall and the run summary are set like a 19th-century farmer's almanack: aged paper, double rules and an ornament band, wood-type titles (Ultra) and old-style text (Old Standard TT).
+
+**Balance** (`npm run balance:doctrines`, 16 seeds): every focused doctrine scores at least 1.6× the spread player (exit 1 ✅); the doctrines are not yet even (exit 2 open: Trade high, Learning and Industry low).
+
+**Tests**: all files pass, including new `tests/cardsOnly.test.js`.
+
+
 ## v2.0.1 — Founding a city no longer freezes phones
 
 **Fixed**: pressing *Begin Chronicle* froze the page for 3.5 s on a desktop and 30 s or more on a phone, long enough for mobile browsers to kill the page. The water layer was blurred one map cell at a time with the canvas `filter`; it is now blurred once in code (three box passes), which takes about 40 ms and also gives smooth shores in Safari, which ignores the canvas `filter`. With the CPU slowed 6× to mimic a phone, founding now takes 1.3 s.

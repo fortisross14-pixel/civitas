@@ -1,7 +1,8 @@
 // v1.6 Milestone C: needs on the map, telegraphed history, score.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {makeCity,seedTown,advance,selectTurningPoint,stats,zoneLand,cityOrigin,normalizeCity} from '../src/sim.js';
+import {makeCity,seedTown,advance,selectTurningPoint,stats,zoneLand,cityOrigin,normalizeCity,placeConstruction,playCard} from '../src/sim.js';
+import {deckOf} from '../src/cards.js';
 import {needsOf,needAnswers,NEEDS,NEED_YEARS} from '../src/needs.js';
 import {omensOf} from '../src/events.js';
 import {scoreOf,yearlyPoints,penalize,NEUTRAL_PROSPERITY} from '../src/score.js';
@@ -27,7 +28,11 @@ test('a district that outgrows its market shows a need whose ring fills year by 
 
 test('building the answer next to the need serves it and the ring drains away',()=>{
   let c=untilNeed(newCity(7),'market');const n=needsOf(c).find(x=>x.kind==='market');
-  c={...c,funds:5000};const built=buildNear(c,'market',n.x,n.y);assert.ok(built,'a market was placed');
+  // v2.1: in doctrine cities the market comes from its building card.
+  assert.ok(placeConstruction({...c,funds:5000},'market',n.x,n.y).error,'no treasury landmarks');
+  const deck=deckOf(c);c={...c,deck:{...deck,hand:[...deck.hand,{uid:deck.nextUid,cardId:'b_market',paid:0}],nextUid:deck.nextUid+1}};
+  const played=playCard(c,deck.nextUid);assert.ok(!played.error,played.error);
+  const project=played.city.projects.at(-1);const built=buildNear(played.city,project.id,n.x,n.y);assert.ok(built,'a market was placed');
   let d=step(built,1);const after=needsOf(d).find(x=>x.district===n.district&&x.kind==='market');
   assert.ok(!after||after.served,'served after building');
   for(let i=0;i<12;i++)d=step(d,1);

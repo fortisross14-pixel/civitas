@@ -3,9 +3,9 @@ import {INITIAL_DEVELOPMENT,developmentOf,applyPulse,advanceDevelopment,accumula
 import {BASIC_INDEX,BASIC_BUILDINGS,BUILDING_EFFECTS,SPECIAL_BUILDINGS,basicsForYear,TOWN_CENTER_LEVELS,TOWN_CENTER_MAX,townCenterLevel,basicLimit,CITYWIDE_COPIES} from './construction.js';
 export {TOWN_CENTER_LEVELS,TOWN_CENTER_MAX,townCenterLevel};
 import {maybeTrial,maybeEvent,disasterEvent,eventDefinition,eventScale,timedEffects,fireproofed,eventSpot,announceOmen,resolveDueOmens,applyEventChoice,normalizeOmens,omensOf,OMEN_LEAD,AFTERMATH_YEARS} from './events.js';
-import {advanceNeeds,normalizeNeeds} from './needs.js';
+import {advanceNeeds,normalizeNeeds,needsOf,needAnswers} from './needs.js';
 import {scoreYear,penalize,normalizeScore,emptyScore,DECLINE_YEARS_LOST,UNANSWERED_YEARS_LOST} from './score.js';
-import {CARD_INDEX,TURNING_POINTS,turningYears,turningSchedule,turningCount,eraEffects,turningMode,generateOffers,modifiers,activeSynergies,resolvedCards,currentTurningIndex} from './turningPoints.js';
+import {CARD_EVENT_EVERY,CARD_INDEX,TURNING_POINTS,turningYears,turningSchedule,turningCount,eraEffects,turningMode,generateOffers,modifiers,activeSynergies,resolvedCards,currentTurningIndex} from './turningPoints.js';
 import {W,H,CELLS,DIRS4,clamp,within,key,kx,ky,rand,hash,terrain,waterGrid,footprint,POP_SCALE} from './geo.js';
 const K=POP_SCALE;
 import {buildGrids,markRoad,markBuilding,pickParcel,growRoads,patternFor,layMainRoads,addRoute,routeBetween,fitWall,ringCells,findBridge,roadClass,homeLand,wallPolygon,insideWall,wallSegments,wallLength} from './growth.js';
@@ -16,7 +16,7 @@ import {POLICIES,POLICY_INDEX,activePolicies,policyIssue,policyEffects,policyHoo
 import {updateDistricts,districtDetails} from './districts.js';
 import {characterOf} from './character.js';
 import {perk,perkMult,hardshipOf} from './perks.js';
-import {tierOf,DOCTRINE_IDS,doctrineState,doctrineFlags,scoreBonus,cardType,decreesInPlay,decreeSlots,cardLevel,MAX_LEVEL,doctrinesOn,wondersDue} from './doctrines.js';
+import {cardDoctrines,tierOf,DOCTRINE_IDS,doctrineState,doctrineFlags,scoreBonus,cardType,decreesInPlay,decreeSlots,cardLevel,MAX_LEVEL,doctrinesOn,wondersDue} from './doctrines.js';
 import {deckOf,normalizeDeck,restockShop,shopDue,playedCopies,MAX_COPIES,YEARS_PER_INTERVAL} from './cards.js';
 export {POLICIES,POLICY_INDEX,activePolicies,policyIssue,districtDetails};
 // Influence fields for the map layers and the building inspector.
@@ -585,7 +585,7 @@ function yearTick(city,prevYear){
    scoreYear(city,sNow,scoreBonus(city,sNow));
    if(doctrinesOn(city)){trackTiers(city);if(city.needsOn)updateUnrest(city,year,sNow,resolved,declines);}}
   // v1.5: the Market Hall restocks every decade.
-  if(year<END_YEAR&&shopDue(city)){const r=restockShop(city,stats(city));city.deck=r.deck;city.events.push({year,type:'shop',text:'The Market Hall has new cards for sale.'});}
+  if(year<END_YEAR&&shopDue(city)){const r=restockShop(city,stats(city),0,{need:needCard(city)});city.deck=r.deck;city.events.push({year,type:'shop',text:'The Market Hall has new cards for sale.'});}
   if(year%5!==0&&year!==END_YEAR)return;
   localEvent(city,year);
   redevelopment(city,year,rand(hash(city.seed,year,12345)));
@@ -666,6 +666,8 @@ export function placeConstruction(city,kindOrProject,x,y){
  const project=(city.projects||[]).find(p=>p.id===kindOrProject);
  const basic=project?null:BASIC_INDEX[kindOrProject];
  if(!project&&!basic)return {city,error:'Unknown or locked construction'};
+ // v2.1: in doctrine cities landmarks come only from building cards.
+ if(basic&&doctrinesOn(city))return {city,error:`${basic.name} needs its building card: buy it in the Market Hall, then play it`};
  if(basic){
   if(city.year<basic.start||city.year>basic.end)return {city,error:`${basic.name} is available only during the ${basic.era} age`};
   {const limit=basicLimit(city);if(city.buildings.filter(b=>b.special===basic.kind).length>=limit)return {city,error:`Maximum of ${limit} ${basic.name} buildings: one per district`};}
@@ -703,6 +705,18 @@ export function rerollTurningPoint(city){
 export function selectTurningPoint(city,cardId){
   const pending=city?.turning?.pending,card=getOpportunity(cardId);
   if(!pending||!card||!pending.options.includes(cardId)||city.finished||(card.cost||0)>(city.funds||0))return city;
+  if(doctrinesOn(city)){
+    // v2.1: the pick steers the Market Hall toward its doctrine for 25 years.
+    // v2.1: an event card goes to the hand, free (play it when you choose,
+    // within the Decree slots); a historical figure joins at once.
+    const d=cardDoctrines(card)[0],taken=currentTurningIndex(city)+1;let next;
+    if(card.kind==='figure'){next=applyChoice(city,card,{index:pending.index,year:pending.year,cardId},`The Almanac of ${pending.year}: ${card.name} joins the city.`);next.turning={...next.turning,eventsTaken:taken};}
+    else{const deck=deckOf(city);
+      next={...city,deck:{...deck,hand:[...deck.hand,{uid:deck.nextUid,cardId,paid:0,gift:true}],nextUid:deck.nextUid+1},turning:{...city.turning,pending:null,eventsTaken:taken},
+        events:[...city.events,{year:city.year,type:'card',cardId,via:'event',text:`The Almanac of ${pending.year}: ${card.name} added to your hand.${d?` The Market Hall now favours ${d} cards for 25 years.`:''}`}]};}
+    if(d)next.turning={...next.turning,favour:{doctrine:d,until:pending.year+CARD_EVENT_EVERY}};
+    return next;
+  }
   return applyChoice(city,card,{index:pending.index,year:pending.year,cardId},`Turning Point ${pending.index+1}: ${card.name} chosen.`);
 }
 // v1.5: play a card from the hand. It becomes a choice tagged via:'hand', so
@@ -747,11 +761,13 @@ function applyChoice(city,card,record,label){
   // The choice's short-lived development pulse is separate from its permanent
   // modifier. Physical-building rewards only activate when their site is placed.
   // v1.9: in doctrine cities the development pulse uses the budgeted effects too.
-  if(!card.building||card.kind==='figure'){next.development=applyPulse(next,turningMode(city)==='era'&&card.kind!=='figure'?eraEffects(card):card.effects||{},card.rarity,card.kind==='figure'?'figure':'card',card.scorePulse||{}).development;}
+  const pulse=e=>e;
+  if(!card.building||card.kind==='figure'){next.development=applyPulse(next,pulse(turningMode(city)==='era'&&card.kind!=='figure'?eraEffects(card):card.effects||{}),card.rarity,card.kind==='figure'?'figure':'card',card.scorePulse||{}).development;}
   if(card.kind==='figure'){next.funds=Math.max(0,next.funds-(card.cost||0));next.figures.push({id:card.figureId,year:city.year,effects:card.effects||{},rarity:card.rarity,name:card.name,domain:card.domain});}
   if(card.effects.popInstant){
     const before=next.residents;
-    next.residents=Math.min(Math.round(before*(1+card.effects.popInstant)),Math.round(stats(next).capacity*1.65));
+    const share=card.effects.popInstant;
+    next.residents=Math.min(Math.round(before*(1+share)),Math.round(stats(next).capacity*1.65));
     next.events.push({year:next.year,type:'migration',text:`${card.name}: ${Math.max(0,next.residents-before).toLocaleString('en-US')} residents arrived, increasing housing demand.`});
   }
   if(card.building){
@@ -771,6 +787,9 @@ function applyChoice(city,card,record,label){
   if(pos!==-1)next.snapshots[pos]=captureSnapshot(next);
   return next;
 }
+// v2.1: the building card that answers the most pressing unserved need, if any.
+function needCard(city){if(!doctrinesOn(city))return null;const n=[...needsOf(city)].filter(x=>!x.served).sort((a,b)=>(b.progress||0)-(a.progress||0))[0];
+  if(!n)return null;for(const b of needAnswers(n.kind,city.year)){const id=`b_${b.kind}`;if(CARD_INDEX[id])return id;}return null;}
 function nextMilestoneOf(city){return turningSchedule(city)[currentTurningIndex(city)+(city.turning?.skipped||0)];}
 // v2.0 runs: the deepest doctrine at `min` tier or more (null if none).
 function deepestDoctrine(city,min){const counts=doctrineState(city).counts||{};let best=null,n=0;
@@ -802,7 +821,7 @@ function openTurningPoint(city){
   const source=boon?{...city,legacyBonuses:{...(city.legacyBonuses||{}),rareLuck:(city.legacyBonuses?.rareLuck||0)+1}}:city;
   city.turning.pending={index,year:city.year,options:generateOffers(source,index,0,eligibleFigures(city),count),...(boon?{boon:true}:{})};
   if(boon)city.turning.boon=false;
-  city.events.push({year:city.year,type:'turning_point',text:`Turning Point ${index+1}: three futures await your choice.`});
+  city.events.push({year:city.year,type:'turning_point',text:doctrinesOn(city)?`The Almanac of ${city.year}: a card event. Choose one card that cannot be bought.`:`Turning Point ${index+1}: three futures await your choice.`});
 }
 function finishCity(city){
   city.finished=true;
@@ -1129,6 +1148,10 @@ export function normalizeCity(input){
   const campaignYears=turningSchedule(input);
   const skipped=Math.max(0,campaignYears.filter(y=>y<=c.year).length-tpChoices-(pending?1:0));
   c.turning={...(input.turning?.mode==='era'?{mode:'era'}:{}),choices,pending:pending||null,skipped:Math.max(Number(input.turning?.skipped)||0,skipped),rerollsUsed:Math.max(0,Number(input.turning?.rerollsUsed)||0),cardPool:Array.isArray(input.turning?.cardPool)?input.turning.cardPool:undefined,figurePool:Array.isArray(input.turning?.figurePool)?input.turning.figurePool:[],featuredFigures:Array.isArray(input.turning?.featuredFigures)?input.turning.featuredFigures:[],...(input.turning?.boon?{boon:true}:{})};
+  // v2.1: keep the card-event steer; a save from before the 25-year events skips those already past.
+  if(c.turning.mode==='era'){c.turning.eventsTaken=Number.isFinite(input.turning?.eventsTaken)?Math.max(0,Math.floor(input.turning.eventsTaken)):choices.filter(p=>p.via!=='hand').length;
+    const f=input.turning?.favour;if(f&&typeof f.doctrine==='string'&&Number.isFinite(f.until))c.turning.favour={doctrine:f.doctrine,until:f.until};
+    if(!c.turning.pending){const sched=turningSchedule(c),done=currentTurningIndex(c);while(sched[done+c.turning.skipped]!==undefined&&sched[done+c.turning.skipped]<c.year)c.turning.skipped++;}}
   c.finished=c.year>=END_YEAR||Number.isFinite(input.ruined);
   if(c.finished)c.turning.pending=null;
   c.development=developmentOf(input);

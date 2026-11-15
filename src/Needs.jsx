@@ -5,6 +5,8 @@ import {NEEDS,NEED_YEARS,needAnswers,needsOf} from './needs.js';
 import {omensOf,eventDefinition,undecidedText} from './events.js';
 import {scoreOf,formatScore} from './score.js';
 import {basicLimit} from './construction.js';
+import {doctrinesOn} from './doctrines.js';
+import {deckOf} from './cards.js';
 
 const compact=n=>Number(n).toLocaleString('en-US');
 const GLYPH={services:'✚',market:'⚖',air:'❦'};
@@ -37,7 +39,11 @@ export function NeedsPanel({city,disabled,onAnswer,onBuild}){
           <div className="cardHead"><span className="needGlyph" aria-hidden="true">{GLYPH[n.kind]}</span><b>{n.name} {n.served?'is now served':`needs ${def.label.toLowerCase()}`}</b></div>
           <div className="needBar" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(n.progress*100)} aria-label="Time until decline"><i style={{width:`${Math.round(n.progress*100)}%`}}/></div>
           <small>{n.served?'The ring is draining; the need will fade.':`${def.why} Declines in about ${yearsUntilDecline(n)} years.`}</small>
-          {!n.served&&<div className="needAnswers">{answers.map(b=>{const full=city.buildings.filter(x=>x.special===b.kind).length>=limit;
+          {!n.served&&doctrinesOn(city)&&<div className="needAnswers">{answers.map(b=>{const id=`b_${b.kind}`,held=deckOf(city).hand.find(h=>h.cardId===id),offer=(deckOf(city).shop?.offers||[]).find(o=>o.cardId===id);
+            if(held)return <button key={b.id} className="primary" disabled={disabled} onClick={()=>onBuild(b,n,{uid:held.uid})}><Hammer size={14}/> Place {b.name}<small>card in hand</small></button>;
+            if(offer)return <button key={b.id} disabled={disabled||city.funds<offer.price} onClick={()=>onBuild(b,n,{offer:offer.uid})}><Hammer size={14}/> Buy {b.name} card<small>{compact(offer.price)}</small></button>;
+            return <span key={b.id} className="needWait">{b.name}: the Market Hall stocks its card at the next restock</span>;})}</div>}
+          {!n.served&&!doctrinesOn(city)&&<div className="needAnswers">{answers.map(b=>{const full=city.buildings.filter(x=>x.special===b.kind).length>=limit;
             return <button key={b.id} disabled={disabled||city.funds<b.cost||full} title={full?`One ${b.name} per district (${limit})`:b.description} onClick={()=>onBuild(b,n)}><Hammer size={14}/> {b.name}<small>{compact(b.cost)}</small></button>;})}</div>}
         </article>;})}
     <p className="hint">Build the answer close to the ring: churches, schools and clinics serve homes within about 8 parcels, markets about 6, gardens clear the air within about 5.</p>

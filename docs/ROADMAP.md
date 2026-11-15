@@ -171,6 +171,19 @@ R2 open items, in order:
 - the 5th run on one profile scores 1.2–1.6× the 1st,
 - a run at Normal speed lasts 15–22 minutes.
 
+## Milestone S: cards you understand (v2.1)
+
+Addresses playtest feedback: *"I have no clue what's going on or of the impacts; buildings come out of nowhere; it's not premium visually."*
+
+1. ✅ Landmarks only from building cards (doctrine cities); homes, shops and farms still grow on zones.
+2. ✅ The Market Hall always sells (Commons and Uncommons) and stocks the answer to the pressing need.
+3. ✅ A card event every 25 years: cards that can't be bought, which steer what the store sells.
+4. ✅ Every card states its effects in plain numbers, with *Right now* changes.
+5. ✅ Full-screen map with floating controls and drawers; three layers with their own legend.
+6. ✅ Almanac look for menus and pop-ups.
+7. **Next:** many cards act only on growth rates and change nothing visible for decades. Give each card an immediate, visible effect as well (a few settlers, a treasury sum, a building), so a play always shows on the map.
+8. **Later:** missions.
+
 ## Milestone E: modes and meta
 
 Addresses: *legacy makes runs easier, not different*, *no single score to compare*, *timelapse is under-used*.

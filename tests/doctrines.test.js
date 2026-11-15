@@ -86,7 +86,7 @@ test('rule-benders: Learning foresight, cheaper history and four-card drafts; Fa
   assert.ok(doctrineState(l).tiers.learning>=3);assert.equal(doctrineFlags(l).omenLead,10);assert.equal(doctrineFlags(l).draftOptions,4);assert.equal(doctrineFlags(l).eventFundsMult,.5,'tier 2: history costs half');
   while(!l.turning.pending&&l.year<1510)l=advance(l,10);
   assert.equal(l.turning.pending.options.length,4,'era draft offers four');
-  let f=rich(newCity(7));while(f.year<1400)f=advance(f,10);
+  let f=rich(newCity(7));while(f.year<1400){f=advance(f,10);if(f.turning.pending)f=selectTurningPoint(f,f.turning.pending.options[0]);}
   const before=assessNeeds(f,cityFields(f)).filter(n=>n.kind==='market').length;
   for(const x of ofDoctrine('faith').filter(x=>cardType(x)!=='building'&&x.kind!=='instant').slice(0,4))f=play(f,x.id);
   assert.ok(doctrineFlags(f).churchMarket);
@@ -117,9 +117,9 @@ import {placeConstruction} from '../src/sim.js';
 import {shopEligible} from '../src/cards.js';
 import {buildNear} from './helpers/strategies.js';
 
-test('the doctrine pool has 94 cards: the 54 classic ones, 14 building cards, 26 new; classic games keep 54',()=>{
-  assert.equal(ERA_CARDS.length,94);assert.equal(DOCTRINE_ONLY_CARDS.length,40);assert.equal(HYBRID_CARDS.length,7);
-  assert.equal(new Set(ERA_CARDS.map(c=>c.id)).size,94,'ids are unique');
+test('the doctrine pool has 98 cards: the 54 classic ones, 18 building cards (one per landmark), 26 new; classic games keep 54',()=>{
+  assert.equal(ERA_CARDS.length,98);assert.equal(DOCTRINE_ONLY_CARDS.length,44);assert.equal(HYBRID_CARDS.length,7);
+  assert.equal(new Set(ERA_CARDS.map(c=>c.id)).size,98,'ids are unique');
   for(const c of HYBRID_CARDS)assert.equal(cardDoctrines(c).length,2,`${c.id} counts for two doctrines`);
   const classic=seedTown(makeCity('Classic','river',7));
   assert.ok(DOCTRINE_ONLY_CARDS.every(c=>!shopEligible(c,classic)),'never sold in classic cities');

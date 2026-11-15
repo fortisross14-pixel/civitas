@@ -8,7 +8,7 @@ import {needsOf,needAnswers} from '../../src/needs.js';
 import {omensOf,answerOmen,eventDefinition,eventScale} from '../../src/events.js';
 import {buyCard,deckOf,rerollShop,rerollPrice} from '../../src/cards.js';
 import {scoreOf} from '../../src/score.js';
-import {cardDoctrines,DOCTRINE_IDS,doctrineState} from '../../src/doctrines.js';
+import {cardDoctrines,DOCTRINE_IDS,doctrineState,doctrinesOn} from '../../src/doctrines.js';
 import {CARD_INDEX} from '../../src/turningPoints.js';
 import {foundRun} from '../../src/runs.js';
 
@@ -42,9 +42,21 @@ function placeProjects(c){
   }
   return c;
 }
+// v2.1 doctrine cities: landmarks come from building cards. Play one from the
+// hand if it answers the need, otherwise buy it from the Market Hall.
+function answerWithCard(c,n){
+  const ids=new Set(needAnswers(n.kind,c.year).map(b=>`b_${b.kind}`));
+  let held=deckOf(c).hand.find(h=>ids.has(h.cardId));
+  if(!held){const offer=(deckOf(c).shop?.offers||[]).find(o=>ids.has(o.cardId));if(!offer||offer.price>c.funds)return c;
+    const b=buyCard(c,offer.uid);if(b.error)return c;c=b.city;held=deckOf(c).hand.find(h=>h.uid===offer.uid);}
+  const p=playCard(c,held.uid);if(p.error)return c;
+  const project=(p.city.projects||[]).at(-1);if(!project)return p.city;
+  return buildNear(p.city,project.id,n.x,n.y,10)||p.city;
+}
 function tendCity(c){
   c=placeProjects(c);
   for(const n of needsOf(c)){if(n.served)continue;
+    if(doctrinesOn(c)){c=answerWithCard(c,n);continue;}
     const options=needAnswers(n.kind,c.year).filter(b=>b.cost<=c.funds).sort((a,b)=>a.cost-b.cost);
     for(const b of options){const built=buildNear(c,b.id,n.x,n.y);if(built){c=built;break;}}
   }
@@ -57,6 +69,7 @@ function tendCity(c){
 }
 function sensibleTurn(c){
   c=tendCity(c);
+  for(const h of [...deckOf(c).hand]){const p=playCard(c,h.uid);if(!p.error)c=placeProjects(p.city);}
   const offer=[...(deckOf(c).shop?.offers||[])].sort((a,b)=>a.price-b.price)[0];
   if(offer&&c.funds>=offer.price*3){const b=buyCard(c,offer.uid);if(!b.error){const p=playCard(b.city,offer.uid);c=p.error?b.city:p.city;}}
   return c;

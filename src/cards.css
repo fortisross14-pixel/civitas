@@ -101,3 +101,29 @@
 .decreeRow button{min-height:40px;margin:0;width:auto!important;padding:0 12px}
 .doctrineChip{align-self:center;min-height:36px;margin:6px auto 0;padding:0 14px;border:1px solid var(--doc);background:#fffdf6;color:var(--doc);font-size:13px;font-weight:600;cursor:pointer;border-radius:18px}
 @media(max-width:760px){.doctrineChip{min-height:44px}}
+
+/* v2.1: card effects in plain numbers */
+.hcardEffects{list-style:none;margin:3px 0 0;padding:0;display:flex;flex-direction:column;gap:1px;font-size:11px;line-height:1.3}
+.hcardEffects li{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.hcardEffects .good{color:#3f6a4e}.hcardEffects .bad{color:#9a4632}.hcardEffects .build{color:#5b4a2c;font-weight:700}.hcardEffects .more{color:#7a7062}
+.hcard.shop .hcardEffects li{white-space:normal}
+.hcardGift,.hcardNeed{font-size:10px;letter-spacing:.6px;text-transform:uppercase;padding:1px 5px;border-radius:3px;background:#efe2c2;color:#6b4f1f;border:1px solid #cdb27a}
+.hcardNeed{background:#e1ebdd;color:#355d44;border-color:#a8c0a4}
+.cardImpact{margin:8px 0 4px;padding:10px 12px;border:1px solid #d7c9ab;border-radius:6px;background:#fbf6ea}
+.cardImpact h4{margin:0 0 5px;font-size:11px;letter-spacing:1.4px;text-transform:uppercase;color:#6d5d43}
+.cardImpact h4+ul,.cardImpact h4+table{margin-bottom:8px}
+.impactLines{list-style:none;padding:0;margin:0 0 6px;display:flex;flex-direction:column;gap:3px;font-size:13px}
+.impactLines .good b{color:#3f6a4e}.impactLines .bad b{color:#9a4632}.impactLines .build{color:#4b3d24}
+.impactWhen,.impactSlow{font-size:12px;color:#6a6155;margin:0 0 6px;line-height:1.45}
+.impactSlow{font-style:italic}
+.impactNow{border-collapse:collapse;font-size:13px;width:100%}
+.impactNow th{text-align:left;font-weight:400;color:#5e5446;padding:2px 6px 2px 0}
+.impactNow td{padding:2px 4px;text-align:right;font-variant-numeric:tabular-nums}
+.impactNow tr.good td:last-child b{color:#3f6a4e}.impactNow tr.bad td:last-child b{color:#9a4632}
+
+/* v2.1 card events */
+.almanacCard .cardImpact{background:#fffaf0;margin:4px 0}
+.almanacCard .cardImpact h4{font-size:10px}
+.almanacCard .impactLines{font-size:12px}
+.steerHint{font-size:11px;color:#6b4f1f;background:#f3e7cb;border-radius:4px;padding:5px 7px;line-height:1.4}
+.figureCost{font-size:12px;color:#6a5133}

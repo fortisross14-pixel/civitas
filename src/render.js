@@ -460,7 +460,8 @@ export function drawCity(ctx,city,width,height,opts={}){
     for(const b of city.buildings||[]){
       const look=buildingShapes(b,roadSet,mainSet,warp);
       let layerColor=null;
-      if(layer==='age')layerColor=({timber:'#6d6252',stone:'#967d61',classical:'#c0a887',brick:'#ab765e',modernist:'#7c8d8b',contemporary:'#597f8b'})[b.style||styleAt(b.born||1300)];
+      if(layer==='geography')layerColor=b.special?'#8f8574':'#d4cab2';
+      else if(layer==='age')layerColor=({timber:'#6d6252',stone:'#967d61',classical:'#c0a887',brick:'#ab765e',modernist:'#7c8d8b',contemporary:'#597f8b'})[b.style||styleAt(b.born||1300)];
       else if(layer==='coverage')layerColor=b.type==='civic'||['chapel','school','clinic','hospital','town_hall','library','civic_center','monastery','shrine','university','waterworks'].includes(b.special)?'#3f7462':b.type==='res'?(influence&&influence.service[Math.floor(b.y)*W+Math.floor(b.x)]>=.35?'#9fb7a5':'#c0806b'):'#c8c1b2';
       else if(layer==='pollution')layerColor=b.type==='craft'?'#5f5468':b.type==='res'?(influence&&influence.pollution[Math.floor(b.y)*W+Math.floor(b.x)]*influence.homeShield>=.8?'#a2513f':'#bcb3a2'):'#cdc6b6';
       else if(layer==='districts'&&districts){const i=districts.grid[Math.floor(b.y)*W+Math.floor(b.x)];layerColor=i>=0?DISTRICT_COLORS[i%DISTRICT_COLORS.length]:'#bdb6a4';}
