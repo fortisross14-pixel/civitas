@@ -85,6 +85,13 @@ export function pickParcel(g,zoneGrid,type,r,o){
 // ───────────────────────── streets ─────────────────────────
 export function laneStyle(pattern){return LANE[pattern]||LANE.organic;}
 // Lay new minor streets. Returns the road records added (already pushed to city.roads).
+// v2.3 planned streets. From 1650 new streets snap to a city-wide lattice
+// (lines every `step` cells, offset by the city seed): each new lane runs
+// straight along a lattice line, so later quarters grow as grids of parallel
+// streets beside the winding medieval core. Larger blocks in later eras.
+export const LATTICE={regular:{step:4,from:1650,span:10},industrial:{step:5,span:12,avenue:4},modern:{step:6,span:13,avenue:3}};
+export function latticeFor(o){const l=LATTICE[o.pattern];if(!l||o.year<(l.from??0))return null;return l;}
+const onLine=(v,off,step)=>((v-off)%step+step)%step===0;
 export function growRoads(city,g,zoneGrid,r,actions,o){
   const added=[];
   for(let a=0;a<actions;a++){
@@ -128,11 +135,13 @@ function openBeyond(g,x0,y0){let n=0;for(let y=Math.max(0,y0-3);y<=Math.min(H-1,
 // A lane sprouting from a random point of the network, perpendicular to it.
 function branchLane(city,g,zoneGrid,r,o,added){
   const n=g.roadKeys.length;if(!n)return false;
-  const style=laneStyle(o.pattern);
+  const style=laneStyle(o.pattern),lat=o.lattice===false?null:latticeFor(o);
+  const ox=lat?(Math.abs(city.seed|0)%lat.step):0,oy=lat?(Math.abs((city.seed|0)>>3)%lat.step):0;
   let seed=-1,bestScore=-Infinity;
-  for(let i=0;i<18;i++){
+  for(let i=0;i<(lat?40:18);i++){
     const k=g.roadKeys[Math.floor(r()*n)];if(g.road[k]===ROAD_CODE.bridge)continue;
     const x=kx(k),y=ky(k),d=Math.hypot(x-o.origin.x,y-o.origin.y);
+    if(lat&&!onLine(x,ox,lat.step)&&!onLine(y,oy,lat.step))continue;
     if(d>o.reach&&!lure(g,zoneGrid,x,y,3))continue;
     const score=lure(g,zoneGrid,x,y,5)*.5+openBeyond(g,x,y)*.15-d*.03+r()*1.2;
     if(score>bestScore){bestScore=score;seed=k;}
@@ -140,7 +149,9 @@ function branchLane(city,g,zoneGrid,r,o,added){
   if(seed<0)return false;
   const sx=kx(seed),sy=ky(seed);
   const horizontal=g.road[key(sx+1,sy)]||g.road[key(sx-1,sy)],vertical=g.road[key(sx,sy+1)]||g.road[key(sx,sy-1)];
-  const dirs=horizontal&&!vertical?[[0,1],[0,-1]]:vertical&&!horizontal?[[1,0],[-1,0]]:DIRS4;
+  let dirs=horizontal&&!vertical?[[0,1],[0,-1]]:vertical&&!horizontal?[[1,0],[-1,0]]:DIRS4;
+  // On the lattice: run along the lattice line through the seed.
+  if(lat){const v=onLine(sx,ox,lat.step),h=onLine(sy,oy,lat.step);dirs=[...(v?[[0,1],[0,-1]]:[]),...(h?[[1,0],[-1,0]]:[])];}
   let dir=null,dirScore=-Infinity;
   for(const [dx,dy] of dirs){
     const fx=sx+dx,fy=sy+dy;if(fx<1||fy<1||fx>W-2||fy>H-2||!free(g,key(fx,fy)))continue;
@@ -149,7 +160,7 @@ function branchLane(city,g,zoneGrid,r,o,added){
     if(score>dirScore){dirScore=score;dir=[dx,dy];}
   }
   if(!dir)return false;
-  const length=style.min+Math.floor(r()*style.span),laid=[],laidSet=new Set();
+  const length=lat?style.min+lat.span+Math.floor(r()*style.span):style.min+Math.floor(r()*style.span),laid=[],laidSet=new Set();
   const ok=(x,y,mx,my)=>{
     if(x<1||y<1||x>W-2||y>H-2)return false;const k=key(x,y);
     if(!free(g,k)||laidSet.has(k))return false;
@@ -171,7 +182,9 @@ function branchLane(city,g,zoneGrid,r,o,added){
     const k=key(nx,ny);laid.push(k);laidSet.add(k);cx=nx;cy=ny;
   }
   if(laid.length<2&&!connected)return false;
-  commit(city,g,laid,o,added);
+  // Industrial and modern grids: every `avenue`-th lattice line is a wide avenue.
+  const avenue=lat?.avenue&&(dir[0]===0?onLine(sx,ox,lat.step*lat.avenue):onLine(sy,oy,lat.step*lat.avenue));
+  commit(city,g,laid,o,added,avenue?'main':'minor');
   return true;
 }
 
