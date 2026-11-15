@@ -7,6 +7,11 @@ import {ERA_CARDS,CARD_INDEX} from './turningPoints.js';
 import {DOCTRINES} from './doctrines.js';
 import {RUIN_AT,unrestLine} from './sim.js';
 import {Info} from './Info.jsx';
+import {TrinketPicker,Stars,TrinketGlyph} from './WorldUI.jsx';
+import {TRINKET_INDEX} from './trinkets.js';
+import {SCENARIO_INDEX} from './scenarios.js';
+import {RANK_INDEX} from './worldRankings.js';
+import {AGES} from './ages.js';
 import './runs.css';
 
 const number=n=>Math.round(n||0).toLocaleString('en-US');
@@ -20,6 +25,7 @@ export function FoundingSetup({legacy,setup,setSetup}){
   const toggle=(key,id,limit)=>{const list=setup[key]||[];set({[key]:list.includes(id)?list.filter(x=>x!==id):list.length<limit?[...list,id]:list});};
   const founders=Object.values(FOUNDER_INDEX),f=FOUNDER_INDEX[setup.founder||'wanderer'];
   return <div className="runSetup">
+    <TrinketPicker legacy={legacy} value={setup.trinkets??(legacy.equipped||[])} onChange={v=>set({trinkets:v})}/>
     <div className="setupBlock"><b>Founder <Info label="About founders"><span>{f.description}</span>{f.cards.length>0&&<span>Starts with {f.cards.map(id=>CARD_INDEX[id]?.name).join(' and ')}.</span>}{f.doctrine&&<span>{doctrineName(f.doctrine)} cards are 3× as likely in the Market Hall.</span>}<span>Locked founders join when you reach tier 1 of their doctrine, or for Legacy Points. Card pool: {pool} of {ERA_CARDS.length}.</span></Info></b>
       <div className="founderRow" role="radiogroup" aria-label="Founder">{founders.map(x=>{const open=o.founders.includes(x.id),sel=(setup.founder||'wanderer')===x.id;
         return <button key={x.id} role="radio" aria-checked={sel} className={`founderChip ${sel?'selected':''}`} disabled={!open} onClick={()=>set({founder:x.id})} title={open?x.name:'Locked'} style={{'--doctrine':x.doctrine?DOCTRINES[x.doctrine].color:'#6f6a5c'}}>
@@ -64,6 +70,9 @@ export function RunSummary({run,legacy,unlocked=[],onClose,onMarket}){
       <div><span>Population</span><strong>{number(run.population)}</strong><small>Prosperity {run.prosperity}</small></div>
       <div><span>Legacy Points</span><strong><Coins size={16}/> +{number(run.lp)}</strong><small>{run.ruined?'Half pay for a ruined city':''}{run.hardship?`${run.ruined?' · ':''}×${hardshipLP(run.hardship).toFixed(2)} for Hardship`:''}</small></div>
     </div>
+    {run.scenario&&SCENARIO_INDEX[run.scenario]&&<div className="summaryScenario"><Stars n={run.stars||0}/><span><b>{SCENARIO_INDEX[run.scenario].name}</b><br/><small className="muted">{run.stars?`${run.stars} of 3 stars${run.newStars?` · ${run.newStars} new`:''}`:'No stars this time'}</small></span></div>}
+    {run.trinketWon&&TRINKET_INDEX[run.trinketWon]&&<div className="rewardRow"><TrinketGlyph id={run.trinketWon}/><span><small>TRINKET WON</small><b>{TRINKET_INDEX[run.trinketWon].name}</b><em>{TRINKET_INDEX[run.trinketWon].short}</em></span></div>}
+    {run.placings?.length>0&&<><h3><Award size={15}/> World Cities</h3><ul className="placings">{run.placings.map(p=><li key={p.age+p.category}><b>#{p.rank}</b>{RANK_INDEX[p.category].name} · {AGES.find(a=>a.id===p.age).name}</li>)}</ul></>}
     {standing.previous&&<p className="summaryDelta"><TrendingUp size={14}/> {run.score>=standing.previous.score?'Up':'Down'} {Math.abs(Math.round((run.score/Math.max(1,standing.previous.score)-1)*100))}% on your last run ({standing.previous.name}, {number(standing.previous.score)}).</p>}
     <h3><Users size={15}/> Against history, {run.year}</h3>
     <p className="muted">{!hist.passed?`Smaller than all of them in ${run.year}: the smallest, ${hist.next.name}, had about ${number(hist.next.population)}.`:hist.next?`Larger than ${hist.passed.name} was in ${run.year}; ${hist.next.name} had about ${number(hist.next.population)}.`:`Larger than all of them in ${run.year}.`}</p>

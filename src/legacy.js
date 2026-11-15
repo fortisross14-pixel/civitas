@@ -1,5 +1,6 @@
 // CIVITAS v0.5: persistent Legacy Market and historical figures.
 // No payment system, in-app purchases or external data dependencies.
+import {TRINKET_INDEX,TRINKET_SLOTS} from './trinkets.js';
 import {CARDS,CARD_INDEX} from './turningPoints.js';
 import {POP_SCALE} from './geo.js';
 import {ACHIEVEMENTS,achievementValues} from './achievements.js';
@@ -104,7 +105,9 @@ export const UPGRADE_INDEX=Object.fromEntries(MARKET_UPGRADES.map(u=>[u.id,u]));
 export function legacyInvestmentProgress(legacy){const l=normalizeLegacy(legacy),bonuses=runModifiersFromLegacy(l),ranks=Object.values(l.upgrades).reduce((sum,n)=>sum+n,0),round=n=>Math.round(n*10000)/10000;return {ranks,capacity:round(bonuses.legacyCapacity||0),productivity:round(bonuses.legacyProductivity||0),featuredSlots:5+(bonuses.featuredSlots||0),megacity:!!bonuses.megacityCharter};}
 export function emptyLegacy(){return {version:4,points:0,unlockedCards:[],unlockedFigures:[],upgrades:{},completed:[],achievements:[],claimedAchievements:[],lifetimePoints:0,packs:{opened:0,sinceEpic:0,sinceLegend:0},
  // v2.0 runs and meta: best doctrine tier ever reached, owned founders/artifacts, boosters in stock, highest Hardship open, past runs.
- mastery:{},founders:[],artifacts:[],boosters:{},hardship:0,runs:[]};}
+ mastery:{},founders:[],artifacts:[],boosters:{},hardship:0,runs:[],
+ // v2.6 World Cities entries (worldRankings.js), trinkets won and the ones equipped, scenario stars.
+ worldEntries:[],trinkets:[],equipped:[],scenarios:{}};}
 export function normalizeLegacy(raw){const base=emptyLegacy();if(!raw||typeof raw!=='object')return base;
  const strings=v=>Array.isArray(v)?Array.from(new Set(v.filter(x=>typeof x==='string'))):[];
  const count=v=>Number.isFinite(Number(v))?Math.max(0,Math.floor(Number(v))):0;
@@ -114,7 +117,10 @@ export function normalizeLegacy(raw){const base=emptyLegacy();if(!raw||typeof ra
   founders:strings(raw.founders).filter(k=>FOUNDER_INDEX[k]),artifacts:strings(raw.artifacts).filter(k=>ARTIFACT_INDEX[k]),
   boosters:Object.fromEntries(Object.entries(raw.boosters||{}).filter(([k])=>BOOSTER_INDEX[k]).map(([k,v])=>[k,Math.min(99,count(v))])),
   hardship:Math.min(MAX_HARDSHIP,count(raw.hardship)),
-  runs:(Array.isArray(raw.runs)?raw.runs:[]).filter(r=>r&&typeof r.id==='string'&&Number.isFinite(r.score)).slice(-RUNS_KEPT)};
+  runs:(Array.isArray(raw.runs)?raw.runs:[]).filter(r=>r&&typeof r.id==='string'&&Number.isFinite(r.score)).slice(-RUNS_KEPT),
+  worldEntries:(Array.isArray(raw.worldEntries)?raw.worldEntries:[]).filter(e=>e&&typeof e.id==='string'&&e.ages&&typeof e.ages==='object'),
+  trinkets:strings(raw.trinkets).filter(k=>TRINKET_INDEX[k]),equipped:strings(raw.equipped).filter(k=>TRINKET_INDEX[k]&&strings(raw.trinkets).includes(k)).slice(0,TRINKET_SLOTS),
+  scenarios:Object.fromEntries(Object.entries(raw.scenarios&&typeof raw.scenarios==='object'?raw.scenarios:{}).filter(([k,v])=>typeof k==='string'&&v&&typeof v==='object').map(([k,v])=>[k,{stars:Math.max(0,Math.min(3,count(v.stars))),best:Number(v.best)||0,plays:count(v.plays)}]))};
 }
 // v2.0: a founder is open if free, bought, or their doctrine reached tier 1 in a run.
 export function founderOpen(legacy,id){const f=FOUNDER_INDEX[id];if(!f)return false;return !!f.free||(legacy.founders||[]).includes(id)||(!!f.doctrine&&(legacy.mastery?.[f.doctrine]||0)>=1);}

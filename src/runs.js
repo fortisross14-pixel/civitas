@@ -7,6 +7,9 @@ import {ERA_CARDS,CARD_INDEX} from './turningPoints.js';
 import {cardDoctrines,cardType,doctrineState,tierOf,DOCTRINE_IDS,DOCTRINES} from './doctrines.js';
 import {deckOf,restockShop} from './cards.js';
 import {stats} from './sim.js';
+import {TRINKET_SLOTS} from './trinkets.js';
+import {SCENARIO_INDEX} from './scenarios.js';
+import {worldEntry,addWorldEntry,placingsOf} from './worldRankings.js';
 import {LOCKED_CARDS,FOUNDER_INDEX,ARTIFACT_INDEX,BOOSTER_INDEX,BOOSTERS_PER_CITY,MAX_HARDSHIP,RUNS_KEPT,
   normalizeLegacy,startRunProfile,scoreCity,founderOpen,artifactSlots} from './legacy.js';
 
@@ -44,17 +47,22 @@ export const HARDSHIP_TEXT=h=>h?`Prosperity −${h*HARDSHIP_PROSPERITY}, Market 
 export function foundingOptions(legacy){
   const l=normalizeLegacy(legacy);
   return {founders:Object.keys(FOUNDER_INDEX).filter(id=>founderOpen(l,id)),artifacts:[...l.artifacts],slots:artifactSlots(l),
-    boosters:Object.entries(l.boosters).filter(([,n])=>n>0).map(([id,n])=>({id,count:n})),maxHardship:l.hardship,boosterLimit:BOOSTERS_PER_CITY};
+    boosters:Object.entries(l.boosters).filter(([,n])=>n>0).map(([id,n])=>({id,count:n})),maxHardship:l.hardship,boosterLimit:BOOSTERS_PER_CITY,
+    trinkets:[...l.trinkets],trinketSlots:TRINKET_SLOTS};
 }
 // Clamp a requested setup to what the profile owns.
 export function validSetup(legacy,setup={}){
   const o=foundingOptions(legacy);
-  const founder=o.founders.includes(setup.founder)?setup.founder:'wanderer';
+  // Scenarios name their founder (forceFounder), owned or not.
+  const founder=(setup.forceFounder&&FOUNDER_INDEX[setup.founder])||o.founders.includes(setup.founder)?setup.founder:'wanderer';
   const artifacts=Array.from(new Set((setup.artifacts||[]).filter(id=>o.artifacts.includes(id)))).slice(0,o.slots);
   const stock={...normalizeLegacy(legacy).boosters},boosters=[];
   for(const id of setup.boosters||[]){if(boosters.length>=o.boosterLimit)break;if((stock[id]||0)>0){stock[id]--;boosters.push(id);}}
   const hardship=Math.max(0,Math.min(o.maxHardship,Math.floor(Number(setup.hardship)||0)));
-  return {founder,artifacts,boosters,hardship};
+  // v2.6 trinkets: owned ones, at most two. Without a choice, the ones equipped last time.
+  const asked=Array.isArray(setup.trinkets)?setup.trinkets:normalizeLegacy(legacy).equipped;
+  const trinkets=Array.from(new Set(asked.filter(id=>o.trinkets.includes(id)))).slice(0,o.trinketSlots);
+  return {founder,artifacts,boosters,hardship,trinkets};
 }
 
 const hash=(...a)=>{let h=2166136261;for(const v of a){for(const ch of String(v)){h^=ch.charCodeAt(0);h=Math.imul(h,16777619);}}return h>>>0;};
@@ -98,12 +106,12 @@ export function foundRun(city,legacy,setup={},featured=[]){
   const effectsTimed=[...(city.effectsTimed||[])];
   if(s.hardship)effectsTimed.push({source:'hardship',label:`Hardship ${s.hardship}`,until:99999,effects:{prosperity:-HARDSHIP_PROSPERITY*s.hardship}});
   const next={...city,funds:Math.round(funds),deck,effectsTimed,eventsOn:true,needsOn:true,legacyBonuses:eraLegacyBonuses(profile.legacyBonuses),
-    founder:s.founder,artifacts:s.artifacts,boostersUsed:s.boosters,hardship:s.hardship,perks,unrest:0,peakTiers:{},
+    founder:s.founder,artifacts:s.artifacts,trinkets:s.trinkets,boostersUsed:s.boosters,hardship:s.hardship,perks,unrest:0,peakTiers:{},
     turning:{...city.turning,mode:'era',cardPool:pool,figurePool:profile.figurePool,featuredFigures:profile.featuredFigures}};
   // A town seeded before founding already has its first Market Hall: restock it with the bonus offers.
   if(offers.length&&next.deck.shop)next.deck=restockShop({...next,deck:{...next.deck,shop:null}},stats(next)).deck;
   const boosters={...l.boosters};for(const b of s.boosters)boosters[b]=Math.max(0,(boosters[b]||0)-1);
-  return {city:next,legacy:{...l,boosters},setup:s};
+  return {city:next,legacy:{...l,boosters,equipped:s.trinkets},setup:s};
 }
 
 // ───────────── Recording a run ─────────────
@@ -128,9 +136,17 @@ export function recordRun(legacy,city,stats){
   const run={id:city.id,name:city.name,type:city.type,founder:city.founder||'wanderer',hardship:h,ruined:ruined?city.ruined:null,
     year:city.year,score:Math.round(city.score?.total||0),population:Math.round(stats.population||0),prosperity:Math.round(stats.prosperity||0),
     doctrine:(tiers[top]||0)>0?top:null,tier:tiers[top]||0,lp:points,at:Date.now()};
-  const hardship=!ruined&&h>=l.hardship?Math.min(MAX_HARDSHIP,h+1):l.hardship;
+  // v2.6 World Cities: the run's standing at the end of each Age it lived through.
+  const entry=worldEntry(city,run.at);run.placings=placingsOf(entry,l.worldEntries).slice(0,6);
+  // v2.6 scenarios: best stars, plays, and the trinket on the first star.
+  let scenarios=l.scenarios,trinkets=l.trinkets;
+  if(city.scenario?.id){const id=city.scenario.id,stars=ruined?0:Math.max(0,Math.min(3,city.scenario.stars||0)),prev=l.scenarios[id]||{stars:0,best:0,plays:0};
+    scenarios={...l.scenarios,[id]:{stars:Math.max(prev.stars,stars),best:Math.max(prev.best,run.score),plays:prev.plays+1}};
+    run.scenario=id;run.stars=stars;run.newStars=Math.max(0,stars-prev.stars);
+    const prize=SCENARIO_INDEX[id]?.reward;if(stars>=1&&prize&&!trinkets.includes(prize)){trinkets=[...trinkets,prize];run.trinketWon=prize;}}
+  const hardship=!ruined&&!city.scenario&&h>=l.hardship?Math.min(MAX_HARDSHIP,h+1):l.hardship;
   const next={...l,points:l.points+points,lifetimePoints:l.lifetimePoints+points,completed:[...l.completed,city.id],
-    achievements:Array.from(new Set([...l.achievements,...reward.achievements])),mastery,hardship,runs:[...l.runs,run].slice(-RUNS_KEPT)};
+    achievements:Array.from(new Set([...l.achievements,...reward.achievements])),mastery,hardship,runs:[...l.runs,run].slice(-RUNS_KEPT),worldEntries:addWorldEntry(l.worldEntries,entry),scenarios,trinkets};
   return {legacy:next,run,unlocked:Array.from(new Set(unlocked))};
 }
 

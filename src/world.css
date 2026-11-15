@@ -1,0 +1,125 @@
+/* CIVITAS v2.6 — Scenarios, Trinkets and World Cities. Almanack tokens
+   (almanac.css), Survey structure: big touch targets, one idea per surface. */
+.worldPage{max-width:1040px;margin:0 auto;padding:14px 16px 48px;color:var(--alm-ink);font-family:var(--alm-text)}
+.worldHead{display:flex;align-items:center;gap:12px;margin:4px 0 18px;min-height:44px}
+.worldHead h1{font:400 clamp(26px,5vw,38px) var(--alm-title);letter-spacing:.02em;margin:0;flex:1;line-height:1.05}
+.backChip{display:inline-flex;align-items:center;gap:2px;min-height:40px;padding:0 12px 0 6px;background:var(--alm-surface)!important;border:1px solid var(--alm-line)!important;border-radius:20px!important;color:var(--alm-ink)!important;font:600 14px var(--alm-text)}
+.headMeta{display:inline-flex;align-items:center;gap:5px;font:400 18px var(--alm-title);color:var(--alm-red)}
+.stars{display:inline-flex;gap:1px;color:var(--alm-line-strong)}
+.stars .on{color:#b8860b}
+
+/* Hub tiles on the home page */
+.hubTiles{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:0 0 14px}
+.hubTile{display:flex;align-items:center;gap:12px;text-align:left;padding:16px!important;min-height:84px;background:var(--alm-surface)!important;border:1px solid var(--alm-line)!important;border-radius:18px!important;box-shadow:var(--alm-shadow-soft);color:var(--alm-ink)!important;transition:transform var(--alm-fast) var(--alm-ease),box-shadow var(--alm-fast)}
+.hubTile:hover{transform:translateY(-2px);box-shadow:var(--alm-shadow)}
+.hubTile:active{transform:scale(.98)}
+.hubIcon{flex:none;width:46px;height:46px;border-radius:14px;display:grid;place-items:center;background:var(--alm-ink);color:var(--alm-surface)}
+.hubTile.world .hubIcon{background:var(--alm-red)}
+.hubText{flex:1;display:flex;flex-direction:column;min-width:0}
+.hubText b{font:400 19px var(--alm-title);letter-spacing:.02em}
+.hubText small{font-size:13px;color:var(--alm-soft);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.hubMeta{display:inline-flex;align-items:center;gap:4px;font:700 14px var(--alm-text);color:var(--alm-red)}
+
+/* Scenario cards */
+.scenarioGrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:12px}
+.scenarioCard{position:relative;display:flex;flex-direction:column;gap:6px;text-align:left;padding:16px 16px 12px!important;min-height:170px;background:var(--alm-surface)!important;border:1px solid var(--alm-line)!important;border-top:4px solid var(--alm-ink)!important;border-radius:16px!important;color:var(--alm-ink)!important;box-shadow:var(--alm-shadow-soft);animation:almRise 240ms var(--alm-ease) both;transition:transform var(--alm-fast) var(--alm-ease),box-shadow var(--alm-fast)}
+.scenarioCard:not(.locked):hover{transform:translateY(-3px);box-shadow:var(--alm-shadow)}
+.scenarioCard.locked{opacity:.55;border-top-color:var(--alm-line-strong)!important;cursor:not-allowed}
+.scenYears{font:700 12px var(--alm-text);letter-spacing:.14em;color:var(--alm-red)}
+.scenName{font:400 20px/1.15 var(--alm-title);letter-spacing:.01em}
+.scenBlurb{font:italic 14px/1.35 var(--alm-text);color:var(--alm-soft);flex:1}
+.scenFoot{display:flex;align-items:center;justify-content:space-between;gap:8px;border-top:1px solid var(--alm-line);padding-top:9px;font-size:13px}
+.scenReward{display:inline-flex;align-items:center;gap:6px;color:var(--alm-soft);min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+/* Trinket glyphs: a coin with the theme's colour */
+.trinketGlyph{flex:none;display:inline-grid;place-items:center;border-radius:50%;color:#fff8e6;font-family:Georgia,serif;box-shadow:inset 0 0 0 2px #fff3,0 2px 6px #2b241a33;background:#7a6a4a}
+.trinketGlyph.md{width:40px;height:40px;font-size:20px}.trinketGlyph.sm{width:22px;height:22px;font-size:12px}
+.trinketGlyph.trade{background:#a8742a}.trinketGlyph.people{background:#5d7a3a}.trinketGlyph.faith{background:#6b4f8a}.trinketGlyph.arts{background:#9a3d52}
+.trinketGlyph.growth{background:#3e6b7a}.trinketGlyph.industry{background:#5a5048}.trinketGlyph.learning{background:#2f5f8f}
+.trinketGlyph.unowned{background:transparent;color:var(--alm-soft);box-shadow:inset 0 0 0 1.5px var(--alm-line-strong)}
+
+/* Scenario sheet: a bottom sheet on phones, a card on tablets */
+.sheetBackdrop{position:fixed;inset:0;z-index:60;background:#2b241a99;display:flex;align-items:center;justify-content:center;padding:16px;animation:almFade var(--alm-fast) var(--alm-ease) both}
+.scenarioSheet{position:relative;width:min(520px,100%);max-height:calc(100dvh - 32px);overflow:auto;padding:24px 22px 20px;background:var(--alm-surface);border:1px solid var(--alm-line);border-radius:20px;box-shadow:var(--alm-shadow);animation:almRise 240ms var(--alm-ease) both}
+.scenarioSheet h2{font:400 30px/1.1 var(--alm-title);letter-spacing:.02em;margin:6px 0 6px}
+.scenSheetBlurb{font:italic 16px var(--alm-text);color:var(--alm-soft);margin:0 0 16px;display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.goalList{list-style:none;margin:0 0 16px;padding:0;display:flex;flex-direction:column;gap:8px}
+.goalList li{display:flex;align-items:center;gap:10px;font:400 15px var(--alm-text);padding:10px 12px;background:var(--alm-paper);border-radius:12px}
+.goalList .stars{min-width:44px}
+.rewardRow{display:flex;align-items:center;gap:12px;padding:12px;border:1px dashed var(--alm-line-strong);border-radius:14px;margin:0 0 16px}
+.rewardRow span{display:flex;flex-direction:column}
+.rewardRow small{font:700 11px var(--alm-text);letter-spacing:.14em;color:var(--alm-red)}
+.rewardRow b{font:400 17px var(--alm-title)}
+.rewardRow em{font-size:13px;color:var(--alm-soft);font-style:normal}
+.scenarioSheet .primary.wide{width:100%;min-height:50px;font-size:16px;display:flex;align-items:center;justify-content:center;gap:8px;margin-top:8px}
+
+/* Trinket picker (founding panel and scenario sheet) */
+.trinketBlock{margin-bottom:10px}
+.trinketRow{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:8px;margin-top:6px}
+.trinketChip{display:flex;align-items:center;gap:10px;text-align:left;padding:8px 10px!important;min-height:56px;background:var(--alm-paper)!important;border:1px solid var(--alm-line)!important;border-radius:14px!important;color:var(--alm-ink)!important}
+.trinketChip span{display:flex;flex-direction:column;min-width:0}
+.trinketChip b{font:700 14px var(--alm-text)}
+.trinketChip small{font-size:12px;color:var(--alm-soft)}
+.trinketChip.selected{background:var(--alm-ink)!important;color:var(--alm-surface)!important;border-color:var(--alm-ink)!important}
+.trinketChip.selected small{color:#e9dcbd}
+.trinketEmpty{margin:4px 0 0}
+
+/* World Cities */
+.segmented{display:flex;gap:4px;padding:4px;background:var(--alm-paper-deep);border-radius:14px;overflow-x:auto;scrollbar-width:none;margin:0 0 10px}
+.segmented::-webkit-scrollbar{display:none}
+.segmented button{flex:1 0 auto;display:flex;flex-direction:column;align-items:center;min-height:48px;padding:6px 12px!important;background:transparent!important;border:0!important;border-radius:11px!important;color:var(--alm-soft)!important;transition:background var(--alm-fast)}
+.segmented button b{font:700 14px var(--alm-text)}.segmented button small{font-size:11px}
+.segmented button.sel{background:var(--alm-surface)!important;color:var(--alm-ink)!important;box-shadow:var(--alm-shadow-soft)}
+.catChips{display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;margin:0 0 14px;padding-bottom:2px}
+.catChips::-webkit-scrollbar{display:none}
+.catChips button{flex:none;display:inline-flex;align-items:center;gap:6px;min-height:40px;padding:0 14px!important;border-radius:20px!important;background:var(--alm-surface)!important;border:1px solid var(--alm-line)!important;color:var(--alm-ink)!important;font:600 14px var(--alm-text)}
+.catChips button.sel{background:var(--alm-ink)!important;color:var(--alm-surface)!important;border-color:var(--alm-ink)!important}
+.rankCaption{display:flex;align-items:center;justify-content:space-between;font:700 12px var(--alm-text);letter-spacing:.12em;text-transform:uppercase;color:var(--alm-soft);margin:0 2px 8px}
+.rankList{list-style:none;margin:0;padding:0;background:var(--alm-surface);border:1px solid var(--alm-line);border-radius:16px;overflow:hidden;box-shadow:var(--alm-shadow-soft)}
+.rankList.below{margin-top:8px}
+.rankRow{border-bottom:1px solid var(--alm-line);animation:almFade 200ms var(--alm-ease) both}
+.rankRow:last-child{border-bottom:0}
+.rankRow>button{width:100%;display:flex;align-items:center;gap:12px;min-height:52px;padding:8px 14px!important;background:transparent!important;border:0!important;border-radius:0!important;color:var(--alm-ink)!important;text-align:left;cursor:default}
+.rankRow.mine>button{cursor:pointer}
+.rankNo{flex:none;width:30px;text-align:right;font:400 18px var(--alm-title);color:var(--alm-soft)}
+.rankRow.podium .rankNo{color:var(--alm-red)}
+.rankName{flex:1;display:flex;flex-direction:column;min-width:0}
+.rankName b{font:600 16px var(--alm-text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rankName small{font-size:12px;color:var(--alm-red)}
+.rankValue{font:400 17px var(--alm-title);font-variant-numeric:tabular-nums}
+.rankRow.mine{background:#8a2f1f12;box-shadow:inset 4px 0 0 var(--alm-red)}
+.rankRow.mine .rankName b{color:var(--alm-red)}
+.rankDetail{display:flex;flex-wrap:wrap;gap:6px 14px;padding:0 14px 12px 56px;font-size:13px;color:var(--alm-soft)}
+.rankDetail span{display:inline-flex;align-items:center;gap:4px}
+.rankDetail b{color:var(--alm-ink)}
+.rankTrinkets{gap:3px!important}
+.rankGap{text-align:center;color:var(--alm-soft);padding:2px 0;border-bottom:1px solid var(--alm-line)}
+.worldEmpty{text-align:center;margin:16px 0}
+
+/* In-game scenario pill */
+.scenarioPill{position:absolute;top:58px;left:50%;transform:translateX(-50%);z-index:6;display:flex;align-items:center;gap:8px;padding:6px 8px 6px 12px;background:var(--alm-surface);border:1px solid var(--alm-line);border-radius:20px;box-shadow:var(--alm-shadow-soft);font:600 13px var(--alm-text);color:var(--alm-ink);white-space:nowrap}
+.scenarioPill>i{position:relative;width:60px;height:5px;border-radius:3px;background:var(--alm-paper-deep);overflow:hidden}
+.scenarioPill>i::after{content:'';position:absolute;inset:0 auto 0 0;width:var(--p);background:var(--alm-red);border-radius:3px;transition:width .4s var(--alm-ease)}
+.pillYear{color:var(--alm-soft);font-weight:400}
+
+/* Run summary additions */
+.summaryScenario{display:flex;align-items:center;gap:12px;padding:12px;border-radius:14px;background:var(--alm-paper);margin:0 0 12px}
+.summaryScenario .stars svg{width:22px;height:22px}
+.placings{list-style:none;padding:0;margin:0 0 10px;display:flex;flex-wrap:wrap;gap:6px}
+.placings li{display:inline-flex;align-items:center;gap:6px;padding:6px 10px;border-radius:16px;background:var(--alm-paper);font-size:13px}
+.placings b{font:400 15px var(--alm-title);color:var(--alm-red)}
+
+@media(max-width:620px){
+  .hubTiles{grid-template-columns:1fr}
+  .scenarioGrid{grid-template-columns:1fr}
+  .scenarioCard{min-height:0}
+  .sheetBackdrop{align-items:flex-end;padding:0}
+  .scenarioSheet{width:100%;border-radius:22px 22px 0 0;max-height:92dvh;padding-bottom:calc(20px + env(safe-area-inset-bottom));animation-name:sheetUp}
+  .scenarioPill{top:54px;font-size:12px}.scenarioPill>i{width:40px}
+  .rankDetail{padding-left:14px}
+}
+@keyframes sheetUp{from{transform:translateY(40px);opacity:0}to{transform:none;opacity:1}}
+/* Fixes: hub tiles first on phones, left-aligned chips, historic rows at full ink */
+@media(max-width:760px){.home>.hubTiles{order:0;margin:0 0 14px}}
+.trinketChip{justify-content:flex-start!important;width:100%}
+.rankRow>button:disabled{opacity:1!important;cursor:default}

@@ -1,3 +1,5 @@
+> **Estado (v2.6):** implementados los 8 escenarios con nombres ficticios, trinkets y World Cities. Ver CHANGELOG. Decisiones: nombres ficticios con la inspiración real en la historia; los escenarios usan tus trinkets.
+
 # Escenarios — propuesta
 
 Un **escenario** es una partida corta y escrita a mano (10–15 minutos): empieza en un año y un lugar concretos, con una ciudad ya en marcha, un objetivo claro y reglas propias. Complementa la partida libre (1300–2030, ~18 min): la libre es el roguelite de construir un mazo; los escenarios son "misiones" con historia, que enseñan sistemas y dan recompensas para el Legacy.

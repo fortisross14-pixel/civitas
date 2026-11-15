@@ -8,6 +8,8 @@ import {scoreYear,penalize,normalizeScore,emptyScore,DECLINE_YEARS_LOST,UNANSWER
 import {CARD_EVENT_EVERY,CARD_INDEX,TURNING_POINTS,turningYears,turningSchedule,turningCount,eraEffects,turningMode,generateOffers,modifiers,activeSynergies,resolvedCards,currentTurningIndex} from './turningPoints.js';
 import {W,H,CELLS,DIRS4,clamp,within,key,kx,ky,rand,hash,terrain,waterGrid,footprint,POP_SCALE} from './geo.js';
 const K=POP_SCALE;
+import {scenarioYear,SCENARIO_INDEX} from './scenarios.js';
+import {trinketEffects,trinketDemand,DEMAND_KEYS} from './trinkets.js';
 import {wallCells,buildGrids,markRoad,markBuilding,pickParcel,growRoads,patternFor,layMainRoads,addRoute,routeBetween,fitWall,ringCells,findBridge,roadClass,homeLand,wallPolygon,insideWall,wallSegments,wallLength} from './growth.js';
 export {wallPolygon,insideWall,wallSegments};
 export {homeLand};
@@ -157,9 +159,9 @@ export function stats(city){
   const artisticPower=(1+Math.max(-.7,m.arts||0))*(1+(m.artsMultiplier||0));
   const faithPower=(1+Math.max(-.7,m.faith||0))*(1+(m.faithMultiplier||0));
   const educationPower=1+Math.max(-.7,m.education||0)+(m.faithEducation||0)*sacredCount;
-  const culturalPrestige=Math.round(clamp(((heritage*0.18*(1+(m.heritage||0)))+artistCount*12+monumentCount*9+Math.min(45,civic*.5))*artisticPower+(Number(city.culturalCapital)||0)*.45+momentum.culture*.45,0,10000));
-  const religiousInfluence=Math.round(clamp((10+sacredCount*25+civic*.33)*faithPower+(Number(city.sacredCapital)||0)*.40+momentum.faith*.36,0,10000));
-  const educationIndex=Math.round(clamp((10+universityCount*30+civic*.45)*educationPower+(Number(city.knowledgeCapital)||0)*.32+momentum.technology*.50,0,10000));
+  const culturalPrestige=Math.round(clamp((((heritage*0.18*(1+(m.heritage||0)))+artistCount*12+monumentCount*9+Math.min(45,civic*.5))*artisticPower+(Number(city.culturalCapital)||0)*.45+momentum.culture*.45)*trinketDemand(city,'cultureIndex'),0,10000));
+  const religiousInfluence=Math.round(clamp(((10+sacredCount*25+civic*.33)*faithPower+(Number(city.sacredCapital)||0)*.40+momentum.faith*.36)*trinketDemand(city,'faithIndex'),0,10000));
+  const educationIndex=Math.round(clamp(((10+universityCount*30+civic*.45)*educationPower+(Number(city.knowledgeCapital)||0)*.32+momentum.technology*.50)*trinketDemand(city,'learningIndex'),0,10000));
   const yearTourismFactor=city.year<1750?.08:city.year<1850?.18:city.year<1950?.55:1;
   // Where things are: pollution near homes, service coverage, prestige, trade access.
   const sp=spatial(city,m,activePolicies(city)),place=spatialEffects(sp,city.year);
@@ -286,6 +288,8 @@ export function cityEffects(city){
   for(const [k,v] of Object.entries(townCenterLevel(city)?.effects||{}))add(k,v);
   // v1.8 doctrine tiers.
   for(const [k,v] of Object.entries(doctrineState(city).effects))add(k,v);
+  // v2.6 trinkets carried into the run (demand keys are read by monthGrowth).
+  for(const [k,v] of Object.entries(trinketEffects(city)))if(!DEMAND_KEYS.includes(k))add(k,v);
   return effects;
 }
 function rememberLoss(city,b,year,reason){
@@ -455,8 +459,8 @@ function monthGrowth(city,year,r,perks){
     const needsHousing=s.population/Math.max(1,s.capacity)>=.83,needsJobs=s.jobs<workforceDemand*1.1;
     const weights=[
       ['res',needsHousing?5*taxDemand(city,'res')*pull.res:0],
-      ['trade',needsJobs?2.1*taxDemand(city,'trade')*(1+cycle*2)*(1+.5*(city.character?.shares?.trade||0))*pull.trade:zonedFloor(s,'trade',city)],
-      ['craft',(doctrineFlags(city).craftBoost||1)*(needsJobs?1.75*Math.max(.2,1+(perks.industrialDevelopment||0))*taxDemand(city,'craft')*(1+cycle*2)*(1+.5*(city.character?.shares?.industry||0)):zonedFloor(s,'craft',city))],
+      ['trade',trinketDemand(city,'tradeDemand')*(needsJobs?2.1*taxDemand(city,'trade')*(1+cycle*2)*(1+.5*(city.character?.shares?.trade||0))*pull.trade:zonedFloor(s,'trade',city))],
+      ['craft',trinketDemand(city,'craftDemand')*(doctrineFlags(city).craftBoost||1)*(needsJobs?1.75*Math.max(.2,1+(perks.industrialDevelopment||0))*taxDemand(city,'craft')*(1+cycle*2)*(1+.5*(city.character?.shares?.industry||0)):zonedFloor(s,'craft',city))],
       ['farm',s.farms<Math.max(2,Math.floor(s.population/(900*K)))?1:0],
       // Civic buildings follow population, and parishes spring up where homes lack services.
       ['civic',s.civic<Math.max(1,Math.floor(s.population/(1800*K)))?.9:s.serviceCoverage<60?.5+(60-s.serviceCoverage)/60:0],
@@ -606,7 +610,7 @@ function yearTick(city,prevYear){
     }
   }
   const after=stats(city);
-  city.history.push({year,scoreTotal:Math.round(city.score?.total||0),population:after.population,buildings:after.buildings,prosperity:after.prosperity,gdp:after.gdp,gdpPerCapita:after.gdpPerCapita,housingPressure:after.housingPressure,infrastructureEfficiency:after.infrastructureEfficiency,unemployment:after.unemployment,treasury:Math.round(city.funds),densityPerZone:after.densityPerZone,heritage:after.heritage,development:{...city.development},...Object.fromEntries(Object.entries(city.development).map(([k,v])=>[`${k}Score`,v])),productivityStock:city.productivityStock,culturalCapital:city.culturalCapital,sacredCapital:city.sacredCapital,knowledgeCapital:city.knowledgeCapital,culturalPrestige:after.culturalPrestige,tourismAppeal:after.tourismAppeal,religiousInfluence:after.religiousInfluence,educationIndex:after.educationIndex,pollution:after.pollution,turningPoints:currentTurningIndex(city)});
+  city.history.push({year,scoreTotal:Math.round(city.score?.total||0),population:after.population,industryJobs:after.sectorJobs?.craft||0,buildings:after.buildings,prosperity:after.prosperity,gdp:after.gdp,gdpPerCapita:after.gdpPerCapita,housingPressure:after.housingPressure,infrastructureEfficiency:after.infrastructureEfficiency,unemployment:after.unemployment,treasury:Math.round(city.funds),densityPerZone:after.densityPerZone,heritage:after.heritage,development:{...city.development},...Object.fromEntries(Object.entries(city.development).map(([k,v])=>[`${k}Score`,v])),productivityStock:city.productivityStock,culturalCapital:city.culturalCapital,sacredCapital:city.sacredCapital,knowledgeCapital:city.knowledgeCapital,culturalPrestige:after.culturalPrestige,tourismAppeal:after.tourismAppeal,religiousInfluence:after.religiousInfluence,educationIndex:after.educationIndex,pollution:after.pollution,turningPoints:currentTurningIndex(city)});
   if(year%HISTORICAL_INTERVAL===0||year===END_YEAR)city.snapshots.push(captureSnapshot(city));
 }
 // A Turning Point awards a commission, NEVER instant construction. This is also
@@ -853,6 +857,7 @@ function openTurningPoint(city){
 }
 function finishCity(city){
   city.finished=true;
+  if(city.scenario){city.events.push({year:city.year,type:'scenario',text:`The scenario ends with ${city.scenario.stars} star${city.scenario.stars===1?'':'s'}.`});return;}
   if(!city.events.some(e=>e.year===END_YEAR&&e.text.includes('Chronicle closes')))city.events.push({year:END_YEAR,text:'The Chronicle closes. Your city is preserved in the Urban Atlas.'});
 }
 // Advance month by month. Stops early at a Turning Point or the end of 2029.
@@ -863,6 +868,8 @@ function runMonths(city,months){
     const prevYear=next.year,month=next.month+1;
     if(month>=12){
       next.month=0;next.year=prevYear+1;yearTick(next,prevYear);
+      // v2.6 scenarios: scripted history, goals and stars; the run ends at the scenario's last year.
+      if(next.scenario&&!next.scenario.done){scenarioYear(next,prevYear,()=>stats(next),rand(hash(next.seed,prevYear,7717)));if(next.scenario.done){finishCity(next);break;}}
       if(next.year>=END_YEAR){finishCity(next);break;}
       if(next.ruined){next.finished=true;break;}
       const milestone=nextMilestoneOf(next);
@@ -988,7 +995,7 @@ export function publicWorkCost(city,kind,span=0){
 // them into a canal or a linear park first.
 export const WALL_TEARDOWN_FROM=1820;
 function outgrowWalls(city,year){
-  if(year<WALL_TEARDOWN_FROM)return;
+  if(year<WALL_TEARDOWN_FROM||SCENARIO_INDEX[city.scenario?.id]?.rules?.keepWalls)return;
   const wall=innermostWall(city);if(!wall||year-(wall.built||0)<60)return;
   const urban=city.buildings.filter(b=>b.type!=='farm'),outside=urban.filter(b=>!insideWall(wall,b.x+.5,b.y+.5)).length;
   if(urban.length<60||outside/urban.length<.55)return;

@@ -1,5 +1,18 @@
 # CIVITAS changelog
 
+## v2.6 — Scenarios, Trinkets and World Cities
+
+**Home.** Two new doors above the founding panel: *Scenarios* (stars earned) and *World Cities* (your best placing).
+
+**Scenarios** (`src/scenarios.js`). Eight short runs, each with a fictional name and a real inspiration in its story (behind the (i)): The Ford at Aldmere (1300–1420, market towns), The Black Year of Vellmar (1340–1420, the Black Death of 1348), Santa Croce of the Way (1350–1550, Santiago and Toledo), The Golden Age of Velhaven (1580–1700, Amsterdam after 1585), From Abbey to Mill (1760–1880, Manchester), The Wide Grid of Marvell (1850–1950, Barcelona's Eixample; the walls stay until you replace them), The Ashes of Hartwald (1945–2000, Rotterdam and Warsaw) and The Docks of Brennport (1990–2030, Bilbao). Each card shows only years, name, one line, stars and reward. Tap it for the three goals (★ objective, ★★ second goal, ★★★ the objective by an earlier year), the reward and the trinkets to take. They open in order. Later scenarios start from a city grown in advance by a scripted player (`scripts/build-scenarios.mjs` → `public/scenarios/`, loaded on demand). Scripted history: the plague, refugees, war damage. In game, a pill shows the objective and its progress; the run ends on the scenario's last year. Scenario cities do not pay achievement milestones or raise Hardship.
+
+**Trinkets** (`src/trinkets.js`). The first star of a scenario wins its trinket, a strong relic for every later run (scenario or Chronicle), two slots. Market Cross (trade), Plague Bell (families), Pilgrim's Shell (faith ×2.4), Golden Lock (culture ×2.2), Surveyor's Square (homes and pace), Steam Governor and Phoenix Furnace (industry), Silicon Wafer (learning ×2.2). Measured with bots: one Steam Governor lifts 1849 population from about 250k to 380k; the industrial pair reaches about 690k and 290k industrial jobs, second only to London in 1850.
+
+**World Cities** (`src/worldRankings.js`). A Top 20 for each Age (c. 1500, 1700, 1850, 1950, 2025) and category (Population, Industry, Wealth, Faith, Culture, Learning) across Europe and the Mediterranean. Population uses approximate real figures; Industry is estimated from each city's character; the others are game indexes calibrated so a strong run without trinkets lands just outside the table. Every finished run enters the table for each Age it lived through. Your cities are highlighted with the year reached and the date played; tap one for all its figures. The run summary lists new placings, stars and any trinket won.
+
+**Engine**: yearly history now records industrial jobs. **Tests**: new `tests/worldRankings.test.js`, `tests/scenarios.test.js`; `scripts/play-scenarios.mjs` plays every scenario with bots.
+
+
 ## v2.5 — Five Ages
 
 One table (`src/ages.js`) now drives what changes over time: **Medieval** (1300–1499), **Renaissance** (1500–1699), **Enlightenment** (1700–1849), **Modern** (1850–1949) and **Contemporary** (1950–2030).
