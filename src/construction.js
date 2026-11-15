@@ -13,9 +13,9 @@ export const BASIC_BUILDINGS=[
  {id:'station',name:'Rail Station',era:'Modern',start:1850,end:1949,cost:820,kind:'station',domain:'trade',description:'Transport accessibility +25%.'},
  {id:'hospital',name:'Public Hospital',era:'Modern',start:1850,end:1949,cost:950,kind:'hospital',domain:'education',description:'Public-service effectiveness +35%.'},
  {id:'powerworks',name:'Power Works',era:'Modern',start:1850,end:1949,cost:910,kind:'powerworks',domain:'trade',description:'Industry and transport gain reliable power.'},
- {id:'library',name:'Civic Library',era:'Contemporary',start:1950,end:2030,cost:1050,kind:'library',domain:'education',description:'Education +25%; preserves public knowledge.'},
- {id:'civic_center',name:'Civic Center',era:'Contemporary',start:1950,end:2030,cost:1200,kind:'civic_center',domain:'education',description:'Service efficiency and administrative capacity.'},
- {id:'museum',name:'City Museum',era:'Contemporary',start:1950,end:2030,cost:1180,kind:'museum',domain:'culture',description:'Heritage and cultural prestige become a civic asset.'},
+ {id:'library',name:'Civic Library',era:'Contemporary',start:1950,end:1999,cost:1050,kind:'library',domain:'education',description:'Education +25%; preserves public knowledge.'},
+ {id:'civic_center',name:'Civic Center',era:'Contemporary',start:1950,end:1999,cost:1200,kind:'civic_center',domain:'education',description:'Service efficiency and administrative capacity.'},
+ {id:'museum',name:'City Museum',era:'Contemporary',start:1950,end:1999,cost:1180,kind:'museum',domain:'culture',description:'Heritage and cultural prestige become a civic asset.'},
  {id:'research_center',name:'Research Center',era:'Contemporary',start:2000,end:2030,cost:1750,kind:'research_center',domain:'education',description:'Education and innovation improve.'},
  {id:'transit_hub',name:'Transit Hub',era:'Contemporary',start:2000,end:2030,cost:1900,kind:'transit_hub',domain:'trade',description:'Transport and commerce improve.'},
  {id:'metropolis_charter',name:'Metropolis Charter',era:'Contemporary',start:2000,end:2030,cost:2800,kind:'metropolis_charter',domain:'education',requiresMegacity:true,requiresPopulation:144000,description:'A Legacy Market unlock. With a thriving population, it scales a world city into a megacity.'}

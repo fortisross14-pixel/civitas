@@ -11,15 +11,15 @@ function buildAnywhere(city,id){let last='';for(let y=2;y<H-2;y++)for(let x=2;x<
 
 test('three ordinary civic buildings per era; extraordinary buildings remain distinct',()=>{
  assert.equal(BASIC_BUILDINGS.length,18);
- // v1.6: Market Square (from 1300) and Public Gardens (from 1750) stay on sale,
+ // v1.6: Market Square (from 1300) and Public Gardens (from 1700, v2.5 Ages) stay on sale,
  // because districts can need a market or clean air in any later era.
  const timeless=new Set(['market','garden']);
- for(const year of [1300,1500,1750,1850,1950,2000]){
+ for(const year of [1300,1500,1700,1850,1950,2000]){
   const basics=basicsForYear(year),own=basics.filter(b=>b.start<=year&&b.end<2030||b.start>=1850||(!timeless.has(b.id)&&b.end===2030));
-  assert.equal(basics.filter(b=>!timeless.has(b.id)||b.era===({1300:'Medieval',1750:'Enlightenment'}[year])).length,3,`year ${year}`);
+  assert.equal(basics.filter(b=>!timeless.has(b.id)||b.era===({1300:'Medieval',1700:'Enlightenment'}[year])).length,3,`year ${year}`);
   assert.ok(basics.every(b=>b.start<=year&&b.end>=year));
   assert.ok(basics.some(b=>b.id==='market'),`a market is always available (${year})`);
-  assert.equal(basics.some(b=>b.id==='garden'),year>=1750);
+  assert.equal(basics.some(b=>b.id==='garden'),year>=1700);
   assert.ok(own.length>=0);
  }
  assert.ok(!BASIC_BUILDINGS.some(b=>['university','port','monument','monastery'].includes(b.kind)));
