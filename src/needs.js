@@ -16,7 +16,7 @@ import {doctrineFlags} from './doctrines.js';
 export const NEED_YEARS=30,RECOVER_YEARS=10,MIN_HOMES=8,DECLINE_SHARE=.15,DECLINE_YEARS=20,RESET_AFTER_DECLINE=0;
 
 // Which basic buildings answer each need, by era (only ones on sale that year count).
-const SERVICE_ANSWERS=year=>year<1500?['chapel']:year<1750?['school','town_hall']:year<1850?['clinic','waterworks']:year<1950?['hospital']:year<2000?['library','civic_center']:['research_center'];
+const SERVICE_ANSWERS=year=>year<1500?['chapel']:year<1700?['school','town_hall']:year<1850?['clinic','waterworks']:year<1950?['hospital']:year<2000?['library','civic_center']:['research_center'];
 export const NEEDS={
   services:{label:'Public services',icon:'✚',short:'services',
     why:'Most homes here are beyond the reach of a church, school or clinic.',
@@ -24,7 +24,7 @@ export const NEEDS={
     unserved:(f,k)=>f.service[k]<.35,share:.5},
   market:{label:'A market',icon:'⚖',short:'market',
     why:'Most homes here are far from a market or a main street.',
-    answers:year=>['market',...(year>=1500&&year<1750?['guildhall']:[]),...(year>=1850&&year<1950?['station']:[]),...(year>=2000?['transit_hub']:[])],
+    answers:year=>['market',...(year>=1500&&year<1700?['guildhall']:[]),...(year>=1850&&year<1950?['station']:[]),...(year>=2000?['transit_hub']:[])],
     // The Town Center's Market Cross counts as a market for the homes around it.
     unserved:(f,k,city,extra)=>f.trade[k]<.3&&!nearCenter(city,k,5+(city.center?.level||1))&&!(extra&&extra.has(k)),share:.6},
   air:{label:'Clean air',icon:'❦',short:'air',from:1750,

@@ -6,6 +6,7 @@
 // boats, district names and event captions in an old surveyor's italic.
 import {W,H,ZONES,terrain,zoneCell,styleAt,cityOrigin,homeLand,cityFields,districtDetails,wallPolygon,wallSegments} from './sim.js';
 import {hash,rand,valueNoise,waterGrid,clamp} from './geo.js';
+import {ageAt} from './ages.js';
 
 export const DISTRICT_COLORS=['#b5835a','#6f8f9c','#9b8a4e','#8a6f9b','#6f9a7a','#a8706c','#7d8bb0','#a59267','#5f8c8c','#9c7a8a','#87955f','#b08a7a'];
 const PAPER='#e9e0c6',LAND='#d9d3ad',FIELD_LINE='rgba(150,146,104,.45)',HEDGE='rgba(120,128,88,.55)';
@@ -734,7 +735,7 @@ function townCenter(ctx,c,layer,alpha=1,pos=null){
 }
 function distToSeg(px,py,a,b){const vx=b[0]-a[0],vy=b[1]-a[1],t=Math.max(0,Math.min(1,((px-a[0])*vx+(py-a[1])*vy)/(vx*vx+vy*vy||1)));return Math.hypot(a[0]+vx*t-px,a[1]+vy*t-py);}
 export function wrap(ctx,text,max){const words=String(text).split(/\s+/),lines=[];let line='';for(const w of words){const t=line?`${line} ${w}`:w;if(ctx.measureText(t).width>max&&line){lines.push(line);line=w;}else line=t;}if(line)lines.push(line);return lines;}
-const ERA=y=>y<1500?'Medieval':y<1750?'Early modern':y<1850?'Enlightenment':y<1950?'Industrial':y<2000?'Metropolitan':'Contemporary';
+const ERA=y=>ageAt(y).name;
 // Title, year, era and population in the top-left; compass and scale below.
 function drawCartouche(ctx,city,width,height,opts){
   const small=width<520,glow=(fn)=>{ctx.save();ctx.shadowColor='rgba(248,242,226,.95)';ctx.shadowBlur=10;fn();ctx.restore();};

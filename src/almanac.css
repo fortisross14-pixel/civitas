@@ -111,3 +111,13 @@
 .app .info .infoButton:not(.on){background:var(--alm-surface)!important;color:var(--alm-ink)!important}
 .app.inGame .cityheading span{overflow:visible!important;max-width:none!important;text-overflow:clip!important}
 .app .info .infoButton.on{background:var(--alm-ink)!important;color:var(--alm-surface)!important}
+
+/* v2.5 Age welcome */
+.ageWelcome{position:relative;width:min(520px,100%);padding:26px 26px 22px;background:var(--alm-surface);border:1px solid var(--alm-line);border-radius:18px;box-shadow:var(--alm-shadow);animation:almRise 260ms var(--alm-ease) both}
+.ageWelcome h2{font:400 32px var(--alm-title);letter-spacing:.02em;margin:6px 0 4px;line-height:1.1}
+.ageTagline{font:italic 16px var(--alm-text);color:var(--alm-soft);margin:0 0 16px}
+.ageChanges{list-style:none;padding:0;margin:0 0 18px;display:flex;flex-direction:column;gap:10px}
+.ageChanges li{display:flex;gap:10px;align-items:flex-start;font:400 14px/1.45 var(--alm-text);color:var(--alm-ink)}
+.ageChanges li>svg{flex:none;margin-top:2px;color:var(--alm-red)}
+.ageChanges b{display:block;font-weight:700;font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--alm-soft)}
+@media(max-width:560px){.ageWelcome h2{font-size:25px}}

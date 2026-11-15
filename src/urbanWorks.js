@@ -10,6 +10,7 @@ import {buildGrids} from './growth.js';
 // kind → plan settings. name: the quarter's name once it has houses.
 export const URBAN_WORKS={
   high_street:{label:'High Street',w:14,zone:'trade',name:null},
+  piazza:{label:'Piazza',w:9,zone:'trade',name:null},
   planned_extension:{label:'New Town',w:13,h:9,step:4,zone:'res',name:'New Town'},
   garden_square:{label:'Garden Square',w:9,h:9,zone:'res',name:'The Square'},
   industrial_quarter:{label:'Industrial Quarter',w:15,h:11,step:5,spine:true,zone:'craft',name:'The Works'},
@@ -50,6 +51,12 @@ export function planUrbanWork(city,kind,x,y,ctx){
     add(line,'main');const xs=line.map(c=>c.x),ys=line.map(c=>c.y);
     zone={x:Math.min(...xs)-(horizontal?0:1),y:Math.min(...ys)-(horizontal?1:0),w:horizontal?line.length:3,h:horizontal?3:line.length,type:spec.zone};
     summary=`a high street of ${line.length} parcels`;
+  }else if(kind==='piazza'){
+    // A paved square (a market place) with four straight main streets out of it.
+    const arm=Math.floor(spec.w/2)+2,arms=[];
+    for(const [dx,dy] of DIRS4)for(let i=2;i<=arm;i++){const cx=x+dx*i,cy=y+dy*i;if(!usable(g,cx,cy))break;arms.push(cell(cx,cy));}
+    if(arms.length<8)return {error:'A piazza needs open land around it'};
+    add(arms,'main');garden={x:x-1,y:y-1,kind:'market'};zone={x:x-arm,y:y-arm,w:arm*2+1,h:arm*2+1,type:'trade'};summary='a piazza with four straight streets';
   }else if(kind==='planned_extension'||kind==='industrial_quarter'){
     const r=rectAt(x,y,spec.w,spec.h),cells=lattice(r,spec.step);
     if(waterShare(g,cells)>.25)return {error:'Too much water here for a planned quarter'};

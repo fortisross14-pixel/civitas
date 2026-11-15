@@ -16,6 +16,7 @@ import {POLICIES,POLICY_INDEX,activePolicies,policyIssue,policyEffects,policyHoo
 import {updateDistricts,districtDetails} from './districts.js';
 import {characterOf} from './character.js';
 import {perk,perkMult,hardshipOf} from './perks.js';
+import {AGES,ageStyle} from './ages.js';
 import {planUrbanWork,URBAN_WORKS} from './urbanWorks.js';
 import {cardDoctrines,tierOf,DOCTRINE_IDS,doctrineState,doctrineFlags,scoreBonus,cardType,decreesInPlay,decreeSlots,cardLevel,MAX_LEVEL,doctrinesOn,wondersDue} from './doctrines.js';
 import {deckOf,normalizeDeck,restockShop,shopDue,playedCopies,MAX_COPIES,YEARS_PER_INTERVAL} from './cards.js';
@@ -37,10 +38,11 @@ export const ZONES={
   civic:{label:'Civic',color:'#ad8174'},
   hotel:{label:'Tourism',color:'#ae86a5'}
 };
-export const eras=[{y:1300,n:'Medieval'},{y:1500,n:'Early modern'},{y:1750,n:'Enlightenment'},{y:1850,n:'Industrial'},{y:1950,n:'Metropolitan'},{y:2000,n:'Contemporary'}];
+// v2.5: the five Ages (src/ages.js) replace the old era list.
+export const eras=AGES.map(a=>({y:a.from,n:a.name}));
 export const eraAt=y=>eras.reduce((v,e)=>y>=e.y?e:v,eras[0]);
 export const STYLE_NAMES={timber:'Medieval timber',stone:'Early-modern stone',classical:'Classical masonry',brick:'Industrial brick',modernist:'Metropolitan concrete',contemporary:'Contemporary'};
-export function styleAt(year){return year<1500?'timber':year<1750?'stone':year<1850?'classical':year<1950?'brick':year<2000?'modernist':'contemporary';}
+export function styleAt(year){return ageStyle(year);}
 export const HISTORICAL_INTERVAL=50;
 const ZONE_CODES=Object.keys(ZONES);
 
@@ -549,7 +551,8 @@ function settleVacancy(city,year,s){
 // survey is recorded and local crises, redevelopment and commissions occur.
 function yearTick(city,prevYear){
   const year=city.year;
-  for(const era of eras)if(era.y>prevYear&&era.y<=year)city.events.push({year:era.y,text:`The ${era.n.toLowerCase()} era begins. New districts reflect changing planning traditions.`});
+  // v2.5: a new Age. The UI greets it (city.ageWelcome); buildings, cards and streets change with it.
+  for(const a of AGES)if(a.from>prevYear&&a.from<=year&&a.from>FIRST_YEAR){city.events.push({year:a.from,type:'age',age:a.id,text:`Welcome to ${a.title}. ${a.tagline}`});city.ageWelcome={id:a.id,year:a.from};}
   let s=stats(city);
   const enriched=accumulateDevelopment(city,1,s.unemployment);
   city.productivityStock=enriched.productivityStock;
@@ -759,7 +762,7 @@ export function playUrbanCard(city,uid,x,y){
   next.roads=[...next.roads.filter(rd=>!plan.streets.some(s=>s.x===rd.x&&s.y===rd.y)),...plan.streets.map(s=>({x:s.x,y:s.y,born:city.year,pattern:patternFor(city.year),cls:s.cls,work:card.urban}))];
   if(cleared.size)next.buildings=next.buildings.filter(b=>!cleared.has(b.id));
   if(plan.zone){const z=plan.zone,rect={x:Math.max(0,z.x),y:Math.max(0,z.y),w:Math.min(W-Math.max(0,z.x),z.w),h:Math.min(H-Math.max(0,z.y),z.h)};next.zones=[...next.zones.filter(q=>!insideRect(q,rect)),{...rect,type:z.type,year:city.year,pattern:patternFor(city.year)}];}
-  if(plan.garden){const placed=constructAt(next,'garden',plan.garden.x,plan.garden.y,'urban',URBAN_WORKS[card.urban].label,2);if(!placed)constructAt(next,'garden',plan.garden.x+1,plan.garden.y+1,'urban',URBAN_WORKS[card.urban].label,1);}
+  if(plan.garden)constructAt(next,plan.garden.kind||'garden',plan.garden.x,plan.garden.y,'urban',URBAN_WORKS[card.urban].label,2);
   if(plan.name)next.quarterNames=[...(next.quarterNames||[]),{x,y,name:plan.name,year:city.year}];
   next.events=[...next.events,{year:city.year,type:'works',x,y,text:`${card.name}: ${plan.summary}.`}];
   return {city:next,error:null,plan};

@@ -117,9 +117,9 @@ import {placeConstruction} from '../src/sim.js';
 import {shopEligible} from '../src/cards.js';
 import {buildNear} from './helpers/strategies.js';
 
-test('the doctrine pool has 105 cards: the 54 classic ones, 18 building cards, 26 new, 7 urban works; classic games keep 54',()=>{
-  assert.equal(ERA_CARDS.length,105);assert.equal(DOCTRINE_ONLY_CARDS.length,51);assert.equal(HYBRID_CARDS.length,7);
-  assert.equal(new Set(ERA_CARDS.map(c=>c.id)).size,105,'ids are unique');
+test('the doctrine pool has 106 cards: the 54 classic ones, 18 building cards, 26 new, 8 urban works; classic games keep 54',()=>{
+  assert.equal(ERA_CARDS.length,106);assert.equal(DOCTRINE_ONLY_CARDS.length,52);assert.equal(HYBRID_CARDS.length,7);
+  assert.equal(new Set(ERA_CARDS.map(c=>c.id)).size,106,'ids are unique');
   for(const c of HYBRID_CARDS)assert.equal(cardDoctrines(c).length,2,`${c.id} counts for two doctrines`);
   const classic=seedTown(makeCity('Classic','river',7));
   assert.ok(DOCTRINE_ONLY_CARDS.every(c=>!shopEligible(c,classic)),'never sold in classic cities');

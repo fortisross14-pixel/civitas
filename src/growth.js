@@ -4,11 +4,12 @@
 // within the city's reach. Buildings need street access; zoned plots are
 // preferred, while modest informal growth fills unzoned land beside streets.
 // Pure functions over plain data. Callers pass a seeded `r()` for determinism.
+import {agePattern} from './ages.js';
 import {W,H,CELLS,DIRS4,within,key,kx,ky,clamp,waterGrid,footprint,valueNoise} from './geo.js';
 
 export const ROAD_CODE={minor:1,main:2,bridge:3,ring:4,boulevard:4};
 export const roadClass=r=>r?.cls||(r?.pattern==='boulevard'?'boulevard':'minor');
-export function patternFor(year){return year<1500?'organic':year<1800?'regular':year<1950?'industrial':'modern';}
+export function patternFor(year){return agePattern(year);}
 // Street character by era: medieval lanes are short and wander; planned eras
 // lay longer straight streets with wider blocks between parallel roads.
 const LANE={organic:{min:3,span:5,spacing:2,jog:.2},regular:{min:5,span:7,spacing:3,jog:0},industrial:{min:6,span:8,spacing:3,jog:0},modern:{min:8,span:9,spacing:4,jog:0}};
@@ -92,7 +93,7 @@ export function laneStyle(pattern){return LANE[pattern]||LANE.organic;}
 // straight along a lattice line, so later quarters grow as grids of parallel
 // streets beside the winding medieval core. Larger blocks in later eras.
 // v2.4: ensanche blocks widen with time; the middle of a deep block stays open (a courtyard).
-export const LATTICE={regular:{step:4,from:1650,span:10},industrial:{step:6,span:14,avenue:3},modern:{step:8,span:16,avenue:2}};
+export const LATTICE={regular:{step:4,from:1700,span:10},industrial:{step:6,span:14,avenue:3},modern:{step:8,span:16,avenue:2}};
 export function latticeFor(o){const l=LATTICE[o.pattern];if(!l||o.year<(l.from??0))return null;return l;}
 const onLine=(v,off,step)=>((v-off)%step+step)%step===0;
 export function growRoads(city,g,zoneGrid,r,actions,o){

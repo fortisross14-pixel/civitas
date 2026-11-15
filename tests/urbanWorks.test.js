@@ -13,7 +13,7 @@ const give=(c,id)=>{const d=deckOf(c);return {city:{...c,deck:{...d,hand:[...d.h
 const west=c=>{const o=cityOrigin(c);return {x:o.x-18,y:o.y+4};};
 
 test('one or two urban works for every age, sold only in their years',()=>{
-  const ages=[[1300,1499],[1500,1749],[1750,1849],[1850,1949],[1950,2030]];
+  const ages=[[1300,1499],[1500,1699],[1700,1849],[1850,1949],[1950,2030]];
   for(const [a,b] of ages)assert.ok(URBAN_CARDS.some(c=>c.minYear<=b&&c.maxYear>=a),`${a}–${b}`);
   const c=base();
   assert.ok(shopEligible(CARD_INDEX.urb_new_town,c),'New Town on sale in 1700');

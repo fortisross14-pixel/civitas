@@ -1,5 +1,18 @@
 # CIVITAS changelog
 
+## v2.5 — Five Ages
+
+One table (`src/ages.js`) now drives what changes over time: **Medieval** (1300–1499), **Renaissance** (1500–1699), **Enlightenment** (1700–1849), **Modern** (1850–1949) and **Contemporary** (1950–2030).
+
+- **Welcome to the … Age**: when an Age begins the clock waits on a short page: its new landmarks, its streets, its houses, and how many cards arrive in and retire from the Market Hall (names behind the (i)). The card event of that year follows.
+- **Buildings**: each Age has its own three landmarks (building cards follow): chapel, granary (Medieval); town hall, school, guild hall (Renaissance); gardens, clinic, waterworks (Enlightenment); station, hospital, power works (Modern); library, civic centre, museum, then research centre and transit hub (Contemporary). House forms follow the Age: timber, stone, classical, brick, modernist and then contemporary.
+- **Streets**: winding lanes (Medieval), straight streets (Renaissance), planned grids from 1700 (Enlightenment), wide blocks and avenues (Modern), big blocks, ring roads and suburbs (Contemporary).
+- **Urban works by Age**: High Street (Medieval); new *Piazza*, a paved square with four straight streets (Renaissance); Planned Extension and Garden Square (Enlightenment); Industrial Quarter and Grand Boulevard (Modern); Garden Suburb and Ring Road (Contemporary).
+- Economic curves (housing capacity, tourism, birth rates) keep their old dates, so balance is unchanged.
+
+**Tests**: new `tests/ages.test.js`.
+
+
 ## v2.4 — The city evolves
 
 **Blocks at normal zoom, buildings up close.** Like a modern street map, the built-up town reads as blocks: the land between streets, filled once enclosed and built up, tinted by use and era, with courtyards inside deep blocks. Landmarks stay drawn on top. Zooming in past about 2.2× fades the blocks into the individual buildings (fully at 3×). Fringe houses and detached suburbs always show as houses.
