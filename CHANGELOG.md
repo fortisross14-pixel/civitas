@@ -1,5 +1,10 @@
 # CIVITAS changelog
 
+## v2.3 (in progress) — Planned streets
+
+From 1650 new streets follow a city-wide grid instead of branching at random, so later quarters grow as grids of straight, parallel streets beside the winding medieval core. Blocks get larger with each era (lines every 4, 5 and 6 cells), and in industrial and modern quarters every few lines is a wide avenue where shops gather. Streets are still laid only when the town needs room, so grids fill as they grow. New test: `tests/streets.test.js`.
+
+
 ## v2.2 — Less text, one style
 
 **The chosen style**: Survey structure in Almanack colours and type. One thin bar across the top (city, date, residents, score, treasury, clock), an icon-only tool rail with labels on hover, the hand of cards floating along the bottom, one floating sheet at a time. Paper, ink and almanac red; Ultra for titles and numbers, Old Standard TT for all text. Flat surfaces with hairlines, rounded corners and one soft shadow; no gradients. Quick motion (160 ms): cards lift on hover, sheets rise into place.
