@@ -113,7 +113,8 @@ function depthAlong(x,y,nx,ny,max,own,z,wall){let t=0;
   return t;}
 // Lay out a row of strip plots along one side of a street, from s0 forward.
 function layRow(p,side,s0,s1,z,o={}){
-  const made=[];let s=s0;const back=o.depth??(9+rnd()*4),row={id:hsh(p.id,side,s0*10)};
+  const a0=at(p,(s0+s1)/2),v0=value(a0.x,a0.y),dear=v0>.95,mid=v0>.5;
+  const made=[];let s=s0;const back=o.depth??(dear?6.5+rnd()*2:mid?8+rnd()*3:9.5+rnd()*4),row={id:hsh(p.id,side,s0*10)};
   let prevB=null;p.gaps=p.gaps||{};const gk=side>0?'r':'l';if(p.gaps[gk]==null)p.gaps[gk]=6+rnd()*14;
   const every=()=>o.gapEvery??(16+rnd()*18);
   while(s<s1-1.5){
@@ -121,7 +122,7 @@ function layRow(p,side,s0,s1,z,o={}){
     while(p.gaps[gk]<s-2)p.gaps[gk]+=every();
     {const st=stubs.find(t=>t.p===p&&t.side===side&&t.s>s-1.3&&t.s<s+(o.width?3.5:3.8)+1.2);if(st){s=st.s+1.45;prevB=null;continue;}}
     if(s>=p.gaps[gk]&&s<p.len-6&&!o.noGaps){const a=at(p,s+1.1),nx=-a.ty*side,ny=a.tx*side;stubs.push({p,s:s+1.1,side,x:a.x,y:a.y,hx:nx,hy:ny,z,born:Y});s+=2.4;prevB=null;p.gaps[gk]=s+every();continue;}
-    const w=o.width?o.width():2+rnd()*1.6,sA=s,sB=Math.min(s1,s+w);if(sB-sA<1.4)break;
+    const w=o.width?o.width():dear?1.6+rnd()*.8:mid?2+rnd()*1.2:2.6+rnd()*1.6,sA=s,sB=Math.min(s1,s+w);if(sB-sA<1.4)break;
     const A=prevB&&Math.abs(prevB.s-sA)<1e-6?prevB:corner(p,sA,side,back,z,o.wall),B=corner(p,sB,side,back,z,o.wall);
     if(!A||!B){deadAt(z,p,side,s);prevB=null;s+=.8;continue;}
     // On the outside of a bend the sides splay: shorten the plot so its back is at most 1.7× its front.
@@ -185,7 +186,7 @@ function reachLane(z){let xs=z.poly.map(p=>p[0]),ys=z.poly.map(p=>p[1]),best=nul
   const c=addPath(line,'lane',{open:true});
   // The connector: from the nearest street to the nearest point of the new line, over easy ground.
   let bi=0,bd=1e9;for(let i=0;i<line.length;i++){const d=nearPath(...line[i],30,c,true).d;if(d<bd){bd=d;bi=i;}}
-  const np=nearPath(...line[bi],30,c,true);if(np.p&&np.d>1.5){const link=route([np.x,np.y],line[bi],{climb:30000,avoid:(x,y)=>inPlot(x,y,.4)||onWall(x,y)?60:0});if(link.length>=2)addPath(link,'lane');}
+  const np=nearPath(...line[bi],30,c,true);if(np.p&&np.d>1.5&&np.d<14){const link=route([np.x,np.y],line[bi],{climb:30000,avoid:(x,y)=>inPlot(x,y,.4)||onWall(x,y)?60:0});if(link.length>=2)addPath(link,'lane');}
   return true;}
 function trackTo(z){if(paths.some(p=>aliveP(p)&&p.kind!=='rail'&&p.pts.some(([x,y])=>inPoly(x,y,z.poly))))return;
   let best=null,bd=1e9;for(const p of paths)if(aliveP(p)&&p.kind!=='rail')for(let s=0;s<=p.len;s+=2){const a=at(p,s),d=Math.hypot(a.x-z.cx,a.y-z.cy);if(d<bd&&!flood(a.x,a.y)){bd=d;best=[a.x,a.y];}}
@@ -222,7 +223,7 @@ function growLane(z,o={}){
 const STYLE_BY_YEAR=y=>y<1500?'timber':y<1700?'stone':y<1850?'classical':y<1950?'brick':y<2000?'modernist':'contemporary';
 function setState(pl,st){pl.ev.push([Y,{...(pl.ev.at(-1)?.[1]||{}),...st}]);}
 function stateAt(pl,y){let s=null;for(const e of pl.ev){if(e[0]<=y)s=e[1];else break;}return s;}
-function buildOn(pl){const v=value(...centre(pl.pts)),dense=v>.85;setState(pl,{b:pl.zone.kind==='village'&&pl.w>3.4?'farm':'house',style:STYLE_BY_YEAR(Y),dv:clamp((dense?4.4:3.2+rnd()*.8)/pl.d,.25,.7),gap:dense?0:.06+rnd()*.08,plan:Math.floor(hsh(pl.id,3)*6),built:Y});pl.built=Y;}
+function buildOn(pl){const v=value(...centre(pl.pts)),dense=v>.85;if(dense)pl.dense=1;const mid=v>.45;setState(pl,{b:pl.zone.kind==='village'&&pl.w>3.4?'farm':'house',style:STYLE_BY_YEAR(Y),dv:clamp((dense?5+rnd():mid?4+rnd()*.8:3.2+rnd()*.8)/pl.d,.28,.75),gap:dense?0:mid?.02:.06+rnd()*.08,plan:Math.floor(hsh(pl.id,3)*6),built:Y});pl.built=Y;}
 const centre=q=>[q.reduce((a,p)=>a+p[0],0)/q.length,q.reduce((a,p)=>a+p[1],0)/q.length];
 // Pick the plot the next household takes: dear land, beside neighbours, near the street that is already built up.
 function nextPlot(z){let best=null,bs=-1e9;const empty=plots.filter(p=>aliveO(p)&&!p.built&&p.zone===z);if(!empty.length)return null;
@@ -238,13 +239,17 @@ function onWall(x,y){for(const w of walls)if(aliveO(w)&&ringDist(x,y,w.poly)<1.6
 function wallOK(x,y,w){return w.inside?inPoly(x,y,w.poly):!inPoly(x,y,w.poly)&&ringDist(x,y,w.poly)>2.2;}
 function ringDist(x,y,poly){let b=1e9;for(let i=0;i<poly.length;i++){const a=poly[i],c=poly[(i+1)%poly.length],vx=c[0]-a[0],vy=c[1]-a[1],t=clamp(((x-a[0])*vx+(y-a[1])*vy)/(vx*vx+vy*vy||1),0,1);b=Math.min(b,Math.hypot(a[0]+vx*t-x,a[1]+vy*t-y));}return b;}
 function throwWall(cx,cy,zs,margin){
-  const pts=[];for(const pl of plots)if(aliveO(pl)&&pl.built&&zs.includes(pl.zone))pts.push(...pl.pts);
-  for(const l of landmarks)if(aliveO(l)&&l.inWall)for(let k=0;k<8;k++)pts.push([l.x+Math.cos(k*.785)*7,l.y+Math.sin(k*.785)*7]);
-  // A hull pushed out by the margin, with a little of each sector's own reach so the ring is not a perfect polygon.
-  let H=hull(pts);const out=[];for(let i=0;i<H.length;i++){const a=H[i],b=H[(i+1)%H.length],L=dist(a,b),n=Math.max(1,Math.ceil(L/4));for(let k=0;k<n;k++)out.push([a[0]+(b[0]-a[0])*k/n,a[1]+(b[1]-a[1])*k/n]);}
-  const [hx,hy]=centre(out);
-  let poly=out.map(([x,y],i)=>{const d=Math.hypot(x-hx,y-hy)||1,m=margin*(.8+.5*noise(i*3,0,7,41));x+=(x-hx)/d*m;y+=(y-hy)/d*m;if(y>riverY(x)-RIVER_HW-1.5)y=riverY(x)-RIVER_HW-1.5;return [x,y];});
-  poly=chaikin([...poly,poly[0]],3).slice(0,-1);
+  // Each of 48 sectors reaches as far as its built houses (or a landmark), plus a margin; the ring is then softened.
+  const n=48,r=new Array(n).fill(0);
+  const reach=(x,y,add=0)=>{const a=Math.atan2(y-cy,x-cx),k=((Math.round(a/(2*Math.PI)*n)%n)+n)%n;r[k]=Math.max(r[k],Math.hypot(x-cx,y-cy)+add);};
+  for(const pl of plots)if(aliveO(pl)&&pl.built&&zs.includes(pl.zone))for(const [x,y] of pl.pts)reach(x,y);
+  for(const l of landmarks)if(aliveO(l)&&l.inWall)reach(l.x,l.y,7);
+  const mean=r.reduce((a,b)=>a+b,0)/n;let q=r.map(v=>v||mean*.6);
+  for(let k=0;k<4;k++)q=q.map((v,i)=>Math.max(v,(q[(i+1)%n]+q[(i+n-1)%n])/2*.92));
+  for(let k=0;k<2;k++)q=q.map((v,i)=>(q[(i+1)%n]+q[(i+n-1)%n]+v*2)/4);
+  let poly=q.map((v,i)=>{const a=i/n*2*Math.PI,m=margin*(.8+.5*noise(i*3,0,7,41));let x=cx+Math.cos(a)*(v+m),y=cy+Math.sin(a)*(v+m);
+    if(y>riverY(x)-RIVER_HW-1.5)y=riverY(x)-RIVER_HW-1.5;return [x,y];});
+  poly=chaikin([...poly,poly[0]],2).slice(0,-1);
   const w={poly,born:Y,died:null,gates:[],towers:[]};walls.push(w);
   for(const p of paths)if(aliveP(p)&&(p.kind==='road'))for(let i=1;i<p.pts.length;i++){const a=p.pts[i-1],b=p.pts[i];if(inPoly(...a,poly)!==inPoly(...b,poly))w.gates.push({x:(a[0]+b[0])/2,y:(a[1]+b[1])/2,a:Math.atan2(b[1]-a[1],b[0]-a[0]),road:p});}
   let acc=0;for(let i=0;i<poly.length;i++){const a=poly[i],b=poly[(i+1)%poly.length];acc+=dist(a,b);if(acc>11&&!w.gates.some(g=>Math.hypot(g.x-a[0],g.y-a[1])<5)&&!water(a[0],a[1]+2)){w.towers.push(a);acc=0;}}
@@ -268,22 +273,24 @@ function blob(cx,cy,rx,ry,k=14,salt=0){return Array.from({length:k},(_,i)=>{cons
 // ───────────── the scripted player ─────────────
 // Zones are what the player paints; landmarks are cards they play. Same list, same town.
 const C0=[200,riverY(200)-15];         // the crossing: the valley road meets the ford road
-const SPRING=[214,riverY(214)-36],CHURCH=[232,150],MILL=[176,riverY(176)-RIVER_HW-.8],VIL=[96,riverY(96)-24],FORD=[203,riverY(203)];
+const MILL2=[262,riverY(262)-RIVER_HW-.8],HAMLET=[300,riverY(300)-70],SPRING=[214,riverY(214)-36],CHURCH=[232,150],MILL=[176,riverY(176)-RIVER_HW-.8],VIL=[96,riverY(96)-24],FORD=[203,riverY(203)];
 const town=[];
 const SCRIPT=[
  [1300,()=>{const z=addZone(blob(C0[0]+2,C0[1]-18,52,32,18,1),'town','The crossing',{lay:{}});town.push(z);
    addZone(blob(VIL[0],VIL[1]-6,18,14,14,2),'village','Westby',{rate:.25,lay:{width:()=>3.6+rnd()*2.4,depth:11,gapEvery:22}});
    const m=addLandmark('market',C0[0],C0[1],0,{pull:1.25,reach:16,name:'Market place',clear:marketPlace(C0,paths.filter(p=>p.kind==='road'&&nearPath(...C0,4).p===p||p.kind==='road'&&Math.hypot(at(p,nearestS(p,C0)).x-C0[0],at(p,nearestS(p,C0)).y-C0[1])<3),4.2),placeKind:'market'});
-   {const mp=places.at(-1).poly;addPath([...mp,mp[0]].map(([x,y])=>[x,y]),'edge',{hw:.05});}
+   {const mp=places.at(-1).poly,ep=addPath([...mp,mp[0]].map(([x,y])=>[x,y]),'edge',{hw:.05});for(const sd of [1,-1])layRow(ep,sd,.5,ep.len-.5,z,{width:()=>1.7+rnd()*.7,depth:6,noGaps:true});}
    addLandmark('church',CHURCH[0],CHURCH[1],0,{pull:.9,reach:12,name:'St Mary',parts:churchParts(14),clear:blob(CHURCH[0],CHURCH[1]+.5,11,7.5,14,3),placeKind:'churchyard'});
    addLandmark('chapel',VIL[0]+3,VIL[1]-8,.1,{pull:.5,reach:8,parts:churchParts(8),clear:blob(VIL[0]+3,VIL[1]-8,6,4.5,12,4),placeKind:'churchyard',inWall:false});
+   addLandmark('mill',MILL2[0],MILL2[1],-.1,{pull:.15,reach:6,parts:[{poly:R(-1.8,-1.4,1.8,1.4),ridge:[[-1.6,0],[1.6,0]],tone:'mill'}],inWall:false});
    addLandmark('mill',MILL[0],MILL[1],.12,{pull:.2,reach:6,parts:[{poly:R(-2,-1.6,2,1.6),ridge:[[-1.8,0],[1.8,0]],tone:'mill'}],inWall:false});}],
  [1340,()=>{town.push(addZone(blob(CHURCH[0]+2,CHURCH[1]-12,36,26,16,5),'town','Church hill'));}],
  [1365,()=>{town.push(addZone(blob(C0[0]-58,C0[1]-16,36,24,16,6),'town','West street'));}],
  [1395,()=>{town.push(addZone(blob(C0[0]+62,C0[1]-16,34,22,16,7),'town','East end'));}],
  [1420,()=>{town.push(addZone(blob(C0[0]+16,C0[1]-62,26,22,14,9),'town','Upper town'));}],
- [1450,()=>{const w=walls[0];if(!w)return;for(const g of w.gates.slice(0,4)){const out=[g.x+Math.cos(g.a)*12,g.y+Math.sin(g.a)*12],dir=inPoly(g.x+Math.cos(g.a)*4,g.y+Math.sin(g.a)*4,w.poly)?-1:1;
-     const cx=g.x+Math.cos(g.a)*dir*13,cy=g.y+Math.sin(g.a)*dir*13;const z=addZone(blob(cx,cy,10,8,12,8+w.gates.indexOf(g)),'suburb',null,{wall:{poly:w.poly,inside:false},rate:.6});}}],
+ [1450,()=>{const w=walls[0];if(!w)return;const [wx,wy]=centre(w.poly);for(const [gi,g] of w.gates.entries()){const dx=g.x-wx,dy=g.y-wy,l=Math.hypot(dx,dy)||1;
+     const cx=g.x+dx/l*12,cy=g.y+dy/l*12;if(flood(cx,cy))continue;addZone(blob(cx,cy,12,9,12,8+gi),'suburb',null,{wall:{poly:w.poly,inside:false},rate:.7});}}],
+ [1475,()=>{town.push(addZone(blob(C0[0]-20,C0[1]-40,22,16,14,10),'town','Hill street'));}],
 ];
 function addZone(poly,kind,name,o={}){const z={poly,kind,name,born:Y,died:null,rate:o.rate??1,lay:o.lay||{},wall:o.wall||null,cx:centre(poly)[0],cy:centre(poly)[1]};zones.push(z);trackTo(z);if(name)labels.push({text:name,x:z.cx,y:Math.min(...poly.map(p=>p[1]))+3,born:Y,kind:'zone'});return z;}
 // Growth: how many households arrive in a year, by Age.
@@ -295,8 +302,8 @@ function foundRoads(){
   addPath(route(C0,[FORD[0],FORD[1]-RIVER_HW-.5]),'road');addPath(route([FORD[0]+1,FORD[1]+RIVER_HW+.5],S,{floodCost:1.5}),'road');
   addPath(route(C0,N,{climb:140000}),'road',{name:'the hill road'});
   // Footpaths that were there before the houses: to the spring, the church, the mill, the village.
-  for(const [a,b] of [[C0,SPRING],[C0,CHURCH],[C0,MILL],[CHURCH,SPRING],[VIL,[VIL[0]+30,VIL[1]-40]]])addPath(route(a,b,{climb:50000}),'path');}
-let carry=0;const census=[];
+  for(const [a,b] of [[C0,SPRING],[C0,CHURCH],[C0,MILL],[CHURCH,SPRING],[VIL,[VIL[0]+30,VIL[1]-40]],[C0,MILL2],[SPRING,HAMLET]])addPath(route(a,b,{climb:50000}),'path');}
+let carry=0,FAILS=0;const census=[];
 // A home for one household in zone z: the best empty plot, unless new plots on
 // dearer frontage (or a new lane into dear land) would beat it.
 function findHome(z){
@@ -311,7 +318,7 @@ function yearStep(){
   for(const [y,f] of SCRIPT)if(y===Y)f();
   // The wall: once the town is big enough to need one.
   const townHouses=plots.filter(p=>aliveO(p)&&p.built&&town.includes(p.zone)).length;
-  if(!walls.length&&townHouses>=150){const w=throwWall(C0[0]+2,C0[1]-8,town,3);for(const z of town)z.wall={poly:w.poly,inside:true};}
+  if(!walls.length&&townHouses>=150){const tc=centre(plots.filter(p=>aliveO(p)&&p.built&&town.includes(p.zone)).flatMap(p=>p.pts));const w=throwWall(tc[0],tc[1],town,2.6);for(const z of town)z.wall={poly:w.poly,inside:true};}
   carry+=RATE(Y);
   const live=zones.filter(z=>aliveO(z)),wsum=live.reduce((a,z)=>a+z.rate,0);
   while(carry>=1){carry-=1;
@@ -319,7 +326,7 @@ function yearStep(){
     let t=rnd()*wsum,z=live[0];for(const o of live){t-=o.rate;if(t<=0){z=o;break;}}
     let pl=findHome(z);
     for(const o of live.slice().sort(()=>rnd()-.5)){if(pl)break;if(o!==z)pl=findHome(o);}
-    if(pl)buildOn(pl);}
+    if(pl)buildOn(pl);else FAILS++;}
   census.push({y:Y,houses:plots.filter(p=>aliveO(p)&&p.built).length});}
 // ───────────── drawing ─────────────
 const cv=document.getElementById('c'),g=cv.getContext('2d');
@@ -381,7 +388,7 @@ function draw(year){
     if(pl.kind==='churchyard'){g.fillStyle='rgba(90,90,70,.5)';const [cx,cy]=centre(pl.poly);for(let i=0;i<26;i++){const x=cx+(hsh(i,pl.born,9)-.5)*14,y=cy+(hsh(i,pl.born,10)-.5)*10;if(inPoly(x,y,pl.poly))g.fillRect(x,y,.5,.3);}}}
   // plots: gardens and crofts behind the houses
   const live=plots.filter(p=>p.born<=year&&(p.died==null||p.died>year));
-  for(const pl of live){poly(pl.pts);const st=stateAt(pl,year);g.fillStyle=st?'rgba(178,190,132,.55)':'rgba(206,198,150,.55)';g.fill();g.lineWidth=.12;g.strokeStyle='rgba(105,95,62,.55)';g.stroke();
+  for(const pl of live){poly(pl.pts);const st=stateAt(pl,year);g.fillStyle=st?'rgba(188,192,140,.42)':'rgba(206,198,150,.45)';g.fill();g.lineWidth=.12;g.strokeStyle='rgba(105,95,62,.55)';g.stroke();
     if(!st){const Q=Qf(pl);g.lineWidth=.08;g.strokeStyle='rgba(120,110,70,.35)';g.beginPath();for(let u=.33;u<1;u+=.33){g.moveTo(...Q(u,.05));g.lineTo(...Q(u,.95));}g.stroke();}}
   // streets
   for(const pass of [0,1])for(const p of paths){if(!aliveP(p))continue;
