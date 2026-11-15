@@ -1,5 +1,9 @@
 # CIVITAS changelog
 
+## v2.0.1 — Founding a city no longer freezes phones
+
+**Fixed**: pressing *Begin Chronicle* froze the page for 3.5 s on a desktop and 30 s or more on a phone, long enough for mobile browsers to kill the page. The water layer was blurred one map cell at a time with the canvas `filter`; it is now blurred once in code (three box passes), which takes about 40 ms and also gives smooth shores in Safari, which ignores the canvas `filter`. With the CPU slowed 6× to mimic a phone, founding now takes 1.3 s.
+
 ## v2.0 — Runs and legacy (Milestone R3)
 
 Each city is now a run: choose who founds it and what they carry, play to 2030 or fall into Ruin, then see how it compares with your past runs and with real historical cities.

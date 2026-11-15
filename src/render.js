@@ -87,15 +87,32 @@ function fieldsLayer(type,seed,epoch=1){
   }
   layerCache.set(id,c);return c;
 }
+// In-place separable box blur, `passes` times (3 passes approximate a Gaussian).
+function boxBlur(a,w,h,r,passes){
+  const tmp=new Float32Array(Math.max(w,h)),n=2*r+1;
+  for(let k=0;k<passes;k++){
+    for(let y=0;y<h;y++){const o=y*w;let sum=0;for(let i=-r;i<=r;i++)sum+=a[o+Math.min(w-1,Math.max(0,i))];
+      for(let x=0;x<w;x++){tmp[x]=sum/n;sum+=a[o+Math.min(w-1,x+r+1)]-a[o+Math.max(0,x-r)];}a.set(tmp.subarray(0,w),o);}
+    for(let x=0;x<w;x++){let sum=0;for(let i=-r;i<=r;i++)sum+=a[Math.min(h-1,Math.max(0,i))*w+x];
+      for(let y=0;y<h;y++){tmp[y]=sum/n;sum+=a[Math.min(h-1,y+r+1)*w+x]-a[Math.max(0,y-r)*w+x];}for(let y=0;y<h;y++)a[y*w+x]=tmp[y];}
+  }
+}
 // Water with smooth curved shores: blur the cell mask, then threshold it into
 // a shoreline band, open water and a lighter shallow fringe.
 function waterLayer(type){
   const id=`water:${type}`;if(layerCache.has(id))return layerCache.get(id);
   const c=offscreen(W*S,H*S);if(!c)return null;const g=c.getContext('2d');
-  g.filter='blur(5px)';g.fillStyle='#000';
-  for(let y=0;y<H;y++)for(let x=0;x<W;x++)if(terrain(type,x,y)==='water')g.fillRect(x*S-2,y*S-2,S+4,S+4);
-  g.filter='none';
-  const img=g.getImageData(0,0,c.width,c.height),d=img.data;
+  // v2.0.1: the blur is computed here, once, on the whole mask (three box
+  // passes ≈ a 5 px Gaussian). Blurring each cell with ctx.filter took
+  // seconds on phones, long enough for the browser to kill the page when a
+  // city was founded, and Safari ignores ctx.filter.
+  const cw=c.width,ch=c.height,mask=new Float32Array(cw*ch);
+  for(let y=0;y<H;y++)for(let x=0;x<W;x++)if(terrain(type,x,y)==='water'){
+    const x0=Math.max(0,x*S-2),x1=Math.min(cw,x*S+S+2),y0=Math.max(0,y*S-2),y1=Math.min(ch,y*S+S+2);
+    for(let py=y0;py<y1;py++)mask.fill(255,py*cw+x0,py*cw+x1);}
+  boxBlur(mask,cw,ch,5,3);
+  const img=g.createImageData(cw,ch),d=img.data;
+  for(let i=0;i<mask.length;i++)d[i*4+3]=mask[i];
   const hex=h=>[parseInt(h.slice(1,3),16),parseInt(h.slice(3,5),16),parseInt(h.slice(5,7),16)];
   const edge=hex(WATER_EDGE),deep=hex(WATER),light=hex(WATER_LIGHT);
   for(let i=0;i<d.length;i+=4){const a=d[i+3];let col=null;
