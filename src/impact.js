@@ -26,7 +26,8 @@ const BAD_WHEN_UP=new Set(['pollution','crowding']);
 
 export function formatEffect(key,value){
   const label=EFFECT_LABELS[key]||key.replace(/([A-Z])/g,' $1').replace(/^./,c=>c.toUpperCase());
-  const v=POINT_KEYS.has(key)?Math.round(value*10)/10:Math.round(value*100);
+  // Under 1%, one decimal, so small effects still show.
+  const pct=value*100,v=POINT_KEYS.has(key)?Math.round(value*10)/10:Math.abs(pct)<1?Math.round(pct*10)/10:Math.round(pct);
   if(!v)return null;
   const good=BAD_WHEN_UP.has(key)?v<0:v>0;
   return {key,label,text:`${v>0?'+':'−'}${Math.abs(v)}${POINT_KEYS.has(key)?'':'%'}`,good};
@@ -45,7 +46,9 @@ export function cardSummary(card,city=null){
   const kind=card.building&&card.kind!=='figure'?card.building:null;
   const def=kind?(BASIC_INDEX[kind]||SPECIAL_BUILDINGS[kind]):null;
   const effects=card.kind==='figure'?card.effects:era?eraEffects(card):card.effects;
-  const lines=[...linesFor(effects),...(kind&&BUILDING_EFFECTS[kind]?linesFor(BUILDING_EFFECTS[kind]):[])];
+  // The card's own effects and its building's, merged key by key.
+  const merged={...(effects||{})};if(kind&&BUILDING_EFFECTS[kind])for(const [k,v] of Object.entries(BUILDING_EFFECTS[kind]))merged[k]=(merged[k]||0)+v;
+  const lines=linesFor(merged);
   const duration=card.durationPoints?`for ${card.durationPoints*25} years`:card.kind==='figure'?'while they live':kind?'once placed, for good':'for the rest of the run';
   return {lines,building:def?{kind,name:def.name||card.name}:kind?{kind,name:card.name}:null,duration,needs:kind?needsAnswered(kind,city?.year??1300):[]};
 }

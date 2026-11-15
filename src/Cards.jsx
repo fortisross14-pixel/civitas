@@ -7,6 +7,7 @@ import {doctrinesOn,cardDoctrines,cardType,cardLevel,TYPE_LABEL,DOCTRINES,doctri
 const decreeList=city=>decreesInPlay(city).map(id=>{const c=CARD_INDEX[id],t=cardDoctrines(c);return {id,name:c.name,level:cardLevel(city,id),glyph:t.length?t.map(x=>DOCTRINES[x].glyph).join(''):'⌂'};});
 import {BANISHES_PER_RUN} from './cards.js';
 import {cardSummary,previewImpact} from './impact.js';
+import {Info} from './Info.jsx';
 import './cards.css';
 
 const compact=n=>Number(n).toLocaleString('en-US');
@@ -18,38 +19,44 @@ export function CardFace({city,cardId,size='hand',selected=false,dim=false,onCli
   const card=CARD_INDEX[cardId];if(!card)return null;
   const era=doctrinesOn(city),tags=cardDoctrines(card),doc=era?(tags.length?{symbol:tags.map(t=>DOCTRINES[t].glyph).join(''),color:DOCTRINES[tags[0]].color,name:tags.map(t=>DOCTRINES[t].name).join(' + ')}:{symbol:'⌂',color:'#7d7466',name:'Civic'}):null;
   const domain=doc||DOMAINS[card.domain]||DOMAINS.wildcard,stack=era?0:playedCopies(city,cardId),level=era?cardLevel(city,cardId):0;
-  const sets=size==='shop'?collectionsFor(city,cardId):[];
+  const sets=size==='shop'&&!era?collectionsFor(city,cardId):[];
   return <div role={onClick?'button':undefined} tabIndex={onClick?0:undefined} onClick={onClick} onKeyDown={e=>{if(onClick&&(e.key==='Enter'||e.key===' ')){e.preventDefault();onClick();}}}
     className={`hcard ${size} rarity-${card.rarity} ${selected?'selected':''} ${dim?'dim':''}`} style={{'--rarity':RARITY_COLORS[card.rarity],'--domain':domain.color}} aria-pressed={onClick?selected:undefined} aria-label={`${card.name}, ${RARITY_LABEL[card.rarity]} ${domain.name} card`}>
-    <div className="hcardTop"><span className="hcardDomain">{domain.symbol}</span><span className="hcardRarity">{RARITY_LABEL[card.rarity]}</span></div>
+    <div className="hcardTop"><span className="hcardDomain">{domain.symbol}</span><span className="hcardRarity">{RARITY_LABEL[card.rarity]}</span>{size==='shop'&&<Info label={`About ${card.name}`} align="end"><CardDetails city={city} card={card}/></Info>}</div>
     <b className="hcardName">{card.name}</b>
-    <EffectChips city={city} card={card} max={size==='shop'?5:2}/>
-    {size==='shop'&&<p className="hcardText">{card.description}</p>}
+    <EffectChips city={city} card={card} max={size==='shop'?2:1}/>
     <div className="hcardMeta"><span>{era?TYPE_LABEL[cardType(card)]:cardKind(card)}</span>{level>0&&<span className="hcardLevel" title={`In play at level ${level}. Playing it again levels it up.`}>Lv{level}{level<MAX_LEVEL?'→'+(level+1):''}</span>}{stack>0&&<span className="hcardStack" title={`Already in play ${stack}×. The next copy counts at ${Math.round((STACK_FACTORS[stack]??0)*100)}%.`}>×{stack}</span>}{badge}</div>
     {sets.length>0&&<div className="hcardSets">{sets.map(s=><span key={s.id} className={s.complete?'done':''} title={s.description}>{s.name} {s.have}/{s.size}</span>)}</div>}
     {footer}
   </div>;
 }
 
-// v2.1: what the card does, in plain numbers, on every card face.
+// v2.2: a card face shows one thing it does (two in the shop); the rest is behind (i).
 function EffectChips({city,card,max}){
   const s=cardSummary(card,city);
-  return <ul className="hcardEffects">{s.building&&<li className="build">Builds: {s.building.name}</li>}
-    {s.lines.slice(0,max).map(l=><li key={l.key} className={l.good?'good':'bad'}>{l.text} {l.label}</li>)}
-    {s.lines.length>max&&<li className="more">+{s.lines.length-max} more</li>}</ul>;
+  const items=[...(s.building?[{key:'build',text:'Builds',label:s.building.name,good:true,build:true}]:[]),...s.lines].slice(0,max);
+  return <ul className="hcardEffects">{items.map(l=><li key={l.key} className={l.build?'build':l.good?'good':'bad'}>{l.build?`Builds ${l.label}`:`${l.text} ${l.label}`}</li>)}</ul>;
 }
-// The detail when a card is selected: effects, how long, what changes now.
-export function CardImpact({city,card}){
+// One line: what changes the moment it is played.
+export function CardNow({city,card}){
+  const now=previewImpact(city,card);if(!now)return null;
+  if(now.slow)return <p className="cardNow slow">Acts over the decades</p>;
+  const r=now.rows[0];return <p className={`cardNow ${r.good?'good':'bad'}`}>Now: {r.label} {r.before} → <b>{r.after}</b></p>;
+}
+// Everything else, for the (i).
+export function CardDetails({city,card,gift=false}){
   const s=cardSummary(card,city),now=previewImpact(city,card);
-  return <div className="cardImpact">
-    <h4>What it does</h4>
-    <ul className="impactLines">{s.building&&<li className="build">Builds a <b>{s.building.name}</b> where you choose on the map{s.needs.length?` · answers the need for ${s.needs.join(', ').toLowerCase()}`:''}</li>}
-      {s.lines.map(l=><li key={l.key} className={l.good?'good':'bad'}><b>{l.text}</b> {l.label}</li>)}</ul>
-    <p className="impactWhen">Lasts {s.duration}.</p>
-    {now&&(now.slow?<p className="impactSlow">Nothing changes the moment you play it: this card works on growth (births, settlers, output), so its effect builds up over the decades.</p>:
-      <><h4>Right now</h4><table className="impactNow"><tbody>{now.rows.map(r=><tr key={r.label} className={r.good?'good':'bad'}><th>{r.label}</th><td>{r.before}</td><td>→</td><td><b>{r.after}</b></td></tr>)}</tbody></table></>)}
-  </div>;
+  return <span className="cardDetails">
+    <span>{card.description}</span>
+    {s.lines.length>0&&<span className="detailLines">{s.lines.map(l=><span key={l.key} className={l.good?'good':'bad'}><b>{l.text}</b> {l.label}</span>)}</span>}
+    {s.needs.length>0&&<span>Answers the need for {s.needs.join(', ').toLowerCase()}.</span>}
+    <span>Lasts {s.duration}.</span>
+    {now&&!now.slow&&now.rows.length>1&&<span>Also now: {now.rows.slice(1).map(r=>`${r.label} ${r.before} → ${r.after}`).join(' · ')}</span>}
+    {gift&&<span>From a card event: it cannot be bought.</span>}
+    {doctrinesOn(city)&&<DoctrineLine city={city} card={card}/>}
+  </span>;
 }
+export const CardImpact=CardDetails;
 
 // The hand: a row of cards under the map, with the Market Hall door.
 export function HandTray({city,disabled,onPlay,onSell,onMerge,onOpenShop,shopFresh}){
@@ -72,22 +79,20 @@ export function HandTray({city,disabled,onPlay,onSell,onMerge,onOpenShop,shopFre
     <span className="handCount">{deck.hand.length}/{limit}</span>
     {mergeMode&&<div className="handSheet" role="dialog" aria-label="Merge cards">
       <div className="handSheetHead"><b><Combine size={16}/> Merge {merging.length}/{MERGE_COUNT}</b><button aria-label="Cancel merge" onClick={()=>setMerging([])}><X size={18}/></button></div>
-      <p>Pick {MERGE_COUNT} cards of the same rarity. They become one card of the next rarity, usually from the domain most of them share.</p>
+      <p>Pick {MERGE_COUNT} cards of one rarity <Info label="About merging">They become one card of the next rarity, usually of the doctrine most of them share.</Info></p>
       {issue&&<p className="handIssue">{issue}</p>}
       <div className="handActions"><button className="primary" disabled={merging.length!==MERGE_COUNT||!!issue||disabled} onClick={()=>{onMerge(merging);setMerging([]);setSel(null);}}><Check size={16}/> Merge cards</button></div>
     </div>}
     {!mergeMode&&card&&<div className="handSheet" role="dialog" aria-label={card.name}>
-      <div className="handSheetHead"><b style={{color:RARITY_COLORS[card.rarity]}}>{RARITY_LABEL[card.rarity]} · {cardKind(card)}</b><button aria-label="Close card" onClick={()=>setSel(null)}><X size={18}/></button></div>
-      <h3>{card.name}</h3><p>{card.description}</p>
-      {selected.gift&&<p className="handNote">A gift of the Almanac: it cannot be bought, and selling it returns nothing.</p>}
-      <CardImpact city={city} card={card}/>
-      {stack>0&&<p className="handNote">Already in play ×{stack}. This copy counts at {Math.round((STACK_FACTORS[stack]??0)*100)}%{stack>=MAX_COPIES?' — the stack is full':''}.</p>}
-      {card.kind!=='instant'&&<p className="handNote">Upkeep while in play: {Math.round((RARITY_UPKEEP[card.rarity]||0)*1000)/10}% of yearly revenue.</p>}
-      {doctrinesOn(city)?<DoctrineLine city={city} card={card}/>:<CollectionLine city={city} cardId={card.id}/>}
+      <div className="handSheetHead"><b style={{color:RARITY_COLORS[card.rarity]}}>{RARITY_LABEL[card.rarity]} · {cardKind(card)}</b><Info label={`About ${card.name}`} align="end"><CardDetails city={city} card={card} gift={selected.gift}/>{card.kind!=='instant'&&<span>Upkeep in play: {Math.round((RARITY_UPKEEP[card.rarity]||0)*1000)/10}% of yearly revenue.</span>}</Info><button aria-label="Close card" onClick={()=>setSel(null)}><X size={18}/></button></div>
+      <h3>{card.name}</h3>
+      <EffectChips city={city} card={card} max={3}/>
+      <CardNow city={city} card={card}/>
+      {!doctrinesOn(city)&&<CollectionLine city={city} cardId={card.id}/>}
       <div className="handActions">
         <button className="primary" disabled={disabled||stack>=MAX_COPIES} onClick={()=>{onPlay(selected.uid);setSel(null);}}><Play size={16}/> {card.building?'Place on the map':'Play card'}</button>
         <button disabled={disabled} onClick={()=>{onSell(selected.uid);setSel(null);}}><Tag size={16}/> Sell {compact(Math.round(selected.paid*SELL_SHARE))}</button>
-        {card.rarity!=='epic'&&<button disabled={disabled} onClick={()=>{setMerging([selected.uid]);setSel(null);}}><Combine size={16}/> Merge…</button>}
+        {card.rarity!=='epic'&&<button disabled={disabled} aria-label="Merge" title="Merge three cards into a rarer one" onClick={()=>{setMerging([selected.uid]);setSel(null);}}><Combine size={16}/></button>}
       </div>
     </div>}
   </section>;
@@ -110,18 +115,16 @@ export function MarketHall({city,disabled,onBuy,onPack,onReroll,onClose,onBanish
       <span className="marketFunds"><Coins size={15}/> {compact(funds)}</span>
       <button className="marketClose" aria-label="Close the Market Hall" onClick={onClose}><X size={20}/></button>
     </div>
-    <p className="marketNote">Restocks in {Math.max(0,next-city.year)} {next-city.year===1?'year':'years'} ({next}). Hand {deck.hand.length}/{limit}. The clock keeps running.</p>
+    <p className="marketNote">Restocks in {Math.max(0,next-city.year)} y · Hand {deck.hand.length}/{limit} <Info label="About the Market Hall" align="start">{doctrinesOn(city)?'Common and Uncommon cards, restocked every decade. It always stocks the building card for your most pressing need; rarer cards come from card events every 25 years. Same card again = level up. Decrees take a slot. Cards in play cost a little upkeep. The clock keeps running.':'Restocked every decade. The clock keeps running.'}{doctrinesOn(city)&&` Banishes left: ${BANISHES_PER_RUN-(deck.banished||[]).length}/${BANISHES_PER_RUN}.`}</Info></p>
     {!shop||!shop.offers.length?<p className="handEmpty">Sold out until the next restock.</p>:
     <div className="marketOffers">{shop.offers.map(o=>{const short=funds<o.price;return <CardFace key={o.uid} city={city} cardId={o.cardId} size="shop" dim={short} badge={o.need?<span className="hcardNeed" title="Stocked because a district needs it">For a need</span>:null}
       footer={<><button className="buyButton" disabled={disabled||short||full} onClick={()=>onBuy(o.uid)} aria-label={`Buy ${CARD_INDEX[o.cardId].name} for ${o.price}`}><Coins size={14}/> {compact(o.price)}</button>{doctrinesOn(city)&&<div className="offerTools"><button disabled={disabled||(deck.banished||[]).length>=BANISHES_PER_RUN} onClick={()=>onBanish(o.uid)} title="Remove this card from the Market Hall for the rest of the run">Banish</button>{doctrineFlags(city).lock&&<button className={shop.locked===o.uid?'sel':''} disabled={disabled} onClick={()=>onLock(o.uid)} title="Keep this offer through the next restock">{shop.locked===o.uid?'Locked':'Lock'}</button>}</div>}</>}/>;})}</div>}
-    {doctrinesOn(city)&&<p className="marketNote">Banishes left this run: {BANISHES_PER_RUN-(deck.banished||[]).length}/{BANISHES_PER_RUN}.{doctrineFlags(city).lock?' Trade 4: lock one offer to keep it through the next restock.':''}</p>}
     <div className="marketExtras">
       <button className="packButton" disabled={disabled||!shop||shop.packBought||funds<(shop?.packPrice||0)||deck.hand.length+PACK_SIZE>limit} onClick={onPack}>
-        <Package size={18}/><span><b>Sealed pack</b><small>{shop?.packBought?'Opened this decade':`${PACK_SIZE} cards · first is Uncommon or better`}</small></span><em>{compact(shop?.packPrice||0)}</em></button>
+        <Package size={18}/><span><b>Pack of {PACK_SIZE}</b>{shop?.packBought&&<small>Opened</small>}</span><em>{compact(shop?.packPrice||0)}</em></button>
       <button className="rerollButton" disabled={disabled||!shop||funds<rerollPrice(city)} onClick={onReroll}><RefreshCw size={16}/><span>New selection</span><em>{compact(rerollPrice(city))}</em></button>
     </div>
-    <div className="marketOdds" aria-label="Rarity odds this era">{odds.map(([r,p])=><span key={r} style={{'--rarity':RARITY_COLORS[r]}}><i/>{RARITY_LABEL[r]} {p}%</span>)}</div>
-    <p className="marketHint">{doctrinesOn(city)?'Same card again = level up (Lv2 ×1.5, Lv3 ×2). Three cards of one doctrine merge into a rarer card of that doctrine. Decrees and Patrons take one of your slots. Cards in play cost a little upkeep every year.':'Same card again = stack (each copy counts less). Three of one rarity = merge up. For each effect, your strongest card counts fully and the rest at 35%. Cards in play cost a little upkeep every year.'}</p>
+    {!doctrinesOn(city)&&<div className="marketOdds" aria-label="Rarity odds this era">{odds.map(([r,p])=><span key={r} style={{'--rarity':RARITY_COLORS[r]}}><i/>{RARITY_LABEL[r]} {p}%</span>)}</div>}
   </div>;
 }
 

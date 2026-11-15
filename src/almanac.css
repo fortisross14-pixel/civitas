@@ -1,70 +1,113 @@
-/* CIVITAS v2.1 — the almanac look for menus (home, Legacy Market, card
-   events, Market Hall, run summary). A 19th-century farmer's almanack: aged
-   paper with foxing, double rules, a printer's ornament band, wood-type
-   numerals and old-style text. The map itself keeps its survey style. */
+/* CIVITAS v2.2 — Almanack colours and type, Survey structure.
+   Paper, ink and almanac red; Ultra (wood type) for titles and numbers, Old
+   Standard TT for text. Flat surfaces: 1 px hairlines, one soft shadow,
+   rounded corners, no gradients. Motion is quick: 160 ms ease-out. */
 :root{
-  --alm-paper:#efe3c4;--alm-paper-hi:#f6ecd3;--alm-ink:#2b241a;--alm-soft:#5a4d39;--alm-rule:#3d3326;--alm-red:#8a2f1f;
-  --alm-ornament:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12'%3E%3Cpath d='M6 1l5 5-5 5-5-5z' fill='none' stroke='%233d3326' stroke-width='1.1'/%3E%3Ccircle cx='6' cy='6' r='1.3' fill='%233d3326'/%3E%3C/svg%3E");
-  --alm-foxing:radial-gradient(circle at 12% 18%,#c9a87033 0 2px,transparent 3px),radial-gradient(circle at 78% 9%,#b98e5a2e 0 3px,transparent 4px),radial-gradient(circle at 63% 71%,#c9a8702b 0 2px,transparent 3px),radial-gradient(circle at 31% 83%,#b98e5a26 0 4px,transparent 6px),radial-gradient(circle at 91% 52%,#c9a8702b 0 2px,transparent 3px);
+  --alm-paper:#efe3c4;--alm-paper-deep:#e6d7b2;--alm-surface:#f8f0dc;--alm-ink:#2b241a;--alm-soft:#5a4d39;--alm-red:#8a2f1f;--alm-good:#3f6a4e;
+  --alm-line:#2b241a29;--alm-line-strong:#2b241a55;
+  --alm-shadow:0 10px 28px #2b241a26;--alm-shadow-soft:0 3px 10px #2b241a1a;
+  --alm-title:'Ultra','Old Standard TT',Georgia,serif;--alm-text:'Old Standard TT',Georgia,serif;
+  --alm-fast:160ms;--alm-ease:cubic-bezier(.2,.8,.2,1);
 }
-.alm-title{font-family:'Ultra','Old Standard TT',Georgia,serif;font-weight:400;letter-spacing:.06em;color:var(--alm-ink)}
-.alm-caps{font-family:'Old Standard TT',Georgia,serif;text-transform:uppercase;letter-spacing:.14em}
+@media(prefers-reduced-motion:reduce){:root{--alm-fast:1ms}}
 
-/* Paper */
-.app:not(.inGame){background:var(--alm-foxing),radial-gradient(ellipse at 50% 30%,#f4e9cf,#e6d6b1 75%,#dcc8a0);background-size:420px 420px,auto;min-height:100vh;color:var(--alm-ink)}
-.app:not(.inGame)>header{background:transparent;border-bottom:3px double var(--alm-rule)}
-.app:not(.inGame) .brand span{font-family:'Ultra',Georgia,serif;letter-spacing:.18em;font-weight:400;color:var(--alm-ink)}
-.app .version{background:transparent;border:1px solid var(--alm-rule);border-radius:0;font-family:'Old Standard TT',Georgia,serif;letter-spacing:.06em}
+/* Menus: flat paper */
+.app:not(.inGame){background:var(--alm-paper);color:var(--alm-ink);font-family:var(--alm-text);min-height:100vh}
+.app:not(.inGame)>header{background:var(--alm-surface);border-bottom:1px solid var(--alm-line)}
+.app .brand span{font-family:var(--alm-title);font-weight:400;letter-spacing:.14em;color:var(--alm-ink)}
+.app .brand small,.headerRight>span:first-child{display:none}
+.app .version{background:transparent;border:1px solid var(--alm-line);border-radius:12px;font-family:var(--alm-text);letter-spacing:0}
 
-/* The home page is a title page */
-.home{max-width:1120px}
-.home>.eyebrow{font-family:'Old Standard TT',Georgia,serif;letter-spacing:.3em;text-align:center;color:var(--alm-soft)}
-.home h1{font-family:'Ultra',Georgia,serif;font-weight:400;text-align:center;letter-spacing:.04em;font-size:clamp(30px,5.4vw,54px);color:var(--alm-ink);margin:10px 0 6px}
-.home .intro{text-align:center;font-family:'Old Standard TT',Georgia,serif;font-style:italic;font-size:17px;color:var(--alm-soft);margin:0 auto 28px;max-width:640px}
-.home .intro::after{content:'';display:block;width:180px;height:12px;margin:14px auto 0;background:var(--alm-ornament) repeat-x center/12px 12px}
+.home{max-width:1040px}
+.home>.eyebrow{display:none}
+.home h1{font-family:var(--alm-title);font-weight:400;letter-spacing:.02em;font-size:clamp(30px,5vw,48px);color:var(--alm-ink);margin:8px 0 4px;text-align:left}
+.home .intro{font-family:var(--alm-text);font-style:italic;font-size:17px;color:var(--alm-soft);margin:0 0 22px;text-align:left}
 
-/* Framed panels: a hairline, an ornament band, a double rule */
-.home .panel,.atlasLaunch,.legacyBanner,.marketItem,.packCard,.milestoneCard,.ledgerIntro,.runSummary,.turningWindow,.marketSheet,.eventWindow{
-  background:var(--alm-paper-hi);border:1px solid var(--alm-rule);border-radius:2px;
-  box-shadow:inset 0 0 0 4px var(--alm-paper-hi),inset 0 0 0 5px var(--alm-rule),0 2px 0 #3d33261a}
-.home .panel{position:relative;padding:28px}
-.home .panel::before,.runSummary::before,.turningWindow::before{content:'';position:absolute;left:10px;right:10px;top:10px;height:10px;background:var(--alm-ornament) repeat-x center/10px 10px;opacity:.65;pointer-events:none}
-.home .panel::after,.runSummary::after,.turningWindow::after{content:'';position:absolute;left:10px;right:10px;bottom:10px;height:10px;background:var(--alm-ornament) repeat-x center/10px 10px;opacity:.65;pointer-events:none}
-.turningWindow,.runSummary{position:relative}
-.home .panel h2,.legacyPage h2,.marketSheet h2,.runSummary h2,.turningHeading h2,.eventWindow h2{font-family:'Old Standard TT',Georgia,serif;font-weight:700;letter-spacing:.02em;color:var(--alm-ink)}
-.home .panel h2{text-align:center;text-transform:uppercase;letter-spacing:.16em;font-size:17px;border-bottom:1px solid var(--alm-rule);padding-bottom:10px}
-.app:not(.inGame) .eyebrow,.turningHeading .eyebrow,.marketSheet .eyebrow,.runSummary .eyebrow{font-family:'Old Standard TT',Georgia,serif;letter-spacing:.24em;color:var(--alm-red)}
-.app:not(.inGame) .muted,.app:not(.inGame) .marketNote{font-family:'Old Standard TT',Georgia,serif;font-size:13px;color:var(--alm-soft)}
-.legacyBanner strong,.marketHeader>.legacyPoints,.summaryStats strong{font-family:'Ultra',Georgia,serif;font-weight:400;letter-spacing:.03em}
-.legacyBanner{border-radius:2px}
-.marketHeader h1{font-family:'Ultra',Georgia,serif;font-weight:400;letter-spacing:.05em}
-.marketTabs{border-bottom:3px double var(--alm-rule)}
-.marketTabs button{font-family:'Old Standard TT',Georgia,serif;letter-spacing:.06em}
-.marketTabs button.sel{background:transparent;border-color:var(--alm-red);color:var(--alm-ink)}
+/* Sheets: hairline, rounded, one shadow */
+.home .panel,.atlasLaunch,.legacyBanner,.marketItem,.packCard,.milestoneCard,.ledgerIntro,.runSummary,.turningWindow,.marketSheet,.eventWindow,.handSheet{
+  background:var(--alm-surface);border:1px solid var(--alm-line);border-radius:16px;box-shadow:var(--alm-shadow-soft)}
+.turningWindow,.runSummary,.marketSheet,.handSheet,.eventWindow{box-shadow:var(--alm-shadow);animation:almRise var(--alm-fast) var(--alm-ease) both}
+.home .panel{padding:22px}
+.home .panel h2{font-family:var(--alm-title);font-weight:400;font-size:20px;letter-spacing:.02em;text-transform:none;border:0;padding:0;margin:0 0 14px}
+.atlasLaunch,.legacyBanner{padding:14px 18px;margin:0 0 14px}
+.atlasLaunch strong{font:400 15px var(--alm-title);letter-spacing:.02em}
+.legacyBanner strong{font:400 20px var(--alm-title)}
+.legacyBanner .eyebrow{display:none}
+.app:not(.inGame) .eyebrow,.turningHeading .eyebrow,.marketSheet .eyebrow,.runSummary .eyebrow{font-family:var(--alm-text);font-weight:700;letter-spacing:.14em;color:var(--alm-red)}
+.app:not(.inGame) .muted,.app:not(.inGame) .marketNote{font-family:var(--alm-text);font-size:13px;color:var(--alm-soft)}
+.app:not(.inGame) label{font-family:var(--alm-text)}
+.home .panel input,.home .panel select{background:var(--alm-paper);border:1px solid var(--alm-line-strong);border-radius:10px;font:400 15px var(--alm-text);color:var(--alm-ink)}
 
-/* Buttons: printed labels */
-.app:not(.inGame) .primary,.turningWindow .primary,.runSummary .primary,.marketSheet .primary{background:var(--alm-rule);border-color:var(--alm-rule);color:var(--alm-paper-hi);border-radius:2px;font-family:'Old Standard TT',Georgia,serif;letter-spacing:.14em;text-transform:uppercase;font-weight:700}
-.app:not(.inGame) .primary:hover{background:#1f1a12}
-.app:not(.inGame) button{border-radius:2px}
-.home .panel input,.home .panel select{background:#fbf5e4;border-color:#8c7d61;border-radius:2px;font-family:'Old Standard TT',Georgia,serif;font-size:15px}
-.founderChip{border-radius:2px;background:#fbf5e4}
-.founderChip.selected{background:#efe0bb;border-color:var(--alm-rule)}
-.figurePool>button{background:#fbf5e4}
+/* Buttons: ink, rounded, sentence case */
+.app .primary,.turningWindow .primary,.runSummary .primary,.marketSheet .primary,.handSheet .primary{background:var(--alm-ink);border-color:var(--alm-ink);color:var(--alm-surface);border-radius:12px;font:700 15px var(--alm-text);letter-spacing:.02em;text-transform:none;transition:transform var(--alm-fast) var(--alm-ease),background var(--alm-fast)}
+.app .primary:hover{background:#1c170f}
+.app .primary:active{transform:scale(.98)}
+.app button{border-radius:10px}
 
-/* Card events and the Market Hall read like almanac pages */
-.turningBackdrop{background:#2b241acc}
-.turningWindow{background:var(--alm-foxing),var(--alm-paper-hi);background-size:420px 420px,auto;padding-top:34px;padding-bottom:30px}
-.turningHeading h2{font-family:'Ultra',Georgia,serif;font-weight:400;font-size:34px;letter-spacing:.05em}
-.turningHeading p{font-family:'Old Standard TT',Georgia,serif;font-style:italic;font-size:14px}
-.turncard{background:#fbf5e4;border-radius:2px;border:1px solid #8c7d61;border-top:5px solid var(--card-color)}
-.turncard .cardname{font-family:'Old Standard TT',Georgia,serif;font-weight:700;font-size:18px}
-.marketSheet{background:var(--alm-foxing),var(--alm-paper-hi);background-size:420px 420px,auto}
-.marketSheet h2{font-family:'Ultra',Georgia,serif;font-weight:400;letter-spacing:.05em}
-.hcard{border-radius:3px}
-.hcardName{font-family:'Old Standard TT',Georgia,serif}
-.handSheet{background:var(--alm-paper-hi);border:1px solid var(--alm-rule);border-radius:2px;box-shadow:inset 0 0 0 4px var(--alm-paper-hi),inset 0 0 0 5px var(--alm-rule),0 8px 30px #2b241a44}
-.handSheet h3{font-family:'Old Standard TT',Georgia,serif;font-size:20px}
-.runSummary{background:var(--alm-foxing),var(--alm-paper-hi);background-size:420px 420px,auto;padding-top:36px;padding-bottom:34px}
-.runSummary h2{font-family:'Ultra',Georgia,serif;font-weight:400;letter-spacing:.04em}
-.summaryStats>div{border-radius:2px;background:#fbf5e4;border-color:#8c7d61}
-@media(max-width:760px){.home .panel{padding:22px 16px}.turningHeading h2{font-size:24px}}
+/* Founding */
+.runSetup{gap:16px}
+.setupBlock>b{font:700 14px var(--alm-text);display:flex;align-items:center;gap:2px}
+.founderRow{gap:6px}
+.founderChip{border-radius:12px;background:var(--alm-surface);border:1px solid var(--alm-line);border-top:3px solid var(--doctrine);min-height:58px;font-family:var(--alm-text)}
+.founderChip.selected{background:var(--alm-ink);color:var(--alm-surface);border-color:var(--alm-ink);border-top-color:var(--doctrine)}
+.founderChip.selected .founderGlyph{color:var(--alm-surface)}
+.hardshipRow strong{font:400 20px var(--alm-title);min-width:40px}
+.hardshipRow button{border-radius:10px}
+.figurePool>button{background:var(--alm-surface);border-radius:10px}
+
+/* Legacy Market */
+.marketHeader h1{font-family:var(--alm-title);font-weight:400;letter-spacing:.02em}
+.marketHeader>.legacyPoints{font-family:var(--alm-title);border-radius:14px;background:var(--alm-surface);border:1px solid var(--alm-line)}
+.marketTabs{border-bottom:1px solid var(--alm-line)}
+.marketTabs button{font-family:var(--alm-text);border-radius:0}
+.marketTabs button.sel{background:transparent;border-color:var(--alm-ink);color:var(--alm-ink)}
+.marketItem{border-top:4px solid var(--card-color)}
+.marketItem h3{font-family:var(--alm-text);font-weight:700}
+
+/* Card event and Market Hall */
+.turningBackdrop{background:#2b241a99;backdrop-filter:none}
+.turningWindow{padding:22px 24px}
+.turningHeading{text-align:left;margin-bottom:16px}
+.turningHeading .eyebrow{justify-content:flex-start}
+.turningHeading h2{font-family:var(--alm-title);font-weight:400;font-size:30px;letter-spacing:.02em;margin:6px 0 2px}
+.turningHeading p{font-family:var(--alm-text);font-style:italic;font-size:15px;color:var(--alm-soft);display:flex;align-items:center}
+.turncard{background:var(--alm-surface);border-radius:14px;border:1px solid var(--alm-line);border-top:4px solid var(--card-color);min-height:0;padding:14px;gap:8px;box-shadow:var(--alm-shadow-soft);transition:transform var(--alm-fast) var(--alm-ease),box-shadow var(--alm-fast);animation:almRise 220ms var(--alm-ease) both}
+.turncard:nth-child(2){animation-delay:60ms}.turncard:nth-child(3){animation-delay:120ms}.turncard:nth-child(4){animation-delay:180ms}
+.turncard:hover,.turncard:focus-visible{transform:translateY(-4px);box-shadow:var(--alm-shadow);background:var(--alm-surface)}
+.turncard .cardname{font-family:var(--alm-title);font-weight:400;font-size:19px;letter-spacing:.01em}
+.turncard .carddescription{display:none}
+.turncard .cardbottom{border-top:1px solid var(--alm-line);font-family:var(--alm-text);letter-spacing:0;text-transform:none}
+.turningActions{border-top:0;padding-top:4px}
+.marketSheet h2{font-family:var(--alm-title);font-weight:400;letter-spacing:.02em}
+.marketSheet .hcard{border-radius:14px;background:var(--alm-surface)}
+.hcardName{font-family:var(--alm-text);font-weight:700}
+.handSheet h3{font-family:var(--alm-title);font-weight:400;font-size:21px;letter-spacing:.01em;margin:4px 0 6px}
+.handSheetHead{display:flex;align-items:center;gap:6px}
+.handSheetHead>b{margin-right:auto}
+
+/* Run summary */
+.runSummary h2{font-family:var(--alm-title);font-weight:400;letter-spacing:.02em}
+.summaryStats strong{font-family:var(--alm-title);font-weight:400}
+.summaryStats>div{border-radius:12px;background:var(--alm-paper)}
+@media(max-width:760px){.home .panel{padding:18px 14px}.turningHeading h2{font-size:24px}}
+
+/* One type family everywhere */
+:root,body,.app,.app button,.app input,.app select,.app textarea{font-family:var(--alm-text)}
+.app .infoButton{width:24px;height:24px;min-width:24px;padding:0;border-radius:50%}
+.app *{font-family:var(--alm-text)}
+.app.inGame .cityheading span{text-transform:none;letter-spacing:0}
+/* The old moss green becomes ink everywhere */
+:root{--moss:#2b241a;--moss-dark:#1c170f;--paper-light:#f8f0dc;--rule:#2b241a55;--rule-light:#2b241a29}
+@keyframes almFade{from{opacity:0}to{opacity:1}}
+.marketSheet{animation:almFade var(--alm-fast) var(--alm-ease) both}
+.buyButton{border-radius:10px}
+.offerTools button{min-height:32px;border:0;background:transparent;color:var(--alm-soft);text-decoration:underline;text-underline-offset:3px;font-size:12px}
+.app.inGame .sidebar .rail button.active,.app.inGame .sidebar .rail button.sel{background:var(--alm-ink);color:var(--alm-surface);border-color:transparent;box-shadow:none}
+.app .controls .pauseButton,.app .controls button.speedActive{background:var(--alm-ink);color:var(--alm-surface);border-color:var(--alm-ink)}
+.app .sidebar .rail button.active{background:var(--alm-ink)!important;color:var(--alm-surface)!important;border-color:transparent!important;box-shadow:none!important}
+.app .sidebar .sidepanel button.active,.app .sidebar .layerList button.active{background:var(--alm-paper-deep)!important;border-color:var(--alm-line-strong)!important;color:var(--alm-ink)!important;box-shadow:inset 3px 0 0 var(--alm-ink)!important}
+.app .info .infoButton{width:24px!important;height:24px!important;min-width:24px!important;min-height:24px!important;padding:0!important;margin:0;border-radius:50%!important;flex:none}
+.app .info .infoButton{border:1px solid var(--alm-line-strong)!important}
+.app .info .infoButton:not(.on){background:var(--alm-surface)!important;color:var(--alm-ink)!important}
+.app.inGame .cityheading span{overflow:visible!important;max-width:none!important;text-overflow:clip!important}
+.app .info .infoButton.on{background:var(--alm-ink)!important;color:var(--alm-surface)!important}

@@ -6,38 +6,34 @@ import {foundingOptions,eraCardPool,HARDSHIP_TEXT,hardshipLP,historicStanding,ru
 import {ERA_CARDS,CARD_INDEX} from './turningPoints.js';
 import {DOCTRINES} from './doctrines.js';
 import {RUIN_AT,unrestLine} from './sim.js';
+import {Info} from './Info.jsx';
 import './runs.css';
 
 const number=n=>Math.round(n||0).toLocaleString('en-US');
 const glyph=d=>d?DOCTRINES[d]?.glyph:'◇';
 
-// The founding panel: Founder, artifacts, boosters and Hardship.
+// The founding panel: Founder, artifacts, boosters and Hardship. Short labels;
+// details behind (i); empty sections are hidden.
 export function FoundingSetup({legacy,setup,setSetup}){
   const o=foundingOptions(legacy),pool=eraCardPool(legacy).length;
   const set=patch=>setSetup({...setup,...patch});
   const toggle=(key,id,limit)=>{const list=setup[key]||[];set({[key]:list.includes(id)?list.filter(x=>x!==id):list.length<limit?[...list,id]:list});};
-  const founders=Object.values(FOUNDER_INDEX);
+  const founders=Object.values(FOUNDER_INDEX),f=FOUNDER_INDEX[setup.founder||'wanderer'];
   return <div className="runSetup">
-    <div className="setupBlock"><b><Landmark size={15}/> Founder</b>
-      <div className="founderRow" role="radiogroup" aria-label="Founder">{founders.map(f=>{const open=o.founders.includes(f.id),sel=(setup.founder||'wanderer')===f.id;
-        return <button key={f.id} role="radio" aria-checked={sel} className={`founderChip ${sel?'selected':''}`} disabled={!open} onClick={()=>set({founder:f.id})} title={open?f.description:`Reach tier 1 of ${doctrineName(f.doctrine)} in a run, or buy in the Legacy Market`} style={{'--doctrine':f.doctrine?DOCTRINES[f.doctrine].color:'#6f6a5c'}}>
-          <span className="founderGlyph" aria-hidden="true">{glyph(f.doctrine)}</span><span>{f.name.replace('The ','')}</span><small>{open?doctrineName(f.doctrine):'Locked'}</small></button>;})}</div>
-      {(()=>{const f=FOUNDER_INDEX[setup.founder||'wanderer'];return <p className="setupNote">{f.description}{f.cards.length>0&&<> Starting hand: {f.cards.map(id=>CARD_INDEX[id]?.name).join(', ')}.</>}{f.doctrine&&<> {doctrineName(f.doctrine)} cards are three times as likely in the Market Hall.</>}</p>;})()}
+    <div className="setupBlock"><b>Founder <Info label="About founders"><span>{f.description}</span>{f.cards.length>0&&<span>Starts with {f.cards.map(id=>CARD_INDEX[id]?.name).join(' and ')}.</span>}{f.doctrine&&<span>{doctrineName(f.doctrine)} cards are 3× as likely in the Market Hall.</span>}<span>Locked founders join when you reach tier 1 of their doctrine, or for Legacy Points. Card pool: {pool} of {ERA_CARDS.length}.</span></Info></b>
+      <div className="founderRow" role="radiogroup" aria-label="Founder">{founders.map(x=>{const open=o.founders.includes(x.id),sel=(setup.founder||'wanderer')===x.id;
+        return <button key={x.id} role="radio" aria-checked={sel} className={`founderChip ${sel?'selected':''}`} disabled={!open} onClick={()=>set({founder:x.id})} title={open?x.name:'Locked'} style={{'--doctrine':x.doctrine?DOCTRINES[x.doctrine].color:'#6f6a5c'}}>
+          <span className="founderGlyph" aria-hidden="true">{glyph(x.doctrine)}</span><span>{x.name.replace('The ','')}</span></button>;})}</div>
     </div>
-    <div className="setupBlock"><b><Gem size={15}/> Artifacts ({(setup.artifacts||[]).length}/{o.slots})</b>
-      {o.artifacts.length?<div className="figurePool">{o.artifacts.map(id=>{const a=ARTIFACT_INDEX[id],sel=(setup.artifacts||[]).includes(id);return <button key={id} className={sel?'selected':''} aria-pressed={sel} disabled={!sel&&(setup.artifacts||[]).length>=o.slots} onClick={()=>toggle('artifacts',id,o.slots)}><span>{a.name}</span><small>{a.description}</small></button>;})}</div>:<p className="muted">No artifacts yet. Buy them with Legacy Points in the Legacy Market.</p>}
-    </div>
-    <div className="setupBlock"><b><PackageOpen size={15}/> Boosters ({(setup.boosters||[]).length}/{o.boosterLimit}, used up at founding)</b>
-      {o.boosters.length?<div className="figurePool">{o.boosters.map(({id,count})=>{const b=BOOSTER_INDEX[id],sel=(setup.boosters||[]).includes(id);return <button key={id} className={sel?'selected':''} aria-pressed={sel} disabled={!sel&&(setup.boosters||[]).length>=o.boosterLimit} onClick={()=>toggle('boosters',id,o.boosterLimit)}><span>{b.name} ×{count}</span><small>{b.description}</small></button>;})}</div>:<p className="muted">No boosters in your storeroom.</p>}
-    </div>
-    <div className="setupBlock"><b><Flame size={15}/> Hardship</b>
+    {o.artifacts.length>0&&<div className="setupBlock"><b>Artifacts {(setup.artifacts||[]).length}/{o.slots}</b>
+      <div className="chipRow">{o.artifacts.map(id=>{const a=ARTIFACT_INDEX[id],sel=(setup.artifacts||[]).includes(id);return <span key={id} className="chipWrap"><button className={`chip ${sel?'selected':''}`} aria-pressed={sel} disabled={!sel&&(setup.artifacts||[]).length>=o.slots} onClick={()=>toggle('artifacts',id,o.slots)}>{a.name}</button><Info label={`About ${a.name}`} align="start">{a.description}</Info></span>;})}</div></div>}
+    {o.boosters.length>0&&<div className="setupBlock"><b>Boosters {(setup.boosters||[]).length}/{o.boosterLimit}</b>
+      <div className="chipRow">{o.boosters.map(({id,count})=>{const b=BOOSTER_INDEX[id],sel=(setup.boosters||[]).includes(id);return <span key={id} className="chipWrap"><button className={`chip ${sel?'selected':''}`} aria-pressed={sel} disabled={!sel&&(setup.boosters||[]).length>=o.boosterLimit} onClick={()=>toggle('boosters',id,o.boosterLimit)}>{b.name} ×{count}</button><Info label={`About ${b.name}`} align="start">{b.description} Used up at founding.</Info></span>;})}</div></div>}
+    <div className="setupBlock hardshipBlock"><b>Hardship <Info label="About Hardship">{HARDSHIP_TEXT(setup.hardship||0)}{!o.maxHardship&&' Complete a city to open Hardship 1.'}</Info></b>
       <div className="hardshipRow"><button aria-label="Lower Hardship" disabled={!setup.hardship} onClick={()=>set({hardship:Math.max(0,(setup.hardship||0)-1)})}><Minus size={14}/></button>
-        <strong aria-live="polite">{setup.hardship?`Hardship ${setup.hardship}`:'None'}</strong>
-        <button aria-label="Raise Hardship" disabled={(setup.hardship||0)>=o.maxHardship} onClick={()=>set({hardship:Math.min(o.maxHardship,(setup.hardship||0)+1)})}><Plus size={14}/></button>
-        <small>{o.maxHardship?`Up to ${o.maxHardship} open`:'Complete a city to open Hardship 1'}</small></div>
-      <p className="setupNote">{HARDSHIP_TEXT(setup.hardship||0)}</p>
+        <strong aria-live="polite">{setup.hardship||0}</strong>
+        <button aria-label="Raise Hardship" disabled={(setup.hardship||0)>=o.maxHardship} onClick={()=>set({hardship:Math.min(o.maxHardship,(setup.hardship||0)+1)})}><Plus size={14}/></button></div>
     </div>
-    <p className="setupNote poolNote"><ScrollText size={14}/> <span>Card pool: <b>{pool}</b> of {ERA_CARDS.length} cards. Reach tier 1 of a doctrine in a run to open its Rares, tier 2 for its Epics and Patron.</span></p>
   </div>;
 }
 

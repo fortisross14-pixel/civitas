@@ -1,5 +1,12 @@
 # CIVITAS changelog
 
+## v2.2 — Less text, one style
+
+**The chosen style**: Survey structure in Almanack colours and type. One thin bar across the top (city, date, residents, score, treasury, clock), an icon-only tool rail with labels on hover, the hand of cards floating along the bottom, one floating sheet at a time. Paper, ink and almanac red; Ultra for titles and numbers, Old Standard TT for all text. Flat surfaces with hairlines, rounded corners and one soft shadow; no gradients. Quick motion (160 ms): cards lift on hover, sheets rise into place.
+
+**Less text, details behind (i)**: a card face shows its name and one effect; an open card shows up to three effects and one *Now* line, with the description, duration, needs, upkeep and doctrine behind its (i). Card events, the Market Hall, the founding panel, history and needs follow the same rule. Empty sections (artifacts, boosters, featured figures) are hidden.
+
+
 ## v2.1 — Cards you understand, a map you can see (Milestone S)
 
 **Cards only, for landmarks.** In doctrine cities every landmark (chapel, market, school, guild hall, clinic and the rest) comes from a building card; there are now 18, one per landmark, sold in the same years as the building. The treasury still pays for the Town Center, walls and bridges. Homes, shops and farms still grow by themselves on zoned land.
