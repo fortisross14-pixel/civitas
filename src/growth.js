@@ -22,6 +22,8 @@ export function buildGrids(city){
   const g={water,occ,road,access,near,front,nearWater,roadKeys:[]};
   for(const b of city.buildings||[]){const f=footprint(b);for(let y=f.y;y<f.y+f.h;y++)for(let x=f.x;x<f.x+f.w;x++)if(within(x,y))markBuilding(g,key(x,y));}
   for(const r of city.roads||[])if(Number.isFinite(r.x)&&Number.isFinite(r.y)&&within(r.x,r.y))markRoad(g,key(r.x,r.y),roadClass(r));
+  // v2.4: a linear park on an old wall line stays open land.
+  for(const w of city.walls||[])if(w.state==='park')for(const k of w.parkCells||[])g.occ[k]=1;
   return g;
 }
 function around(k,radius,fn){const x0=kx(k),y0=ky(k);for(let y=Math.max(0,y0-radius);y<=Math.min(H-1,y0+radius);y++)for(let x=Math.max(0,x0-radius);x<=Math.min(W-1,x0+radius);x++)fn(key(x,y));}
@@ -89,7 +91,8 @@ export function laneStyle(pattern){return LANE[pattern]||LANE.organic;}
 // (lines every `step` cells, offset by the city seed): each new lane runs
 // straight along a lattice line, so later quarters grow as grids of parallel
 // streets beside the winding medieval core. Larger blocks in later eras.
-export const LATTICE={regular:{step:4,from:1650,span:10},industrial:{step:5,span:12,avenue:4},modern:{step:6,span:13,avenue:3}};
+// v2.4: ensanche blocks widen with time; the middle of a deep block stays open (a courtyard).
+export const LATTICE={regular:{step:4,from:1650,span:10},industrial:{step:6,span:14,avenue:3},modern:{step:8,span:16,avenue:2}};
 export function latticeFor(o){const l=LATTICE[o.pattern];if(!l||o.year<(l.from??0))return null;return l;}
 const onLine=(v,off,step)=>((v-off)%step+step)%step===0;
 export function growRoads(city,g,zoneGrid,r,actions,o){

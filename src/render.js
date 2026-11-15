@@ -39,6 +39,62 @@ export function roofTone(type,style,shade=0,red=false){
   const out=red?hsl(9+e.h,46+e.s,40+e.l*.6):hsl((u.h+e.h+dh+360)%360,Math.max(4,u.s+e.s*(u.s>15?1:.4)),u.l+e.l+dl);
   roofCache.set(id,out);return out;
 }
+// v2.4 blocks: fully blocks at zoom ≤ START, fully buildings at ≥ END.
+export const BLOCK_ZOOM_START=2.2,BLOCK_ZOOM_END=3;
+function layerColorOf(b,layer,ctx){const {influence,districts,city}=ctx;
+  let layerColor=null;
+      if(layer==='geography')layerColor=b.special?'#8f8574':'#d4cab2';
+      else if(layer==='age')layerColor=({timber:'#6d6252',stone:'#967d61',classical:'#c0a887',brick:'#ab765e',modernist:'#7c8d8b',contemporary:'#597f8b'})[b.style||styleAt(b.born||1300)];
+      else if(layer==='coverage')layerColor=b.type==='civic'||['chapel','school','clinic','hospital','town_hall','library','civic_center','monastery','shrine','university','waterworks'].includes(b.special)?'#3f7462':b.type==='res'?(influence&&influence.service[Math.floor(b.y)*W+Math.floor(b.x)]>=.35?'#9fb7a5':'#c0806b'):'#c8c1b2';
+      else if(layer==='pollution')layerColor=b.type==='craft'?'#5f5468':b.type==='res'?(influence&&influence.pollution[Math.floor(b.y)*W+Math.floor(b.x)]*influence.homeShield>=.8?'#a2513f':'#bcb3a2'):'#cdc6b6';
+      else if(layer==='districts'&&districts){const i=districts.grid[Math.floor(b.y)*W+Math.floor(b.x)];layerColor=i>=0?DISTRICT_COLORS[i%DISTRICT_COLORS.length]:'#bdb6a4';}
+      else if(layer==='economy')layerColor=b.type==='hotel'?'#ba7b9e':b.type==='trade'?'#d09e52':b.type==='craft'?'#9c8272':b.type==='farm'?'#b5bf79':b.type==='civic'?'#7d9a7e':'#b5aea1';
+      else if(layer==='heritage')layerColor=b.protected?'#9a7149':city.year-(b.born||city.year)>=120?'#c09a67':'#c7c0ad';
+      else if(layer==='influence')layerColor=b.special?(['workshop','monument','museum'].includes(b.special)?'#a27aa1':['monastery','shrine','chapel'].includes(b.special)?'#b6a16c':b.special==='university'?'#6d9aa4':'#7d9a7e'):b.type==='civic'?'#c0ac8a':'#c8c1b2';
+      else if(layer==='zones')layerColor=ZONES[b.type]?.color;
+      else if(layer==='pull')layerColor=b.type==='res'?'#977b60':b.type==='trade'?'#c2a064':b.special?'#7d9a7e':'#c8c1b2';
+  return layerColor;}
+// Block colour: the use's roof tone, lifted toward the paper so blocks read as one mass.
+function mixHex(a,b,t){const p=h=>[1,3,5].map(i=>parseInt(h.slice(i,i+2),16));const [x,y]=[p(a),p(b)];return '#'+x.map((v,i)=>Math.round(v+(y[i]-v)*t).toString(16).padStart(2,'0')).join('');}
+function blockColor(b,layer,lcf){return lcf(b)||mixHex(roofTone(b.type,b.style||styleAt(b.born||1300),0),'#e9dfc4',.42);}
+// Blocks: flood-fill the land between streets. A block is filled when it is
+// enclosed (not open country) and built up; cells two or more parcels from any
+// street are its courtyard. Cached per road and building list.
+const blockCache=new WeakMap();
+function cityBlocks(city,roadSet){
+  const hit=blockCache.get(city.buildings);if(hit&&hit.roads===city.roads)return hit;
+  const water=waterGrid(city.type),id=new Int32Array(W*H).fill(-1),blocks=[],builtType=new Map();
+  for(const b of city.buildings||[])if(!b.vacant&&b.type!=='farm'&&!b.special){const x0=Math.floor(b.x),y0=Math.floor(b.y),n=sizeOf(b);for(let yy=y0;yy<y0+n;yy++)for(let xx=x0;xx<x0+n;xx++)builtType.set(yy*W+xx,b);}
+  for(let k0=0;k0<W*H;k0++){if(id[k0]>=0||roadSet.has(k0)||water[k0])continue;const q=[k0];id[k0]=blocks.length;
+    let edge=false;for(let i=0;i<q.length;i++){const k=q[i],x=k%W,y=(k/W)|0;if(x===0||y===0||x===W-1||y===H-1)edge=true;
+      for(const [dx,dy] of [[1,0],[-1,0],[0,1],[0,-1]]){const nx=x+dx,ny=y+dy;if(nx<0||ny<0||nx>=W||ny>=H)continue;const n=ny*W+nx;if(id[n]<0&&!roadSet.has(n)&&!water[n]){id[n]=blocks.length;q.push(n);}}}
+    blocks.push({cells:q,edge});}
+  const deep=k=>{const x=k%W,y=(k/W)|0;for(let dy=-2;dy<=2;dy++)for(let dx=-2;dx<=2;dx++){if(roadSet.has((y+dy)*W+x+dx))return false;}return true;};
+  const filled=new Set(),list=[];
+  for(const bl of blocks){
+    const built=bl.cells.filter(k=>builtType.has(k));
+    if(bl.edge||bl.cells.length>BLOCK_MAX||built.length<2||built.length/bl.cells.length<.35)continue;
+    const counts=new Map();for(const k of built){const b=builtType.get(k);counts.set(b.type,(counts.get(b.type)||0)+1);}
+    const top=[...counts].sort((a,b)=>b[1]-a[1])[0][0],rep=built.map(k=>builtType.get(k)).find(b=>b.type===top);
+    // Suburbs of detached houses show their houses, not a filled block.
+    if(rep.type==='res'&&(rep.style||styleAt(rep.born||1300))==='contemporary'&&(rep.level||1)<4)continue;
+    const yards=bl.cells.length>16?bl.cells.filter(k=>!builtType.has(k)&&deep(k)):[];const ys=new Set(yards);
+    for(const k of bl.cells)filled.add(k);
+    list.push({rep,cells:bl.cells.filter(k=>!ys.has(k)),yards});
+  }
+  const value={roads:city.roads,filled,list};blockCache.set(city.buildings,value);return value;
+}
+export const BLOCK_MAX=120;
+function drawBlocks(g,info,warp,alpha,colorOf){
+  const P=warp?(x,y)=>warp(x,y):(x,y)=>[x,y],quad=k=>{const x=k%W,y=(k/W)|0;return [P(x,y),P(x+1,y),P(x+1,y+1),P(x,y+1)];};
+  const byColor=new Map(),yards=[];
+  for(const bl of info.list){const col=colorOf(bl.rep);if(!byColor.has(col))byColor.set(col,[]);const arr=byColor.get(col);for(const k of bl.cells)arr.push(quad(k));for(const k of bl.yards)yards.push(quad(k));}
+  const fill=list=>{g.beginPath();for(const q of list){g.moveTo(q[0][0],q[0][1]);for(let i=1;i<4;i++)g.lineTo(q[i][0],q[i][1]);g.closePath();}g.fill();};
+  g.save();g.globalAlpha=alpha;
+  for(const [col,list] of byColor){g.fillStyle=col;fill(list);}
+  if(yards.length){g.fillStyle='#ddd3b3';fill(yards);}
+  g.restore();
+}
 const STONE='#b8a079',STONE_EDGE='#5a4836';
 
 // ───────────────────────── offscreen layers ─────────────────────────
@@ -452,6 +508,12 @@ export function drawCity(ctx,city,width,height,opts={}){
     for(const ring of walls)if(ring.state==='boulevard'){ctx.beginPath();for(const [a,b] of wallSegments(ring)){ctx.moveTo(a[0],a[1]);ctx.lineTo(b[0],b[1]);}ctx.strokeStyle='rgba(112,94,70,.5)';ctx.lineWidth=1.05;ctx.stroke();ctx.strokeStyle='#f2e7cd';ctx.lineWidth=.62;ctx.stroke();}
     // Canal quays.
     for(const ring of walls)if(ring.state==='canal'){ctx.beginPath();for(const [a,b] of wallSegments(ring)){ctx.moveTo(a[0],a[1]);ctx.lineTo(b[0],b[1]);}ctx.strokeStyle='rgba(255,255,255,.25)';ctx.lineWidth=.12;ctx.stroke();}
+    // v2.4: a linear park where the wall stood: a green band, a path and trees.
+    for(const ring of walls)if(ring.state==='park'){ctx.save();ctx.lineCap='round';ctx.lineJoin='round';ctx.beginPath();for(const [a,b] of wallSegments(ring)){ctx.moveTo(a[0],a[1]);ctx.lineTo(b[0],b[1]);}
+      ctx.strokeStyle='#a7b886';ctx.lineWidth=1.9;ctx.stroke();ctx.strokeStyle='#e8dfc4';ctx.lineWidth=.16;ctx.setLineDash([.5,.3]);ctx.stroke();ctx.setLineDash([]);
+      ctx.fillStyle='#6f8a5f';for(const [a,b] of wallSegments(ring)){const len=Math.hypot(b[0]-a[0],b[1]-a[1]),n=Math.max(1,Math.floor(len/1.1)),nx=-(b[1]-a[1])/(len||1),ny=(b[0]-a[0])/(len||1);
+        for(let i=0;i<n;i++){const t=(i+.5)/n,x=a[0]+(b[0]-a[0])*t,y=a[1]+(b[1]-a[1])*t;for(const side of [-.55,.55]){ctx.beginPath();ctx.arc(x+nx*side,y+ny*side,.24,0,Math.PI*2);ctx.fill();}}}
+      ctx.restore();}
     // Bridges: decks with piers.
     for(const b of city.bridges||[]){if(!b.cells?.length)continue;const [ax,ay]=b.cells[0],[bx,by]=b.cells.at(-1),h=b.axis==='h';
       const x0=h?ax-.15:ax+.2,y0=h?ay+.2:ay-.15,w=h?bx-ax+1.3:.6,hh=h?.6:by-ay+1.3;
@@ -462,7 +524,14 @@ export function drawCity(ctx,city,width,height,opts={}){
     // v1.7: quarters in decline read greyer for as long as the decline lasts.
     const declining=new Set((city.effectsTimed||[]).filter(t=>t.until>(city.year||0)&&String(t.source||'').startsWith('decline:')).map(t=>t.source.slice(8)));
     const fadedIdx=layer==='urban'&&districts&&declining.size?new Set(districts.list.map((d,i)=>declining.has(d.id)?i:-1).filter(i=>i>=0)):null;
+    // v2.4: at normal zoom the town reads as blocks (the land between streets),
+    // as on a modern street map; buildings fade in as you zoom close.
+    const bz=opts.view?.zoom??1,blockA=opts.blocks===false?0:Math.max(0,Math.min(1,(BLOCK_ZOOM_END-bz)/(BLOCK_ZOOM_END-BLOCK_ZOOM_START)));
+    const blockInfo=blockA>0?cityBlocks(city,roadSet):null;
     for(const b of city.buildings||[]){
+      const inBlock=blockInfo&&!b.special&&b.type!=='farm'&&blockInfo.filled.has(Math.floor(b.y)*W+Math.floor(b.x));
+      if(inBlock&&blockA>=1)continue;
+      const fade=inBlock?1-blockA:1;
       const look=buildingShapes(b,roadSet,mainSet,warp);
       let layerColor=null;
       if(layer==='geography')layerColor=b.special?'#8f8574':'#d4cab2';
@@ -479,7 +548,7 @@ export function drawCity(ctx,city,width,height,opts={}){
         if(b.vacant){vacant.push(sh.pts);continue;}
         if(!['green','square','water','yard','lawn','paving'].includes(sh.tone))shadows.push(sh.pts);
         if(sh.tone==='roof'&&sh.pts.length===4&&layer==='urban'){const sty=b.style||styleAt(b.born||1300);if(sty==='modernist'||sty==='contemporary')parapets.push(sh.pts);else ridges.push({pts:sh.pts,hip:sty==='stone'||sty==='classical'||sty==='brick'});}
-        look.sh=sh.shade||0;const col=toneColor(sh.tone,b,look,layerColor),alpha=b.informal?.78:1,key=`${col}|${alpha}`;
+        look.sh=sh.shade||0;const col=toneColor(sh.tone,b,look,layerColor),alpha=(b.informal?.78:1)*fade,key=`${col}|${alpha}`;
         if(!buckets.has(key))buckets.set(key,[]);buckets.get(key).push(sh.pts);
         if(sh.saw)saws.push(sh.pts);
       }
@@ -489,6 +558,7 @@ export function drawCity(ctx,city,width,height,opts={}){
     const g=buildingLayer(ctx)||ctx;
     const fillPolys=(list)=>{g.beginPath();for(const pts of list){g.moveTo(pts[0][0],pts[0][1]);for(let i=1;i<pts.length;i++)g.lineTo(pts[i][0],pts[i][1]);g.closePath();}g.fill();};
     g.save();g.translate(.07,.09);g.fillStyle='rgba(58,44,32,.22)';fillPolys(shadows);g.restore();
+    if(blockA>0)drawBlocks(g,blockInfo,warp,blockA,b=>blockColor(b,layer,x=>layer==='urban'?null:layerColorOf(x,layer,{influence,districts,city})));
     for(const [key,list] of buckets){const [col,alpha]=key.split('|');g.globalAlpha=Number(alpha);g.fillStyle=col;fillPolys(list);}
     g.globalAlpha=1;
     if(faded.length){g.fillStyle='rgba(158,152,140,.5)';fillPolys(faded);}

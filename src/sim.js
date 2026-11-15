@@ -8,7 +8,7 @@ import {scoreYear,penalize,normalizeScore,emptyScore,DECLINE_YEARS_LOST,UNANSWER
 import {CARD_EVENT_EVERY,CARD_INDEX,TURNING_POINTS,turningYears,turningSchedule,turningCount,eraEffects,turningMode,generateOffers,modifiers,activeSynergies,resolvedCards,currentTurningIndex} from './turningPoints.js';
 import {W,H,CELLS,DIRS4,clamp,within,key,kx,ky,rand,hash,terrain,waterGrid,footprint,POP_SCALE} from './geo.js';
 const K=POP_SCALE;
-import {buildGrids,markRoad,markBuilding,pickParcel,growRoads,patternFor,layMainRoads,addRoute,routeBetween,fitWall,ringCells,findBridge,roadClass,homeLand,wallPolygon,insideWall,wallSegments,wallLength} from './growth.js';
+import {wallCells,buildGrids,markRoad,markBuilding,pickParcel,growRoads,patternFor,layMainRoads,addRoute,routeBetween,fitWall,ringCells,findBridge,roadClass,homeLand,wallPolygon,insideWall,wallSegments,wallLength} from './growth.js';
 export {wallPolygon,insideWall,wallSegments};
 export {homeLand};
 import {spatial,spatialEffects,freezeSpatial,thawSpatial} from './spatial.js';
@@ -278,6 +278,7 @@ export function cityEffects(city){
     if(w.state==='wall'){add('prosperity',2);add('migration',.03);}
     else if(w.state==='canal'){add('trade',.06);add('transport',.05);add('heritage',.05);}
     else if(w.state==='boulevard'){add('transport',.10);add('prosperity',2);}
+    else if(w.state==='park'){add('prosperity',3);add('heritage',.06);}
   }
   add('transport',Math.min(4,(city.bridges||[]).length)*.03);
   for(const [k,v] of Object.entries(townCenterLevel(city)?.effects||{}))add(k,v);
@@ -587,6 +588,7 @@ function yearTick(city,prevYear){
    if(doctrinesOn(city)){trackTiers(city);if(city.needsOn)updateUnrest(city,year,sNow,resolved,declines);}}
   // v1.5: the Market Hall restocks every decade.
   if(year<END_YEAR&&shopDue(city)){const r=restockShop(city,stats(city),0,{need:needCard(city)});city.deck=r.deck;city.events.push({year,type:'shop',text:'The Market Hall has new cards for sale.'});}
+  if(doctrinesOn(city)&&year%5===0)outgrowWalls(city,year);
   if(year%5!==0&&year!==END_YEAR)return;
   localEvent(city,year);
   redevelopment(city,year,rand(hash(city.seed,year,12345)));
@@ -966,6 +968,7 @@ export const PUBLIC_WORKS={
   wall:{name:'City Wall',from:1300,to:1749,description:'Encloses the dense core. Safer, more attractive, and new homes cluster inside it.'},
   canal:{name:'Canal Ring',from:1580,to:2030,water:true,description:'Replaces the innermost wall with a canal and quay street: trade, transport and heritage.'},
   boulevard:{name:'Boulevard Ring',from:1750,to:2030,description:'Replaces the innermost wall with a ring boulevard: transport and prosperity.'},
+  park:{name:'Linear Park',from:1800,to:2030,description:'Replaces the innermost wall with a park along its line: prosperity and heritage.'},
   bridge:{name:'Bridge',from:1300,to:2030,water:true,description:'Click a riverbank or the water. Streets can then grow on the far bank.'}
 };
 const eraCost=year=>year<1500?1:year<1750?1.5:year<1850?2.4:year<1950?4:6;
@@ -973,9 +976,23 @@ export function wallTarget(city){return fitWall(city,cityOrigin(city));}
 export function publicWorkCost(city,kind,span=0){
   if(kind==='wall'){const w=wallTarget(city);return Math.round(wallLength(w)*4*eraCost(city.year));}
   const inner=innermostWall(city);
-  if(kind==='canal'||kind==='boulevard')return inner?Math.round(wallLength(inner)*(kind==='canal'?6:7)*eraCost(city.year)):Infinity;
+  if(kind==='canal'||kind==='boulevard'||kind==='park')return inner?Math.round(wallLength(inner)*(kind==='canal'?6:kind==='park'?5:7)*eraCost(city.year)):Infinity;
   if(kind==='bridge')return Math.round((80+Math.max(1,span)*14)*eraCost(city.year));
   return Infinity;
+}
+// v2.4: a town that has overflowed its walls tears them down (from 1820): the
+// line becomes a ring boulevard, as in Vienna or Barcelona. The player can turn
+// them into a canal or a linear park first.
+export const WALL_TEARDOWN_FROM=1820;
+function outgrowWalls(city,year){
+  if(year<WALL_TEARDOWN_FROM)return;
+  const wall=innermostWall(city);if(!wall||year-(wall.built||0)<60)return;
+  const urban=city.buildings.filter(b=>b.type!=='farm'),outside=urban.filter(b=>!insideWall(wall,b.x+.5,b.y+.5)).length;
+  if(urban.length<60||outside/urban.length<.55)return;
+  const g=buildGrids(city),cells=ringCells(city,g,wall,homeLand(city.type,cityOrigin(city))).filter(k=>!g.road[k]);
+  city.walls=city.walls.map(w=>w.id===wall.id?{...w,state:'boulevard',converted:year,auto:true}:w);
+  for(const k of cells)city.roads.push({x:kx(k),y:ky(k),born:year,pattern:'boulevard',cls:'ring'});
+  city.events.push({year,type:'works',text:'The town had long outgrown its walls: they came down, and a ring boulevard now follows their line.'});
 }
 function innermostWall(city){return (city.walls||[]).filter(w=>w.state==='wall').sort((a,b)=>a.r-b.r)[0]||null;}
 const hasWater=city=>['river','coast','estuary','lake'].includes(city.type);
@@ -989,7 +1006,7 @@ export function publicWorkIssue(city,kind){
   if(work.water&&!hasWater(city))return 'This geography has no water to work with';
   if(kind==='wall'&&(city.walls||[]).filter(w=>w.state==='wall').length>=2)return 'At most two standing walls';
   if(kind==='wall'&&city.buildings.filter(b=>b.type!=='farm').length<15)return 'The town is too small to wall';
-  if((kind==='canal'||kind==='boulevard')&&!innermostWall(city))return 'Needs a standing city wall to replace';
+  if((kind==='canal'||kind==='boulevard'||kind==='park')&&!innermostWall(city))return 'Needs a standing city wall to replace';
   if(kind!=='bridge'&&city.funds<publicWorkCost(city,kind))return `Needs ${publicWorkCost(city,kind).toLocaleString('en-US')} treasury`;
   return null;
 }
@@ -1005,9 +1022,15 @@ export function convertWall(city,kind){
   const wall=innermostWall(city),cost=publicWorkCost(city,kind),g=buildGrids(city);
   const cells=ringCells(city,g,wall,homeLand(city.type,cityOrigin(city))).filter(k=>!g.road[k]);
   const next={...city,funds:city.funds-cost,roads:[...city.roads],walls:city.walls.map(w=>w.id===wall.id?{...w,state:kind,converted:city.year}:w),events:[...city.events]};
-  for(const k of cells)next.roads.push({x:kx(k),y:ky(k),born:city.year,pattern:kind==='canal'?'regular':'boulevard',cls:'ring'});
-  next.events.push({year:city.year,type:'works',text:kind==='canal'?'The old wall came down; a canal ring with quays now circles the historic core.':'The old wall came down; a ring boulevard now circles the historic core.'});
-  return {city:next,undo:{kind:'convert',id:wall.id,roads:cells,refund:cost},error:null};
+  if(kind==='park'){
+    // The park takes the whole wall line: unprotected buildings on it are cleared.
+    const line=[...wallCells(wall)].filter(k=>!g.water[k]),set=new Set(line);
+    next.buildings=city.buildings.filter(b=>b.protected||b.special||!set.has(key(Math.floor(b.x),Math.floor(b.y))));
+    next.walls=next.walls.map(w=>w.id===wall.id?{...w,parkCells:line}:w);}
+  else for(const k of cells)next.roads.push({x:kx(k),y:ky(k),born:city.year,pattern:kind==='canal'?'regular':'boulevard',cls:'ring'});
+  next.events.push({year:city.year,type:'works',text:kind==='canal'?'The old wall came down; a canal ring with quays now circles the historic core.':kind==='park'?'The old wall came down; a park now follows its line around the historic core.':'The old wall came down; a ring boulevard now circles the historic core.'});
+  const cleared=kind==='park'?city.buildings.filter(b=>!next.buildings.includes(b)):[];
+  return {city:next,undo:{kind:'convert',id:wall.id,roads:cells,refund:cost,cleared},error:null};
 }
 export function bridgeAt(city,x,y){return findBridge(city.type,buildGrids(city),Math.floor(x),Math.floor(y));}
 export function buildBridge(city,x,y){
@@ -1119,7 +1142,7 @@ export function revertEdit(city,undo){
     }
     case 'wall':return {...city,walls:(city.walls||[]).filter(w=>w.id!==undo.id),funds:city.funds+undo.refund};
     case 'center':return city.center?{...city,center:{...city.center,level:undo.level},funds:city.funds+undo.refund}:city;
-    case 'convert':{const drop=new Set(undo.roads);return {...city,walls:(city.walls||[]).map(w=>{if(w.id!==undo.id)return w;const {converted:_c,...rest}=w;return {...rest,state:'wall'};}),roads:city.roads.filter(r=>!(roadClass(r)==='ring'&&drop.has(key(r.x,r.y)))),funds:city.funds+undo.refund};}
+    case 'convert':{const drop=new Set(undo.roads);return {...city,walls:(city.walls||[]).map(w=>{if(w.id!==undo.id)return w;const {converted:_c,...rest}=w;const {parkCells:_p,...kept}=rest;return {...kept,state:'wall'};}),roads:city.roads.filter(r=>!(roadClass(r)==='ring'&&drop.has(key(r.x,r.y)))),buildings:[...city.buildings,...(undo.cleared||[])],funds:city.funds+undo.refund};}
     case 'bridge':{const drop=new Set(undo.roads);return {...city,bridges:(city.bridges||[]).filter(b=>b.id!==undo.id),roads:city.roads.filter(r=>!(Number.isFinite(r.x)&&drop.has(key(r.x,r.y))&&r.born>=0&&(roadClass(r)==='bridge'||roadClass(r)==='main'))),routes:(city.routes||[]).slice(0,Math.max(0,(city.routes||[]).length-(undo.routes||0))),funds:city.funds+undo.refund};}
     default:return city;
   }

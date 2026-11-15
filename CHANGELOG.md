@@ -1,5 +1,18 @@
 # CIVITAS changelog
 
+## v2.4 — The city evolves
+
+**Blocks at normal zoom, buildings up close.** Like a modern street map, the built-up town reads as blocks: the land between streets, filled once enclosed and built up, tinted by use and era, with courtyards inside deep blocks. Landmarks stay drawn on top. Zooming in past about 2.2× fades the blocks into the individual buildings (fully at 3×). Fringe houses and detached suburbs always show as houses.
+
+**Walls become ring boulevards or linear parks.** From 1820 a town that has clearly outgrown its walls (more than half its buildings outside, walls at least 60 years old) tears them down and a ring boulevard follows their line. Before that, the player can turn them into a canal ring, a ring boulevard or a new *Linear Park* (from 1800): a green band with a path and trees, open land with no street; unprotected buildings on the line are cleared (undo restores them).
+
+**Wider ensanches.** Planned-street blocks widen with time: lattice lines every 4 parcels (1650–1799), 6 (industrial) and 8 (modern), so the middle of deep blocks stays open as a courtyard, with an avenue every few lines.
+
+**Scenarios proposal**: `docs/SCENARIOS.md`.
+
+**Tests**: new `tests/evolution.test.js`; all 26 test files pass.
+
+
 ## v2.3 — Streets and buildings by age
 
 **Urban works cards** (`src/urbanWorks.js`): seven cards that lay out part of the street plan where you tap, with a dashed preview first. One or two per age, sold in the Market Hall in their years, no Decree slot:
