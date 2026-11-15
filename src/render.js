@@ -258,7 +258,7 @@ function plan(b,r){
     // otherwise halls, courtyard buildings, schools and modern civic blocks.
     const pick=hash(Math.floor(b.x),Math.floor(b.y),77)>>>0;
     if(b.born<1850&&(b.informal||pick%3===0))out.push(...church(.0,.12,.78,.9));
-    else if(b.born<1600)out.push({poly:rect(-.46,0,.46,.46),tone:'roof'},{poly:rect(.18,.46,.4,.66),tone:'tower'}); // a hall with its tower
+    else if(b.born<1600)out.push({poly:rect(-.46,0,.46,.46),tone:'roof'},{poly:rect(.18,.46,.4,.66),tone:'belfry'}); // a hall with its belfry
     else if(b.born<1850)out.push({poly:rect(-.18,.28,.18,.6),tone:'yard'},{poly:rect(-.42,0,.42,.28),tone:'roof'},{poly:rect(-.42,.28,-.18,.6),tone:'roof'},{poly:rect(.18,.28,.42,.6),tone:'roof'},{poly:rect(-.42,.6,.42,.82),tone:'roof'});
     else if(b.born<1950)out.push({poly:rect(-.44,0,.44,.24),tone:'roof'},{poly:rect(-.44,.24,-.28,.72),tone:'roof'},{poly:rect(-.08,.24,.08,.6),tone:'roof'},{poly:rect(.28,.24,.44,.72),tone:'roof'});
     else out.push({poly:rect(-.42,0,.42,.16),tone:'square'},{poly:rect(-.36,.16,.36,.66),tone:'roof'});
@@ -323,7 +323,7 @@ function toneColor(tone,b,look,layerColor){
     // Sheds (workshops, barns) are a darker shade of their use's roof.
     case 'shed':return roofTone(b.type,sty,3);
     case 'awning':return '#c49a5a';
-    case 'stone':return STONE;case 'tower':return '#8a7354';case 'cloister':return '#bfae8c';
+    case 'stone':return STONE;case 'tower':case 'belfry':return '#8a7354';case 'cloister':return '#bfae8c';
     case 'square':return '#e2d6b8';case 'lawn':return '#c3c79b';case 'paving':return '#cdbd98';case 'yard':return '#cfc79f';case 'green':return '#9fb084';case 'tree':return '#6f8a5f';
     case 'water':return WATER;case 'chimney':return '#4f4640';
     default:return roofTone(b.type,sty,0);
