@@ -449,10 +449,12 @@ function monthGrowth(city,year,r,perks){
   // no reachable plot, or when the stock of open, reachable plots runs low.
   // Freshly zoned land that no street reaches yet also draws streets toward it.
   let open=0,unserved=0;
-  for(let k=0;k<CELLS;k++){if(g.water[k]||g.occ[k]||g.road[k])continue;if(g.access[k]){if(zg[k]!=null||g.near[k])open++;}else if(zg[k]!=null)unserved++;}
+  for(let k=0;k<CELLS;k++){if(g.water[k]||g.occ[k]||g.road[k])continue;if(g.access[k]){if(zg[k]!=null||g.near[k])open++;}else if(zg[k]!=null&&zg[k]!=='farm')unserved++;}
   const need=Math.min(4,Number(city.roadNeed)||0),wanted=6+perFive*1.5;
   const roadActions=need+(r()<(open<wanted?.45:unserved>0?.22:.03)?1:0);
-  if(roadActions)growRoads(city,g,zg,r,roadActions,o);
+  // v2.7: called every month: a new landmark gets its square and streets at once (growth.js).
+  // Lanes are laid only on real demand (no plot found last month, or open plots running low); zoned land and landmarks are served regardless.
+  growRoads(city,g,zg,r,roadActions,{...o,lanes:need>0||open<wanted});
   city.roadNeed=0;
   const workforceDemand=s.population*.44,cycle=businessCycle(city),pull=growthPull(city);
   for(let i=0;i<builds;i++){
@@ -484,7 +486,7 @@ function monthGrowth(city,year,r,perks){
     // Out of land: build upward instead, at the v1.0 pace (about once per five years).
     if(!p){if(needsHousing&&r()<1/60)densify(city,year,r);break;}
     const b=createBuilding(city,type,p,year,r,{housingPressure:Math.round(s.population/Math.max(1,s.capacity)*100),resZoned:s.zoned.res});
-    city.buildings.push(b);markBuilding(g,key(p.x,p.y));
+    city.buildings.push(b);markBuilding(g,key(p.x,p.y),type==='farm');
     if(type==='res')s.capacity+=Math.round(b.capacity*(1+(perks.housing||0)));else s.jobs+=b.jobs;
     if(type==='farm')s.farms++;if(type==='civic')s.civic++;if(type==='hotel')s.hotels++;
   }
@@ -910,7 +912,7 @@ export function seedTown(city,at=null){
     let p=pickParcel(g,zg,type,r,o);
     if(!p){growRoads(c,g,zg,r,3,o);p=pickParcel(g,zg,type,r,o);}
     if(!p)continue;
-    c.buildings.push(createBuilding(c,type,p,1300,r));markBuilding(g,key(p.x,p.y));
+    c.buildings.push(createBuilding(c,type,p,1300,r));markBuilding(g,key(p.x,p.y),type==='farm');
   }
   c.residents=120*K;
   const s=stats(c);
@@ -1060,7 +1062,7 @@ export function buildBridge(city,x,y){
   const target=span.axis==='h'?{x:far.x>o.x?W-1:0,y:far.y}:{x:far.x,y:far.y>o.y?H-1:0};
   const edge=nearestLandOnEdge(city.type,target);
   const roadsBefore=next.roads.length;
-  if(edge){const path=routeBetween(city.type,city.seed+next.bridges.length*104729,far,edge);if(path&&path.length>2)addRoute(next,path,city.year,'main');}
+  if(edge){const path=routeBetween(city.type,city.seed+next.bridges.length*104729,far,edge,null,city.seed);if(path&&path.length>2)addRoute(next,path,city.year,'main');}
   // Link the near bridgehead to the existing street network.
   const near=span.ends.find(e=>e!==far),link=linkToNetwork(city,g,near);
   for(const k of link){if(!g.road[k]){next.roads.push({x:kx(k),y:ky(k),born:city.year,pattern:patternFor(city.year),cls:'minor'});}}
