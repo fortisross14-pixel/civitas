@@ -7,7 +7,7 @@
 import React,{useEffect,useMemo,useRef,useState} from 'react';
 import {ChevronLeft,LandPlot,Hammer,Landmark,ScrollText,Play,Pause,X,Users,Coins,Target,Undo2,Eraser,Store,Package,RefreshCw,Crown,Castle,Waves,Route,Check,Trophy,Star,ShieldCheck,ShieldOff,Bomb,Flame,Hourglass,ArrowRight,Sparkles} from 'lucide-react';
 import {CityMap} from '../CityMap.jsx';
-import {ZONES,stats,zoningCost,tourismUnlocked,publicWorkIssue,publicWorkCost,PUBLIC_WORKS,townCenterIssue,STYLE_NAMES,styleAt,getOpportunity,unrestLine,RUIN_AT} from '../sim.js';
+import {ZONES,stats,zoningCost,constructionSite,tourismUnlocked,publicWorkIssue,publicWorkCost,PUBLIC_WORKS,townCenterIssue,STYLE_NAMES,styleAt,getOpportunity,unrestLine,RUIN_AT} from '../sim.js';
 import {TOWN_CENTER_LEVELS,townCenterLevel} from '../construction.js';
 import {CARD_INDEX,RARITY_COLORS} from '../turningPoints.js';
 import {deckOf,handLimit,rerollPrice,PACK_SIZE,SELL_SHARE,RESTOCK_YEARS} from '../cards.js';
@@ -277,6 +277,10 @@ export function GameScreen(c){
   useEffect(()=>{if(city.charter&&!city.scenario?.id&&!guideSeen())setGuide(true);},[!!city.charter]);
   useEffect(()=>{if(!c.message)return;setToast(c.message);const id=setTimeout(()=>setToast(null),4200);return()=>clearTimeout(id);},[c.message]);
   const tool=c.tool,placing=tool.startsWith('place:'),zoning=!!zone;
+  // The brush: a drag or tap makes a pending shape; ✓ applies it.
+  const [pend,setPend]=useState(null);
+  useEffect(()=>setPend(null),[tool]);
+  const confirm=()=>{if(!pend)return;if(pend.rect)c.onZone(pend.rect,pend.type);else c.onPlace(pend.id,pend.x,pend.y);setPend(null);};
   // The zone bar drives the map tool.
   useEffect(()=>{if(zone)c.setTool(zone);else if(!placing&&tool!=='inspect')c.setTool('inspect');},[zone]);
   const blocking=!!(city.charterOffer||city.ageWelcome||city.turning?.pending||city.event);
@@ -287,7 +291,7 @@ export function GameScreen(c){
   const zones=Object.entries(ZONES).filter(([k])=>k!=='hotel'||tourismUnlocked(city));
   const b=c.selectedBuilding;
   return <div className="g3">
-    <div className="g-map"><CityMap minimal city={city} tool={ro?'inspect':tool} layer={zoning?'zones':sheet==='govern'&&tab('govern')==='needs'?'needs':'urban'} onZone={c.onZone} onPlace={c.onPlace} onInspect={c.onInspect} onMarker={()=>open('govern','needs')} selectedId={b?.id} animate={c.simulating} captions={c.captions} population={s.population}
+    <div className="g-map"><CityMap minimal city={city} tool={ro?'inspect':tool} layer={zoning?'zones':sheet==='govern'&&tab('govern')==='needs'?'needs':'urban'} onZone={(rect,type)=>setPend({rect,type})} onPlace={(id,x,y)=>setPend({id,x,y})} pendingRect={pend?.rect||null} pendingPoint={pend&&!pend.rect?{x:pend.x,y:pend.y}:null} onInspect={c.onInspect} onMarker={()=>open('govern','needs')} selectedId={b?.id} animate={c.simulating} captions={c.captions} population={s.population}
       describeSelection={(r,t)=>{if(!ZONES[t])return t==='erase'?'Erase zoning':t==='demolish'?'Demolish':null;const {cells,cost}=zoningCost(city,r.x,r.y,r.w,r.h);return cells?`${cells} parcels · ${full(cost)}${cost>city.funds?' · not enough coins':''}`:'Rezoning is free';}}/></div>
 
     <div className="g-top">
@@ -304,14 +308,19 @@ export function GameScreen(c){
 
     {toast&&!placing&&!blocking&&!sheet&&!zoning&&<div className="g-toast" role="status" onClick={()=>setToast(null)}>{toast}</div>}
 
-    {placing&&!ro&&<div className="g-modeBar top"><div><small>{tool==='place:center'?'FOUND THE TOWN':'PLACE'}</small><b>{placeName}</b><span>{tool==='place:center'?'Tap dry land where the town begins':tool==='place:bridge'?'Tap a riverbank':'Tap a free parcel. Rings show where it serves'}</span></div>{tool!=='place:center'&&<button className="g-ghost" onClick={()=>c.setTool('inspect')}>Cancel</button>}</div>}
+    {placing&&!ro&&<div className="g-modeBar top"><div><small>{tool==='place:center'?'FOUND THE TOWN':'PLACE'}</small><b>{placeName}</b><span>{tool==='place:center'?'Tap dry land where the town begins':tool==='place:bridge'?'Tap a riverbank':'Tap a free parcel, then confirm'}</span></div>{tool!=='place:center'&&<button className="g-close dark" aria-label="Close" onClick={()=>c.setTool('inspect')}><X size={18}/></button>}</div>}
+    {placing&&!ro&&<div className="g-brush">{(()=>{const issue=pend&&!pend.rect&&!['center','bridge'].includes(pend.id)&&!pend.id.startsWith('urban:')?constructionSite(city,pend.id,pend.x,pend.y)?.error:null;
+      return pend?<><span className={issue?'bad':''}>{issue||`${placeName} here`}</span><button className="g-ghost" onClick={()=>setPend(null)}>Move</button><button className="g-primary" disabled={!!issue} onClick={confirm}><Check size={16}/>{tool==='place:center'?'Found here':'Build'}</button></>
+      :<><span>Tap the map to choose the spot</span><button className="g-ghost" disabled={!c.undoCount} onClick={c.undo}><Undo2 size={16}/>Undo</button></>;})()}</div>}
 
     {zoning&&!ro?<div className="g-zoneBar">
-      <div className="g-zoneHint">Drag on the map to {zone==='erase'?'erase zoning':zone==='demolish'?'demolish':`zone ${ZONES[zone]?.label.toLowerCase()}`} · two fingers to pan</div>
-      <div className="g-zoneTools">{zones.map(([k,v])=><button key={k} className={zone===k?'on':''} style={{'--z':v.color}} onClick={()=>setZone(k)}><i>{ZONE_ICON[k]}</i><span>{ZONE_SHORT[k]||v.label}</span></button>)}
-        <button className={zone==='erase'?'on':''} onClick={()=>setZone('erase')}><i><Eraser size={16}/></i><span>Erase</span></button>
-        <button className={zone==='demolish'?'on':''} onClick={()=>setZone('demolish')}><i><Bomb size={16}/></i><span>Clear</span></button></div>
-      <div className="g-zoneEnd"><button className="g-ghost" disabled={!c.undoCount} onClick={c.undo}><Undo2 size={16}/>Undo</button><button className="g-primary" onClick={()=>setZone(null)}><Check size={16}/>Done</button></div>
+      <div className="g-zoneTop"><span>{pend?.rect?(()=>{const {cells,cost}=zoningCost(city,pend.rect.x,pend.rect.y,pend.rect.w,pend.rect.h);return ZONES[pend.type]?`${ZONE_SHORT[pend.type]} · ${cells?`${cells} parcels · ${full(cost)} coins`:'rezoning is free'}`:pend.type==='erase'?'Erase this zoning':'Demolish these buildings';})():`Drag on the map · two fingers to pan`}</span>
+        <button className="g-close" aria-label="Close the brush" onClick={()=>setZone(null)}><X size={18}/></button></div>
+      <div className="g-zoneTools">{zones.map(([k,v])=><button key={k} className={zone===k?'on':''} style={{'--z':v.color}} onClick={()=>{setZone(k);setPend(null);}}><i>{ZONE_ICON[k]}</i><span>{ZONE_SHORT[k]||v.label}</span></button>)}
+        <button className={zone==='erase'?'on':''} onClick={()=>{setZone('erase');setPend(null);}}><i><Eraser size={16}/></i><span>Erase</span></button>
+        <button className={zone==='demolish'?'on':''} onClick={()=>{setZone('demolish');setPend(null);}}><i><Bomb size={16}/></i><span>Clear</span></button></div>
+      <div className="g-zoneEnd"><button className="g-ghost" disabled={!c.undoCount} onClick={c.undo}><Undo2 size={16}/>Undo</button>
+        {pend?.rect?<><button className="g-ghost" onClick={()=>setPend(null)}><X size={16}/>Discard</button><button className="g-primary" disabled={ZONES[pend.type]&&zoningCost(city,pend.rect.x,pend.rect.y,pend.rect.w,pend.rect.h).cost>city.funds} onClick={confirm}><Check size={16}/>Confirm</button></>:null}</div>
     </div>
     :!placing&&<nav className="g-dock" aria-label="Actions">
       <button disabled={ro||city.awaitingCenter} onClick={()=>{setSheet(null);setZone('res');}}><LandPlot size={22}/><span>Zone</span></button>

@@ -12,7 +12,7 @@ const DRAG_TOOLS=new Set([...Object.keys(ZONES),'erase','demolish']);
 const SELECTION_STYLE={erase:['#7a7464','#7a746426'],demolish:['#a2513f','#b8604a2e']};
 export const CAPTION_MS=7000;
 
-export function CityMap({city,tool,layer,onZone,onPlace,onInspect,onMarker=null,score=null,selectedId=null,readOnly=false,previewRing=null,describeSelection=null,captions=[],animate=false,population=0,archiveYear=null,minimal=false}){
+export function CityMap({city,tool,layer,onZone,onPlace,onInspect,onMarker=null,score=null,selectedId=null,readOnly=false,previewRing=null,describeSelection=null,captions=[],animate=false,population=0,archiveYear=null,minimal=false,pendingRect=null,pendingPoint=null}){
   const canvas=useRef(null),drag=useRef(null),view=useRef({zoom:1,dx:0,dy:0});
   const [dimensions,setDimensions]=useState({width:600,height:500}),[frame,setFrame]=useState(0),[selection,setSelection]=useState(null),[hover,setHover]=useState(null),[tick,setTick]=useState(0);
   const [showLegend,setShowLegend]=useState(()=>typeof window==='undefined'||window.innerWidth>760);
@@ -34,10 +34,11 @@ export function CityMap({city,tool,layer,onZone,onPlace,onInspect,onMarker=null,
   useEffect(()=>{const el=canvas.current;if(!el)return;const wheel=e=>{e.preventDefault();const r=el.getBoundingClientRect();zoom(e.deltaY>0?.86:1.16,e.clientX-r.left,e.clientY-r.top);};el.addEventListener('wheel',wheel,{passive:false});return()=>el.removeEventListener('wheel',wheel);},[dimensions]);
   // Where the selected building would go: a 2×2 site, a single parcel, or why not.
   const urbanUid=tool.startsWith('place:urban:')&&!readOnly?Number(tool.slice(12)):null;
+  const aim=pendingPoint||hover;
   const placingId=tool.startsWith('place:')&&!urbanUid&&!['place:bridge','place:center'].includes(tool)&&!readOnly?tool.slice(6):null;
-  const urbanPreview=useMemo(()=>{if(!urbanUid||!hover)return null;const held=deckOf(city).hand.find(h=>h.uid===urbanUid);if(!held)return null;const p=urbanPlan(city,held.cardId,hover.x,hover.y);return p.error?null:p.streets.map(st=>({x:st.x,y:st.y,main:st.cls==='main'}));},[urbanUid,hover?.x,hover?.y,city.roads,city.buildings]);
-  const site=useMemo(()=>placingId&&hover&&hover.x>=0&&hover.x<W&&hover.y>=0&&hover.y<H?constructionSite(city,placingId,hover.x,hover.y):null,[placingId,hover?.x,hover?.y,city.buildings,city.roads,city.projects]);
-  const bridgePreview=useMemo(()=>tool==='place:bridge'&&hover&&!readOnly?bridgeAt(city,hover.x,hover.y):null,[tool,hover?.x,hover?.y,city.roads,city.buildings,readOnly]);
+  const urbanPreview=useMemo(()=>{if(!urbanUid||!aim)return null;const held=deckOf(city).hand.find(h=>h.uid===urbanUid);if(!held)return null;const p=urbanPlan(city,held.cardId,aim.x,aim.y);return p.error?null:p.streets.map(st=>({x:st.x,y:st.y,main:st.cls==='main'}));},[urbanUid,aim?.x,aim?.y,city.roads,city.buildings]);
+  const site=useMemo(()=>placingId&&aim&&aim.x>=0&&aim.x<W&&aim.y>=0&&aim.y<H?constructionSite(city,placingId,aim.x,aim.y):null,[placingId,aim?.x,aim?.y,city.buildings,city.roads,city.projects]);
+  const bridgePreview=useMemo(()=>tool==='place:bridge'&&aim&&!readOnly?bridgeAt(city,aim.x,aim.y):null,[tool,aim?.x,aim?.y,city.roads,city.buildings,readOnly]);
   // Gentle animation (windmills, boats, caption fades) while time runs or captions show.
   const liveCaptions=captions.filter(c=>performance.now()-c.t0<CAPTION_MS);
   useEffect(()=>{if(!animate&&!liveCaptions.length)return;const id=setInterval(()=>setTick(t=>t+1),110);return()=>clearInterval(id);},[animate,liveCaptions.length]);
@@ -49,8 +50,8 @@ export function CityMap({city,tool,layer,onZone,onPlace,onInspect,onMarker=null,
     const caps=liveCaptions.map(cap=>{const age=now-cap.t0;return {...cap,alpha:age<600?age/600:age>CAPTION_MS-1500?(CAPTION_MS-age)/1500:1};});
     const [line,fill]=SELECTION_STYLE[tool]||['#3c6d57','#3c895231'];
     drawCity(ctx,city,width,height,{view:view.current,maxStaleMs:animate?350:0,layer,selectedId,previewRing:readOnly?null:previewRing,bridgePreview,urbanPreview,
-      cartouche:!minimal&&(!!archiveYear||window.innerWidth<=760),selection:selection?{...selection,line,fill}:null,hover,placing:tool.startsWith('place:')&&!readOnly,placingCenter:tool==='place:center'&&!readOnly,site,captions:caps,now,population,archiveYear,score:archiveYear?null:score});
-  },[city,layer,selection,dimensions,frame,hover,tool,readOnly,previewRing,bridgePreview,site,selectedId,tick,captions,population,archiveYear]);
+      cartouche:!minimal&&(!!archiveYear||window.innerWidth<=760),selection:selection?{...selection,line,fill}:pendingRect?{...pendingRect,line,fill}:null,hover:aim,placing:tool.startsWith('place:')&&!readOnly,placingCenter:tool==='place:center'&&!readOnly,site,captions:caps,now,population,archiveYear,score:archiveYear?null:score});
+  },[city,layer,selection,pendingRect,pendingPoint,dimensions,frame,hover,tool,readOnly,previewRing,bridgePreview,site,selectedId,tick,captions,population,archiveYear]);
 
   const dragTool=DRAG_TOOLS.has(tool);
   // v1.5: two-finger pinch zooms and pans in any tool; it cancels a drag in progress.
