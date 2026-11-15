@@ -1,0 +1,232 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>CIVITAS organic growth prototype</title>
+<style>body{margin:0;background:#e9e0c6;font:14px Georgia,serif;color:#3d2f24}#bar{display:flex;gap:12px;align-items:center;padding:8px 12px;flex-wrap:wrap}
+#n{flex:1;min-width:160px}button{font:inherit;padding:4px 12px;border:1px solid #8a7354;background:#f1e8d2;border-radius:4px;color:inherit}canvas{display:block;width:100%;height:auto}</style>
+<div id="bar"><button id="play">Play</button><input id="n" type="range" min="1" max="560" value="560"><button id="v3">3D</button><span id="cap"></span></div>
+<canvas id="c" width="1500" height="1000"></canvas>
+<script>
+// Throwaway prototype (not wired to the game): a town that grows one house at
+// a time on real ground. ?n=step&view=3d&seed=7
+//  - a heightfield is the map's hidden layer: contours, slopes, a floodplain
+//  - houses appear on a lane inside zoned land, each its own width, turned to
+//    the lane; they prefer flat ground, neighbours, and valuable land
+//  - when frontage runs out a new lane is traced; on a slope it bends to follow
+//    the level line; it ends where it meets another lane
+//  - now and then a well-off household merges its neighbours' plots
+//  - a landmark raises land value around it: palaces replace rows of houses
+const q=new URLSearchParams(location.search),SEED=+(q.get('seed')||7);
+let VIEW3=q.get('view')==='3d';
+const WW=240,WH=160,N_MAX=560,MAYOR=340;
+let rs=SEED*2654435761>>>0||1;const rnd=()=>{rs^=rs<<13;rs^=rs>>>17;rs^=rs<<5;return (rs>>>0)/4294967296;};
+const hsh=(...v)=>{let n=SEED^0x9e3779b9;for(const x of v){n=Math.imul(n^(x|0),0x85ebca6b);n^=n>>>13;}return (n>>>0)/4294967296;};
+const noise=(x,y,s,c=0)=>{const fx=x/s,fy=y/s,x0=Math.floor(fx),y0=Math.floor(fy),tx=fx-x0,ty=fy-y0,sm=t=>t*t*(3-2*t);
+  const a=hsh(x0,y0,c)+(hsh(x0+1,y0,c)-hsh(x0,y0,c))*sm(tx),b=hsh(x0,y0+1,c)+(hsh(x0+1,y0+1,c)-hsh(x0,y0+1,c))*sm(tx);return a+(b-a)*sm(ty);};
+const clamp=(v,a,b)=>Math.max(a,Math.min(b,v)),smooth=t=>{t=clamp(t,0,1);return t*t*(3-2*t);};
+// ── the ground ──
+const riverY=x=>122+12*Math.sin(x*.021+.5)+5*Math.sin(x*.05+2);
+const BUMPS=[[168,40,30,.46],[52,36,26,.3],[218,92,20,.2],[120,20,24,.22]];
+function rawH(x,y){const d=Math.abs(y-riverY(x)),v=smooth((d-7)/85);let h=v*(.16+.6*(.6*noise(x,y,60,1)+.3*noise(x,y,25,2)+.1*noise(x,y,10,3)));
+  for(const [bx,by,r,a] of BUMPS)h+=a*Math.exp(-((x-bx)**2+(y-by)**2)/(r*r))*smooth((d-10)/40);return h;}
+const GS=2,GW=WW/GS+1,GH=WH/GS+1,HG=new Float32Array(GW*GH);for(let j=0;j<GH;j++)for(let i=0;i<GW;i++)HG[j*GW+i]=rawH(i*GS,j*GS);
+function Hh(x,y){const fx=clamp(x/GS,0,GW-1.001),fy=clamp(y/GS,0,GH-1.001),i=Math.floor(fx),j=Math.floor(fy),tx=fx-i,ty=fy-j,k=j*GW+i;return (HG[k]*(1-tx)+HG[k+1]*tx)*(1-ty)+(HG[k+GW]*(1-tx)+HG[k+GW+1]*tx)*ty;}
+const grad=(x,y)=>[(Hh(x+1.5,y)-Hh(x-1.5,y))/3,(Hh(x,y+1.5)-Hh(x,y-1.5))/3];
+const slopeAt=(x,y)=>{const [a,b]=grad(x,y);return Math.hypot(a,b);};
+const flood=(x,y)=>Math.abs(y-riverY(x))<9.5;
+const STEEP=.02;
+// ── state ──
+const C={x:118,y:riverY(118)-24}; // the crossing: valley road meets the ford road
+const zones=[{x:84,y:C.y-34,w:74,h:50,born:0,name:'zoned 1300'},{x:92,y:34,w:56,h:31,born:120,name:'zoned 1350'},{x:38,y:C.y-22,w:50,h:34,born:230,name:'zoned 1390'},{x:156,y:C.y-40,w:40,h:36,born:400,name:'zoned 1450'}];
+const paths=[],lots=[],squares=[],landmarks=[];let step=0;
+function addPath(pts,kind,born){const L=[0];for(let i=1;i<pts.length;i++)L.push(L[i-1]+Math.hypot(pts[i][0]-pts[i-1][0],pts[i][1]-pts[i-1][1]));const p={pts,L,len:L.at(-1),kind,born,hw:kind==='road'?.6:kind==='track'?.3:.38};paths.push(p);return p;}
+function at(p,s){s=clamp(s,0,p.len);let i=1;while(i<p.L.length-1&&p.L[i]<s)i++;const a=p.pts[i-1],b=p.pts[i],l=p.L[i]-p.L[i-1]||1,t=(s-p.L[i-1])/l;return {x:a[0]+(b[0]-a[0])*t,y:a[1]+(b[1]-a[1])*t,tx:(b[0]-a[0])/l,ty:(b[1]-a[1])/l};}
+function distPaths(x,y,skip=null){let best=1e9,bp=null,bx=0,by=0;for(const p of paths){if(p===skip)continue;for(let i=1;i<p.pts.length;i++){const a=p.pts[i-1],b=p.pts[i],vx=b[0]-a[0],vy=b[1]-a[1],t=clamp(((x-a[0])*vx+(y-a[1])*vy)/(vx*vx+vy*vy||1),0,1),px=a[0]+vx*t,py=a[1]+vy*t,d=Math.hypot(px-x,py-y)-p.hw;if(d<best){best=d;bp=p;bx=px;by=py;}}}return {d:best,p:bp,x:bx,y:by};}
+const inZone=(x,y)=>zones.some(z=>z.born<=step&&x>=z.x&&y>=z.y&&x<=z.x+z.w&&y<=z.y+z.h);
+// Land value: the crossing, the high road, and every landmark.
+function value(x,y){let v=Math.exp(-Math.hypot(x-C.x,y-C.y)/26);for(const m of landmarks)v+=1.1*Math.exp(-Math.hypot(x-m.x,y-m.y)/13);return v;}
+const corners=l=>{const nx=-l.ay,ny=l.ax;return [[-1,-1],[1,-1],[1,1],[-1,1]].map(([u,v])=>[l.cx+l.ax*u*l.w/2+nx*v*l.d/2,l.cy+l.ay*u*l.w/2+ny*v*l.d/2]);};
+function overlap(a,b,m=.15){if(Math.hypot(a.cx-b.cx,a.cy-b.cy)>(Math.hypot(a.w,a.d)+Math.hypot(b.w,b.d))/2+m)return false;
+  const ca=corners(a),cb=corners(b);for(const l of [a,b])for(const [ux,uy] of [[l.ax,l.ay],[-l.ay,l.ax]]){let a0=1e9,a1=-1e9,b0=1e9,b1=-1e9;for(const [x,y] of ca){const t=x*ux+y*uy;a0=Math.min(a0,t);a1=Math.max(a1,t);}for(const [x,y] of cb){const t=x*ux+y*uy;b0=Math.min(b0,t);b1=Math.max(b1,t);}if(a1+m<b0||b1+m<a0)return false;}return true;}
+const alive=()=>lots.filter(l=>l.died==null);
+const inLot=(x,y,m=.5)=>alive().some(l=>{const dx=x-l.cx,dy=y-l.cy,u=dx*l.ax+dy*l.ay,v=-dx*l.ay+dy*l.ax;return Math.abs(u)<l.w/2+m&&Math.abs(v)<l.d/2+m;});
+function makeLot(p,s,side,w,d,type,setback=0){const a=at(p,s),nx=-a.ty*side,ny=a.tx*side,off=p.hw+.18+setback+d/2;return {cx:a.x+nx*off,cy:a.y+ny*off,ax:a.tx,ay:a.ty,bx:nx,by:ny,w,d,p,s,side,type,born:step,tone:rnd()};}
+function lotOK(l,ignore=[]){
+  if(!inZone(l.cx,l.cy)||flood(l.cx,l.cy)||slopeAt(l.cx,l.cy)>STEEP)return false;
+  for(const pt of [...corners(l),[l.cx,l.cy]]){if(pt[0]<2||pt[1]<2||pt[0]>WW-2||pt[1]>WH-2)return false;if(distPaths(pt[0],pt[1]).d<.08)return false;}
+  for(const sq of squares)if(Math.hypot(l.cx-sq.x,l.cy-sq.y)<sq.r+Math.max(l.w,l.d)/2)return false;
+  for(const o of lots)if(o.died==null&&!ignore.includes(o)&&overlap(l,o))return false;
+  return true;}
+function bestLot(tries){
+  let best=null,bs=-1e9,valid=0;const live=alive();
+  for(let t=0;t<tries;t++){
+    const p=paths[Math.floor(rnd()*paths.length)];if(p.born>step)continue;const s=2+rnd()*(p.len-4),side=rnd()<.5?1:-1,a=at(p,s);
+    if(!inZone(a.x,a.y))continue;const v=value(a.x,a.y),up=Hh(a.x,a.y)>.2;
+    // Irregular sizes: narrow deep fronts where land is dear, wide cottages and farmsteads where it is cheap.
+    const w=up?3.2+rnd()*1.6:v>.7?1.5+rnd():v>.4?1.8+rnd()*1.5:2.2+rnd()*2,d=up?2.8+rnd()*.8:v>.7?3+rnd()*1.4:2.3+rnd()*1.4;
+    const l=makeLot(p,s,side,w,d,up?'farm':v>.7?'house':'cottage',v>.6?0:rnd()*.8);if(!lotOK(l))continue;valid++;
+    let near=1e9,row=0;for(const o of live){const dd=Math.hypot(o.cx-l.cx,o.cy-l.cy);if(dd<near)near=dd;if(o.p===p&&o.side===side&&Math.abs(o.s-s)<(o.w+w)/2+.6)row=1;}
+    const sc=2.4*v-2.2*slopeAt(l.cx,l.cy)/STEEP-(live.length?Math.min(near,30)*.08:0)+row*.7-(up?.2:0)+rnd()*.55;
+    if(sc>bs){bs=sc;best=l;}
+  }
+  return {best,valid,score:bs};}
+// A lane: leaves a street at right angles; on a slope it swings round to follow the level line; it ends at the first lane it meets.
+function growLane(){
+  let bq=null,bs=-1e9;const live=alive();
+  for(let t=0;t<40;t++){
+    const p=paths[Math.floor(rnd()*paths.length)],tip=p.open&&rnd()<.4,s=tip?p.len:2.5+rnd()*(p.len-5),side=rnd()<.5?1:-1,a=at(p,s);
+    const hx=tip?a.tx:-a.ty*side,hy=tip?a.ty:a.tx*side;if(!inZone(a.x,a.y))continue;
+    let ok=true,room=0;for(const r of [1.6,3.2])if(inLot(a.x+hx*r,a.y+hy*r,.35))ok=false;if(!ok)continue;
+    for(const r of [5,9,13]){const x=a.x+hx*r,y=a.y+hy*r;if(inZone(x,y)&&!flood(x,y)&&slopeAt(x,y)<STEEP&&distPaths(x,y).d>4.2&&!inLot(x,y,1.2))room++;}
+    if(room<2)continue;let demand=0;for(const o of live)if(Math.hypot(o.cx-a.x,o.cy-a.y)<10)demand++;
+    const sc=room*.8+value(a.x,a.y)*1.6+Math.min(demand,10)*.16+(tip?.5:0)+rnd()*.7;if(sc>bs){bs=sc;bq={p,a,hx,hy,tip};}
+  }
+  if(!bq)return false;
+  let x=bq.a.x,y=bq.a.y,hx=bq.hx,hy=bq.hy;const pts=[[x,y]],L=9+rnd()*16,ST=1.25;let joined=false;
+  for(let i=0;i<L/ST;i++){
+    const [gx,gy]=grad(x,y),sl=Math.hypot(gx,gy);
+    if(i>=3&&sl>1e-5){let cx=-gy/sl,cy=gx/sl;if(cx*hx+cy*hy<0){cx=-cx;cy=-cy;}const wc=clamp(sl/.008,0,1)*.42;hx=hx*(1-wc)+cx*wc;hy=hy*(1-wc)+cy*wc;}
+    const wob=(noise(x,y,9,21)-.5)*.5;hx+=-hy*wob;hy+=hx*wob;const hl=Math.hypot(hx,hy);hx/=hl;hy/=hl;
+    const nx=x+hx*ST,ny=y+hy*ST;if(!inZone(nx,ny)||flood(nx,ny)||slopeAt(nx,ny)>STEEP*1.15||inLot(nx,ny,.4))break;
+    if(i>=4){const dn=distPaths(nx,ny);if(dn.d<2){pts.push([dn.x,dn.y]);joined=true;break;}}
+    pts.push([nx,ny]);x=nx;y=ny;
+  }
+  if(pts.length<6)return false;
+  if(bq.tip){bq.p.open=false;}
+  const np=addPath(pts,'lane',step);np.open=!joined;return true;}
+// A track from the nearest street into zoned land no street reaches: it gives way to the slope rather than climbing straight.
+function trackTo(z){
+  const tx=z.x+z.w/2,ty=z.y+z.h/2;let best=null,bd=1e9;
+  for(const p of paths)for(let s=0;s<=p.len;s+=3){const a=at(p,s),d=Math.hypot(a.x-tx,a.y-ty);if(d<bd&&!flood(a.x,a.y)){bd=d;best=a;}}
+  let x=best.x,y=best.y;const pts=[[x,y]];
+  let prev=Math.atan2(ty-y,tx-x);
+  for(let i=0;i<90;i++){const base=Math.atan2(ty-y,tx-x);let bc=1e9,bx=x,by=y,ba=prev;
+    for(const da of [0,.3,-.3,.6,-.6,.9,-.9]){const an=base+da,nx=x+Math.cos(an)*2,ny=y+Math.sin(an)*2,turn=Math.abs(Math.atan2(Math.sin(an-prev),Math.cos(an-prev)));
+      const c=Math.abs(Hh(nx,ny)-Hh(x,y))*300+Math.abs(da)*.9+turn*1.4+(flood(nx,ny)?9:0);if(c<bc){bc=c;bx=nx;by=ny;ba=an;}}
+    x=bx;y=by;prev=ba;pts.push([x,y]);if(Math.hypot(x-tx,y-ty)<6)break;}
+  const p=addPath(pts,'track',step);p.open=true;}
+function merge(cx,cy,rad,type){
+  const groups=new Map();for(const l of alive()){if(l.type==='mayor'||l.type==='palace'||l.type==='farm'||Math.hypot(l.cx-cx,l.cy-cy)>rad)continue;const k=paths.indexOf(l.p)+':'+l.side;if(!groups.has(k))groups.set(k,[]);groups.get(k).push(l);}
+  const cands=[];
+  for(const g of groups.values()){g.sort((a,b)=>a.s-b.s);for(let i=0;i+1<g.length;i++){const run=[g[i]];for(let j=i+1;j<g.length&&run.length<3;j++){const a=run.at(-1),b=g[j];if(b.s-a.s<=(a.w+b.w)/2+.8)run.push(b);else break;}
+    if(run.length<2||(type==='big'&&run.length<3))continue;const m=run[run.length>>1],sc=value(m.cx,m.cy)+run.length*.4+rnd()*.5-(run.some(r=>r.type==='big')?.3:0);cands.push({sc,run});}}
+  cands.sort((a,b)=>b.sc-a.sc);
+  for(const {run:pick} of cands.slice(0,6)){
+  const s0=pick[0].s-pick[0].w/2,s1=pick.at(-1).s+pick.at(-1).w/2,l=makeLot(pick[0].p,(s0+s1)/2,pick[0].side,s1-s0,Math.max(...pick.map(r=>r.d))+(type==='palace'?.5:.3),type);
+  if(!lotOK(l,pick))continue;for(const r of pick)r.died=step;lots.push(l);return true;}
+  return false;}
+function placeMayor(){
+  // The player's landmark: set into the old town, a little off the crossing. It clears a square before its door.
+  const T={x:C.x-13,y:C.y-6};let near=null,nd=1e9;for(const l of alive()){const d=Math.hypot(l.cx-T.x,l.cy-T.y);if(d<nd){nd=d;near=l;}}
+  const a=at(near.p,near.s);for(const l of alive())if(Math.hypot(l.cx-a.x,l.cy-a.y)<5.2)l.died=step;
+  const m=makeLot(near.p,near.s,near.side,6.6,4.6,'mayor');lots.push(m);landmarks.push({x:m.cx,y:m.cy});
+  squares.push({x:a.x-m.bx*2.7,y:a.y-m.by*2.7,r:3.4,born:step});}
+// ── the history: computed once, drawn at any step ──
+addPath(Array.from({length:61},(_,i)=>{const x=i*4;return [x,riverY(x)-24-(noise(x,0,40,31)-.5)*9+(Math.abs(x-C.x)<1?0:0)];}),'road',0);
+C.y=at(paths[0],118).y;C.x=at(paths[0],118).x;
+addPath(Array.from({length:22},(_,i)=>[C.x+Math.sin(i*.5)*1.2+i*.25,C.y+i*4.2]),'road',0);
+let dry=0;
+for(step=1;step<=N_MAX;step++){
+  for(const z of zones)if(z.born===step-1&&!z.tracked){z.tracked=true;if(!paths.some(p=>p.pts.some(([x,y])=>x>z.x+4&&y>z.y+4&&x<z.x+z.w-4&&y<z.y+z.h-4)))trackTo(z);}
+  if(step===MAYOR){placeMayor();continue;}
+  if(step>MAYOR&&rnd()<.2&&merge(landmarks[0].x,landmarks[0].y,19,'palace'))continue;
+  if(step>70&&rnd()<.04&&merge(C.x,C.y,60,'big'))continue;
+  let r=bestLot(90);
+  // Frontage is nearly used up: time for a new lane.
+  if(!r.best||r.valid<5){growLane();r=bestLot(90);}
+  if(r.best)lots.push(r.best);
+}
+lots.forEach((l,i)=>l.i=i);
+// A plot's own frame: its two front corners sit on the lane (so fronts follow a bend and plots become wedges),
+// its sides run back along the lane's normals, each to its own depth. (u: along the front, v: front to back.)
+function frame(l){
+  if(l.Q)return l.Q;const h=k=>hsh(l.i,k,77),m=at(l.p,l.s),off=Math.hypot(l.cx-m.x,l.cy-m.y)-l.d/2;
+  let a0=at(l.p,l.s-l.w/2),a1=at(l.p,l.s+l.w/2);if((a0.tx*a1.tx+a0.ty*a1.ty)<.93||Math.hypot(a1.x-a0.x,a1.y-a0.y)<l.w*.8){a0={x:m.x-m.tx*l.w/2,y:m.y-m.ty*l.w/2,tx:m.tx,ty:m.ty};a1={x:m.x+m.tx*l.w/2,y:m.y+m.ty*l.w/2,tx:m.tx,ty:m.ty};}
+  const n0=[-a0.ty*l.side,a0.tx*l.side],n1=[-a1.ty*l.side,a1.tx*l.side],d0=l.d*(.82+h(1)*.36),d1=l.d*(.82+h(2)*.36);
+  const sk=(h(3)-.5)*.5,FL=[a0.x+n0[0]*off,a0.y+n0[1]*off],FR=[a1.x+n1[0]*off,a1.y+n1[1]*off],RL=[FL[0]+n0[0]*d0+a0.tx*sk,FL[1]+n0[1]*d0+a0.ty*sk],RR=[FR[0]+n1[0]*d1+a1.tx*sk,FR[1]+n1[1]*d1+a1.ty*sk];
+  return l.Q=(u,v)=>{const ax=FL[0]+(FR[0]-FL[0])*u,ay=FL[1]+(FR[1]-FL[1])*u,bx=RL[0]+(RR[0]-RL[0])*u,by=RL[1]+(RR[1]-RL[1])*u;return [ax+(bx-ax)*v,ay+(by-ay)*v];};}
+// The building's plan inside the plot. Ordinary houses: a range on the street, with a rear wing, a stepped back,
+// a cross wing or a detached outhouse. Farms: house, barn and yard. Merged plots: wings round a court.
+function plan(l){
+  if(l.plan)return l.plan;const h=k=>hsh(l.i,k,78),a=.4+h(1)*.25,b=a+.3,f=.45+h(2)*.15,mir=h(3)<.5,M=uv=>mir?uv.map(([u,v])=>[1-u,v]).reverse():uv,k=h(4);let out;
+  if(l.type==='mayor')out=[{uv:[[0,0],[1,0],[1,1],[.72,1],[.72,.55],[.28,.55],[.28,1],[0,1]],ridges:[[[.05,.27],[.95,.27]],[[.14,.55],[.14,.95]],[[.86,.55],[.86,.95]]]},{uv:[[.28,.55],[.72,.55],[.72,1],[.28,1]],flat:'#e2d6b8'},{uv:[[.4,-.22],[.6,-.22],[.6,.1],[.4,.1]],col:'#8a7354'}];
+  else if(l.type==='palace'){const c0=.3+h(5)*.08,c1=.7-h(6)*.08;out=[{uv:[[0,0],[1,0],[1,1],[0,1]],ridges:[[[.06,.16],[.94,.16]],[[.06,.84],[.94,.84]]]},{uv:[[c0,.34],[c1,.34],[c1,.7],[c0,.7]],flat:'#e2d6b8'}];}
+  else if(l.type==='big')out=[{uv:M([[0,0],[1,0],[1,1],[.66,1],[.66,.5],[.3,.5],[.3,.86],[0,.86]]),ridges:[[[.05,.25],[.95,.25]]]},{uv:M([[.3,.5],[.66,.5],[.66,1],[.3,1]]),flat:'#c9bc94'}];
+  else if(l.type==='farm')out=[{uv:M([[0,0],[.62,0],[.62,.45],[.28,.45],[.28,.9],[0,.9]]),ridges:[[[.04,.22],[.58,.22]]]},{uv:M([[.72,.25],[1,.25],[1,1],[.72,1]]),col:'#75684f',ridges:[[[.86,.3],[.86,.95]]]},{uv:M([[.28,.45],[.72,.45],[.72,1],[.28,1]]),flat:'rgba(214,204,160,.8)'}];
+  else if(k<.3)out=[{uv:[[0,0],[1,0],[1,1],[0,1]],ridges:[l.w>=l.d?[[0,.5],[1,.5]]:[[.5,0],[.5,1]]]}];                                   // a plain range
+  else if(k<.55)out=[{uv:M([[0,0],[1,0],[1,1],[a,1],[a,f],[0,f]]),ridges:[[[.03,f/2],[.97,f/2]],[[(1+a)/2,f],[(1+a)/2,.97]]]}];            // rear wing (L)
+  else if(k<.72)out=[{uv:M([[0,0],[1,0],[1,.66],[a,.66],[a,1],[0,1]]),ridges:[[[a/2,.04],[a/2,.96]],[[a,.33],[.97,.33]]]}];                // stepped back
+  else if(k<.86&&l.w>2)out=[{uv:[[0,0],[1,0],[1,f],[b,f],[b,1],[a,1],[a,f],[0,f]],ridges:[[[.03,f/2],[.97,f/2]],[[(a+b)/2,f],[(a+b)/2,.97]]]}]; // cross wing (T)
+  else out=[{uv:[[0,0],[1,0],[1,.6],[0,.6]],ridges:[[[.03,.3],[.97,.3]]]},{uv:M([[.5,.74],[.95,.74],[.95,1],[.5,1]]),col:'#75684f'}];        // house and outhouse
+  return l.plan=out;}
+// ── drawing ──
+const cv=document.getElementById('c'),g=cv.getContext('2d'),VX=36,VY=27,S=cv.width/164;
+let P=(x,y,z=0)=>[(x-VX)*S,(y-VY)*S];
+const P3=(x,y,z=0)=>[(x-VX)*S,((y-VY)*.66+34-(Hh(x,y)+z)*85)*S];
+const poly=pts=>{g.beginPath();pts.forEach(([x,y],i)=>i?g.lineTo(x,y):g.moveTo(x,y));g.closePath();};
+const stroke=(pts,w,col)=>{g.beginPath();pts.forEach(([x,y],i)=>i?g.lineTo(x,y):g.moveTo(x,y));g.lineWidth=w*S;g.strokeStyle=col;g.stroke();};
+const mix=(a,b,t)=>a.map((v,i)=>Math.round(v+(b[i]-v)*t));
+const ROOF={cottage:['#8a7a5c','#93805f','#7f7257'],house:['#8b5a47','#96604a','#7c5444','#a05a45'],farm:['#857557','#8f7d5d'],big:['#7a4a3c','#864f3e'],palace:['#b8a079'],mayor:['#c2ab82']};
+function draw(n){
+  step=n;P=VIEW3?P3:(x,y)=>[(x-VX)*S,(y-VY)*S];g.setTransform(1,0,0,1,0,0);g.lineJoin='round';g.lineCap='round';
+  g.fillStyle=VIEW3?'#efe8d4':'#e9e0c6';g.fillRect(0,0,cv.width,cv.height);
+  // ground: tint by height, shade by slope (light from the north-west), water in the valley
+  for(let j=0;j<GH-1;j++)for(let i=0;i<GW-1;i++){const x=i*GS,y=j*GS,cx=x+1,cy=y+1,h=Hh(cx,cy),[gx,gy]=grad(cx,cy),d=Math.abs(cy-riverY(cx));
+    let col;{const lit=clamp((gx+gy)*26,-1,1);col=mix(mix([221,214,174],[200,186,140],clamp(h*1.9,0,1)),lit>0?[250,244,220]:[120,104,74],Math.abs(lit)*.34);if(flood(cx,cy))col=mix(col,[190,205,160],.5);}
+    poly([P(x,y),P(x+GS,y),P(x+GS,y+GS),P(x,y+GS)]);g.fillStyle=`rgb(${col})`;g.fill();g.lineWidth=1;g.strokeStyle=g.fillStyle;g.stroke();}
+  {const up=[],dn=[];for(let x=-2;x<=WW+2;x+=2){up.push(P(x,riverY(x)-5.8));dn.push(P(x,riverY(x)+5.8));}poly([...up,...dn.reverse()]);g.fillStyle='#86a9a7';g.fill();
+   const u2=[],d2=[];for(let x=-2;x<=WW+2;x+=2){u2.push(P(x,riverY(x)-5.3));d2.push(P(x,riverY(x)+5.3));}poly([...u2,...d2.reverse()]);g.fillStyle='#a9c6c4';g.fill();}
+  // contours: the level lines the lanes follow
+  g.lineWidth=.9;g.strokeStyle='rgba(120,92,60,.38)';g.beginPath();
+  for(let j=0;j<GH-1;j++)for(let i=0;i<GW-1;i++){const k=j*GW+i,v=[HG[k],HG[k+1],HG[k+GW+1],HG[k+GW]],lo=Math.min(...v),hi=Math.max(...v),c=[[i*GS,j*GS],[i*GS+GS,j*GS],[i*GS+GS,j*GS+GS],[i*GS,j*GS+GS]];
+    for(let lv=Math.ceil(lo/.05)*.05;lv<hi;lv+=.05){if(lv<.04)continue;const pts=[];for(let e=0;e<4;e++){const a=v[e],b=v[(e+1)%4];if((a<lv)!==(b<lv)){const t=(lv-a)/(b-a);pts.push(P(c[e][0]+(c[(e+1)%4][0]-c[e][0])*t,c[e][1]+(c[(e+1)%4][1]-c[e][1])*t));}}
+      if(pts.length>=2){g.moveTo(...pts[0]);g.lineTo(...pts[1]);}}}
+  g.stroke();
+  // woods on the steepest ground
+  for(let y=3;y<WH;y+=3.2)for(let x=3;x<WW;x+=3.2){const jx=x+hsh(x*10,y*10,5)*2.4,jy=y+hsh(x*10,y*10,6)*2.4;if(slopeAt(jx,jy)>STEEP*1.05&&hsh(x*10,y*10,7)<.75){const [px,py]=P(jx,jy);g.beginPath();g.arc(px,py,(.9+hsh(x*10,y*10,8)*.6)*S,0,7);g.fillStyle='rgba(104,128,84,.6)';g.fill();}}
+  // zoned land: strip fields until someone builds
+  for(const z of zones){if(z.born>n)continue;g.strokeStyle='rgba(150,140,98,.45)';g.lineWidth=.7;g.beginPath();
+    for(let x=z.x+1;x<z.x+z.w;x+=2.2){let pen=false;for(let y=z.y;y<=z.y+z.h;y+=2){const ok=!flood(x,y)&&slopeAt(x,y)<STEEP;if(ok){const p=P(x+Math.sin(y*.08+x)*.5,y);pen?g.lineTo(...p):g.moveTo(...p);pen=true;}else pen=false;}}g.stroke();
+    g.setLineDash([6,5]);poly([P(z.x,z.y),...Array.from({length:20},(_,i)=>P(z.x+z.w*(i+1)/20,z.y)),...Array.from({length:20},(_,i)=>P(z.x+z.w,z.y+z.h*(i+1)/20)),...Array.from({length:20},(_,i)=>P(z.x+z.w-z.w*(i+1)/20,z.y+z.h)),...Array.from({length:20},(_,i)=>P(z.x,z.y+z.h-z.h*(i+1)/20))]);
+    g.lineWidth=1.6;g.strokeStyle='rgba(106,47,34,.55)';g.stroke();g.setLineDash([]);
+    g.font='italic 15px Georgia';g.fillStyle='rgba(106,47,34,.8)';z.lab=P(z.x+1.5,z.y+3.4);}
+  const live=lots.filter(l=>l.born<=n&&(l.died==null||l.died>n)).sort((a,b)=>a.cy-b.cy);
+  // squares, then the gardens and crofts behind the houses
+  for(const sq of squares)if(sq.born<=n){poly(Array.from({length:14},(_,i)=>{const a=i/14*6.283,r=sq.r*(.86+hsh(i,91)*.3);return P(sq.x+Math.cos(a)*r,sq.y+Math.sin(a)*r);}));g.fillStyle='#e6dabb';g.fill();g.lineWidth=1;g.strokeStyle='rgba(120,100,70,.5)';g.stroke();}
+  for(const l of live){if(l.type==='palace'||l.type==='mayor')continue;const v=value(l.cx,l.cy),max=l.type==='farm'?7:clamp(7-v*6,.8,6);
+    if(l.g==null||l.gn!==live.length){let t=.6;for(;t<max;t+=.6){const x=l.cx+l.bx*(l.d/2+t),y=l.cy+l.by*(l.d/2+t);if(inLot(x,y,.2)||distPaths(x,y).d<.3||flood(x,y))break;}l.g=t-.6;l.gn=live.length;}
+    const len=l.g;if(len<.5)continue;const Q=frame(l),e=1+len/l.d;
+    poly([Q(0,1),Q(1,1),Q(1,e),Q(0,e)].map(([x,y])=>P(x,y)));g.fillStyle=l.type==='farm'?'rgba(196,190,130,.6)':'rgba(176,192,134,.62)';g.fill();g.lineWidth=.7;g.strokeStyle='rgba(110,120,80,.45)';g.stroke();}
+  // lanes and roads
+  for(const pass of [0,1])for(const p of paths){if(p.born>n)continue;const pts=p.pts.map(([x,y])=>P(x,y));
+    if(p.kind==='track'){if(pass){g.setLineDash([5,4]);stroke(pts,.45,'#b89f76');g.setLineDash([]);}continue;}
+    stroke(pts,pass?p.hw*2-.3:p.hw*2+.25,pass?'#f1e8d2':'rgba(112,94,70,.6)');}
+  {const x=C.x+3.6,pts=[P(x-.3,riverY(x)-6.3),P(x+.4,riverY(x)+6.3)];stroke(pts,1.9,'#b7a27f');stroke(pts,1.1,'#f1e8d2');}
+  // houses: each plot is its own four-sided figure (its front follows the lane), and the building is a plan inside it
+  for(const l of live){
+    const Q=frame(l),z=VIEW3?(l.type==='mayor'?.034:l.type==='palace'?.027:l.type==='big'?.022:.015):0,cols=ROOF[l.type],col=cols[Math.floor(l.tone*cols.length)];
+    const lift=VIEW3?P(l.cx,l.cy,z)[1]-P(l.cx,l.cy)[1]:0,grand=l.type==='mayor'||l.type==='palace';
+    for(const part of plan(l)){
+      const base=part.uv.map(([u,v])=>P(...Q(u,v))),top=base.map(([x,y])=>[x,y+(part.flat?0:lift)]);
+      if(part.flat){poly(base);g.fillStyle=part.flat;g.fill();g.lineWidth=.6;g.strokeStyle='rgba(60,45,32,.4)';g.stroke();continue;}
+      if(VIEW3){let area=0;for(let i=0;i<base.length;i++){const p0=base[i],p1=base[(i+1)%base.length];area+=p0[0]*p1[1]-p1[0]*p0[1];}
+        for(let i=0;i<base.length;i++){const p0=base[i],p1=base[(i+1)%base.length],ny=-(p1[0]-p0[0])*Math.sign(area);if(ny<=0)continue;
+          poly([p0,p1,top[(i+1)%base.length],top[i]]);g.fillStyle=grand?'#d8cba6':'#cdbf9c';g.fill();g.lineWidth=.8;g.strokeStyle='rgba(60,45,32,.5)';g.stroke();}}
+      else{g.save();g.translate(1.6,2);poly(base);g.fillStyle='rgba(58,44,32,.2)';g.fill();g.restore();}
+      poly(top);g.fillStyle=part.col||col;g.fill();g.lineWidth=grand?1.5:.8;g.strokeStyle=grand?'#4a3828':'rgba(50,36,26,.6)';g.stroke();
+      for(const r of part.ridges||[])stroke(r.map(([u,v])=>{const [x,y]=P(...Q(u,v));return [x,y+lift];}),.1,'rgba(40,28,20,.5)');
+    }
+  }
+  // lettering
+  const lab=(t,x,y,s)=>{const [px,py]=P(x,y);g.font=`italic ${s}px Georgia`;g.textAlign='center';g.lineWidth=s*.3;g.strokeStyle='rgba(246,239,220,.85)';g.strokeText(t,px,py);g.fillStyle='#4a3828';g.fillText(t,px,py);g.textAlign='start';};
+  for(const z of zones)if(z.born<=n){g.font='italic 15px Georgia';g.lineWidth=4;g.strokeStyle='rgba(246,239,220,.85)';g.strokeText(z.name,...z.lab);g.fillStyle='rgba(106,47,34,.9)';g.fillText(z.name,...z.lab);}
+  if(n>=MAYOR&&landmarks[0])lab("Mayor's house",landmarks[0].x,landmarks[0].y-6.5,17);
+  const year=1300+Math.round(n*.36),big=live.filter(l=>l.type==='big').length,pal=live.filter(l=>l.type==='palace').length;
+  const text=`${year} · ${live.length} houses · ${paths.filter(p=>p.born<=n&&p.kind==='lane').length} lanes${big?` · ${big} merged plots`:''}${pal?` · ${pal} palaces`:''}`;
+  document.getElementById('cap').textContent=text;
+  g.font='italic 22px Georgia';g.lineWidth=6;g.strokeStyle='rgba(246,239,220,.9)';g.strokeText(text,18,34);g.fillStyle='#4a3828';g.fillText(text,18,34);
+}
+const sl=document.getElementById('n');let n0=+(q.get('n')||N_MAX);sl.value=n0;draw(n0);
+sl.oninput=()=>draw(+sl.value);
+document.getElementById('v3').onclick=e=>{VIEW3=!VIEW3;e.target.textContent=VIEW3?'Map':'3D';draw(+sl.value);};
+let timer=null;document.getElementById('play').onclick=e=>{if(timer){clearInterval(timer);timer=null;e.target.textContent='Play';return;}e.target.textContent='Pause';if(+sl.value>=N_MAX)sl.value=1;timer=setInterval(()=>{sl.value=Math.min(N_MAX,+sl.value+2);draw(+sl.value);if(+sl.value>=N_MAX){clearInterval(timer);timer=null;e.target.textContent='Play';}},60);};
+</script>
