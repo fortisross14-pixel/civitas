@@ -39,7 +39,7 @@ export function roofTone(type,style,shade=0,red=false){
   const out=red?hsl(9+e.h,46+e.s,40+e.l*.6):hsl((u.h+e.h+dh+360)%360,Math.max(4,u.s+e.s*(u.s>15?1:.4)),u.l+e.l+dl);
   roofCache.set(id,out);return out;
 }
-const STONE='#cbb995',STONE_EDGE='#6c5945';
+const STONE='#b8a079',STONE_EDGE='#5a4836';
 
 // ───────────────────────── offscreen layers ─────────────────────────
 const S=10; // offscreen pixels per map cell
@@ -233,15 +233,20 @@ function plan(b,r){
     for(const w0 of widths){const w=w0*scale,dep=dmin+r()*(dmax-dmin),off=r()*.04;out.push({poly:rect(u,off,u+w,off+dep),tone:'roof'});u+=w+.03*scale;}};
   if(b.special)return specialPlan(b,r);
   if(b.type==='res'||b.type==='trade'){
-    if(lvl>=4&&sty!=='timber'){ // perimeter block with a courtyard
-      out.push({poly:rect(-.25,.3,.25,.62),tone:'yard'},{poly:rect(-.45,0,.45,.3),tone:'roof'},{poly:rect(-.45,.62,.45,.9),tone:'roof'},{poly:rect(-.45,.3,-.25,.62),tone:'roof'},{poly:rect(.25,.3,.45,.62),tone:'roof'});
-    }else if(sty==='modernist'){if(r()<.5)out.push({poly:rect(-.42,.05,.42,.42),tone:'roof'});else out.push({poly:rect(-.25,.1,.25,.65),tone:'roof'});}
-    else if(sty==='contemporary')out.push({poly:rect(-.4,.04,.4,.6),tone:'roof'},{poly:rect(-.18,.6,.18,.82),tone:'roof'});
-    else if(sty==='timber'){row(2+Math.floor(r()*3),.4,.62,.16);if(r()<.6){const u=-.4+r()*.5;out.push({poly:rect(u,.68,u+.25+r()*.15,.92),tone:'roof'});}}
-    else if(sty==='stone'){row(2+Math.floor(r()*2),.5,.72,.24);if(r()<.4)out.push({poly:rect(-.3,.76,.2,.94),tone:'roof'});}
-    else if(sty==='classical')row(2,.55,.68,.36);
-    else row(3+Math.floor(r()*2),.5,.6,.2);
-    if(b.type==='trade')out.push({poly:rect(-.45,-.04,.45,.03),tone:'awning'});
+    // v2.3: houses fill their plot's whole street front, so neighbouring
+    // plots join into continuous rows; each plot keeps its own depth and shade.
+    const terrace=(n,dmin,dmax,back=0)=>{const ws=Array.from({length:n},()=>.75+r()*.5),t=ws.reduce((a,v)=>a+v,0);let u=-.5;
+      ws.forEach((w0,i)=>{const w=w0/t,dep=dmin+r()*(dmax-dmin);out.push({poly:rect(u,0,u+w,dep),tone:'roof',shade:i});
+        if(back&&r()<back)out.push({poly:rect(u+w*.2,dep,u+w*.75,dep+.14+r()*.1),tone:'roof',shade:i+1});u+=w;});};
+    if(lvl>=4&&sty!=='timber'&&sty!=='contemporary'){ // perimeter block with a courtyard
+      out.push({poly:rect(-.22,.32,.22,.64),tone:'yard'},{poly:rect(-.5,0,.5,.32),tone:'roof'},{poly:rect(-.5,.64,.5,.9),tone:'roof',shade:1},{poly:rect(-.5,.32,-.22,.64),tone:'roof',shade:2},{poly:rect(.22,.32,.5,.64),tone:'roof',shade:3});
+    }else if(sty==='timber')terrace(2+Math.floor(r()*2),.45,.78,.5); // narrow, deep burgage plots, gable to the street
+    else if(sty==='stone')terrace(2,.5,.7,.35);
+    else if(sty==='classical'){out.push({poly:rect(-.5,0,.5,.52),tone:'roof'});if(r()<.7)out.push({poly:rect(-.3,.52,.05,.74),tone:'roof',shade:1});} // one terrace front
+    else if(sty==='brick')terrace(3,.46,.5,.9); // uniform terraced houses with back extensions
+    else if(sty==='modernist'){out.push({poly:rect(-.5,.18,.5,.5),tone:'roof'});out.push({poly:rect(-.5,0,.5,.16),tone:'lawn'});} // slab set back behind grass
+    else{const w=.3+r()*.1;out.push({poly:rect(-.48,-.02,.48,.96),tone:'lawn'},{poly:rect(-w,.12,w,.12+w*1.6),tone:'roof'});} // detached house in its garden
+    if(b.type==='trade')out.push({poly:rect(-.5,-.04,.5,.03),tone:'awning'});
   }else if(b.type==='craft'){
     if(b.born<1750){out.push({poly:rect(-.42,0,.02,.45),tone:'roof'},{poly:rect(.08,.25,.44,.6),tone:'shed'});}
     else if(b.born<1950){out.push({poly:rect(-.44,.02,.44,.68),tone:'shed',saw:true});if(r()<.5)out.push({poly:circle(.32,.82,.07,8),tone:'chimney'});}
@@ -253,7 +258,7 @@ function plan(b,r){
     // otherwise halls, courtyard buildings, schools and modern civic blocks.
     const pick=hash(Math.floor(b.x),Math.floor(b.y),77)>>>0;
     if(b.born<1850&&(b.informal||pick%3===0))out.push(...church(.0,.12,.78,.9));
-    else if(b.born<1600)out.push({poly:rect(-.42,0,.42,.3),tone:'roof'},{poly:rect(-.42,.3,-.12,.8),tone:'roof'});
+    else if(b.born<1600)out.push({poly:rect(-.46,0,.46,.46),tone:'roof'},{poly:rect(.18,.46,.4,.66),tone:'tower'}); // a hall with its tower
     else if(b.born<1850)out.push({poly:rect(-.18,.28,.18,.6),tone:'yard'},{poly:rect(-.42,0,.42,.28),tone:'roof'},{poly:rect(-.42,.28,-.18,.6),tone:'roof'},{poly:rect(.18,.28,.42,.6),tone:'roof'},{poly:rect(-.42,.6,.42,.82),tone:'roof'});
     else if(b.born<1950)out.push({poly:rect(-.44,0,.44,.24),tone:'roof'},{poly:rect(-.44,.24,-.28,.72),tone:'roof'},{poly:rect(-.08,.24,.08,.6),tone:'roof'},{poly:rect(.28,.24,.44,.72),tone:'roof'});
     else out.push({poly:rect(-.42,0,.42,.16),tone:'square'},{poly:rect(-.36,.16,.36,.66),tone:'roof'});
@@ -281,7 +286,7 @@ function specialPlan(b,r){
   if(k==='metropolis_tower')return [{poly:rect(-.44,.04,-.06,.44),tone:'tower'},{poly:rect(.04,.1,.44,.74),tone:'tower'},{poly:rect(-.44,.54,-.06,.9),tone:'tower'}];
   if(['chapel','shrine'].includes(k))return church(0,.05,.86,1.15);
   if(k==='monastery')return [...church(-.12,.05,.8,1),{poly:rect(.08,.35,.46,.78),tone:'cloister'}];
-  if(k==='market')return [{poly:rect(-.46,-.02,.46,.9),tone:'square'},...[[-.25,.25],[.15,.2],[-.1,.6],[.25,.6]].map(([u,v])=>({poly:rect(u,v,u+.12,v+.1),tone:'awning'}))];
+  if(k==='market')return [{poly:rect(-.48,-.02,.48,.92),tone:'paving'},...[-.36,-.18,0,.18].map(u=>({poly:rect(u,.12,u+.15,.3),tone:'awning'})),...[-.36,-.18,.18].map(u=>({poly:rect(u,.6,u+.15,.78),tone:'awning'})),{poly:rect(-.04,.4,.04,.52),tone:'tower'},{poly:rect(-.1,.43,.1,.49),tone:'tower'}];
   if(['town_hall','guildhall','library','civic_center','school','university','research_center','museum'].includes(k))
     return [{poly:rect(-.46,0,.46,.26),tone:'stone'},{poly:rect(-.46,.66,.46,.9),tone:'stone'},{poly:rect(-.46,.26,-.26,.66),tone:'stone'},{poly:rect(.26,.26,.46,.66),tone:'stone'},{poly:rect(-.2,.32,.2,.6),tone:'green'}];
   if(['garden'].includes(k))return [{poly:rect(-.46,-.02,.46,.9),tone:'green'},...[[-.28,.2],[.28,.2],[-.28,.65],[.28,.65],[0,.42]].map(([u,v])=>({poly:circle(u,v,.08,8),tone:'tree'}))];
@@ -299,7 +304,7 @@ function buildingShapes(b,roadSet,mainSet,warp=null){
   const hit=shapeCache.get(b);if(hit&&hit.warp===warp)return hit;
   const x=Math.floor(b.x),y=Math.floor(b.y),r=rand(hash(x,y,b.born|0,(b.id||'').length*7919)),size=sizeOf(b);
   const {d}=frontOf(b,roadSet,mainSet,size);
-  const organic=(b.born||1300)<1600,jitter=(organic?(r()-.5)*.22:(r()-.5)*.06);
+  const organic=(b.born||1300)<1600,jitter=b.informal?(r()-.5)*(organic?.18:.06):organic?(r()-.5)*.05:0;
   let dx=d.dx,dy=d.dy;const c=Math.cos(jitter),s=Math.sin(jitter);[dx,dy]=[dx*c-dy*s,dx*s+dy*c];
   const px=-dy,py=dx,cx=x+size/2,cy=y+size/2,shrink=(b.informal?.85:1)*size;
   const local=([u,v])=>[cx+px*u*shrink+dx*(.47-v)*shrink,cy+py*u*shrink+dy*(.47-v)*shrink];
@@ -311,15 +316,15 @@ function buildingShapes(b,roadSet,mainSet,warp=null){
   shapeCache.set(b,value);return value;
 }
 function toneColor(tone,b,look,layerColor){
-  if(layerColor&&!['green','water','tree','square','yard'].includes(tone))return tone==='awning'?layerColor:layerColor;
+  if(layerColor&&!['green','water','tree','square','yard','lawn'].includes(tone))return tone==='awning'?layerColor:layerColor;
   const sty=b.style||styleAt(b.born||1300);
   switch(tone){
-    case 'roof':return roofTone(b.type,sty,look.shade,look.red);
+    case 'roof':return roofTone(b.type,sty,(look.shade+(look.sh||0))&3,look.red);
     // Sheds (workshops, barns) are a darker shade of their use's roof.
     case 'shed':return roofTone(b.type,sty,3);
     case 'awning':return '#c49a5a';
     case 'stone':return STONE;case 'tower':return '#8a7354';case 'cloister':return '#bfae8c';
-    case 'square':return '#e2d6b8';case 'yard':return '#cfc79f';case 'green':return '#9fb084';case 'tree':return '#6f8a5f';
+    case 'square':return '#e2d6b8';case 'lawn':return '#c3c79b';case 'paving':return '#cdbd98';case 'yard':return '#cfc79f';case 'green':return '#9fb084';case 'tree':return '#6f8a5f';
     case 'water':return WATER;case 'chimney':return '#4f4640';
     default:return roofTone(b.type,sty,0);
   }
@@ -472,9 +477,9 @@ export function drawCity(ctx,city,width,height,opts={}){
       else if(layer==='pull')layerColor=b.type==='res'?'#977b60':b.type==='trade'?'#c2a064':b.special?'#7d9a7e':'#c8c1b2';
       for(const sh of look.shapes){
         if(b.vacant){vacant.push(sh.pts);continue;}
-        if(!['green','square','water','yard'].includes(sh.tone))shadows.push(sh.pts);
+        if(!['green','square','water','yard','lawn','paving'].includes(sh.tone))shadows.push(sh.pts);
         if(sh.tone==='roof'&&sh.pts.length===4&&layer==='urban'){const sty=b.style||styleAt(b.born||1300);if(sty==='modernist'||sty==='contemporary')parapets.push(sh.pts);else ridges.push({pts:sh.pts,hip:sty==='stone'||sty==='classical'||sty==='brick'});}
-        const col=toneColor(sh.tone,b,look,layerColor),alpha=b.informal?.78:1,key=`${col}|${alpha}`;
+        look.sh=sh.shade||0;const col=toneColor(sh.tone,b,look,layerColor),alpha=b.informal?.78:1,key=`${col}|${alpha}`;
         if(!buckets.has(key))buckets.set(key,[]);buckets.get(key).push(sh.pts);
         if(sh.saw)saws.push(sh.pts);
       }
@@ -497,17 +502,17 @@ export function drawCity(ctx,city,width,height,opts={}){
     // Squarish stone, classical and brick roofs are hipped (the ridge stops short
     // and hip lines run to the corners); narrow row houses keep their gables.
     if(ridges.length){const lit=[],shade=[],lines=[];
-      for(const {pts:[a,b,c2,d],hip} of ridges){const la=Math.hypot(b[0]-a[0],b[1]-a[1]),lb=Math.hypot(c2[0]-b[0],c2[1]-b[1]),long=la>=lb;
+      for(const {pts:[a,b,c2,d],hip:hipped} of ridges){const la=Math.hypot(b[0]-a[0],b[1]-a[1]),lb=Math.hypot(c2[0]-b[0],c2[1]-b[1]),long=la>=lb;
         const [p,q,r2,t]=long?[a,b,c2,d]:[b,c2,d,a],m1=[(t[0]+p[0])/2,(t[1]+p[1])/2],m2=[(q[0]+r2[0])/2,(q[1]+r2[1])/2];
-        const ratio=Math.min(la,lb)/Math.max(la,lb),ins=hip&&ratio>.55?Math.min(.42,ratio/2):.1;
+        const ratio=Math.min(la,lb)/Math.max(la,lb),big=Math.min(la,lb)>.72,hip=hipped&&big,ins=hip&&ratio>.55?Math.min(.42,ratio/2):.1;
         const e1=[m1[0]+(m2[0]-m1[0])*ins,m1[1]+(m2[1]-m1[1])*ins],e2=[m2[0]+(m1[0]-m2[0])*ins,m2[1]+(m1[1]-m2[1])*ins];
         // Which slope faces the light? Compare the outward direction of the p–q eave with (−1,−1).
         const out=[(p[0]+q[0])/2-(m1[0]+m2[0])/2,(p[1]+q[1])/2-(m1[1]+m2[1])/2],faces=-out[0]-out[1]>0;
         const half1=[p,q,e2,e1],half2=[t,r2,e2,e1];(faces?lit:shade).push(half1);(faces?shade:lit).push(half2);
         lines.push([e1,e2]);if(hip&&ratio>.55)lines.push([p,e1,1],[t,e1,1],[q,e2,1],[r2,e2,1]);}
       const poly=list=>{g.beginPath();for(const pts of list){g.moveTo(pts[0][0],pts[0][1]);for(let i=1;i<pts.length;i++)g.lineTo(pts[i][0],pts[i][1]);g.closePath();}};
-      g.fillStyle='rgba(255,244,222,.24)';poly(lit);g.fill();
-      g.fillStyle='rgba(36,24,16,.17)';poly(shade);g.fill();
+      g.fillStyle='rgba(255,244,222,.15)';poly(lit);g.fill();
+      g.fillStyle='rgba(36,24,16,.11)';poly(shade);g.fill();
       // Ridges are inked firmly; hip lines are fainter so small roofs don't read as crosses.
       g.lineCap='round';g.strokeStyle='rgba(38,26,18,.5)';g.lineWidth=.032;g.beginPath();
       for(const [u,v,hipLine] of lines)if(!hipLine){g.moveTo(u[0],u[1]);g.lineTo(v[0],v[1]);}g.stroke();
@@ -561,6 +566,8 @@ export function drawCity(ctx,city,width,height,opts={}){
     if(b.protected&&layer==='heritage'){ctx.strokeStyle='#c99b3e';ctx.lineWidth=.1;ctx.strokeRect(wx-n/2+.04,wy-n/2+.04,n-.08,n-.08);}
     if(opts.selectedId===b.id){ctx.strokeStyle='#235e4c';ctx.lineWidth=.16;ctx.strokeRect(wx-n/2-.04,wy-n/2-.04,n+.08,n+.08);}
   }
+  // v2.3: the street plan an urban-works card would lay here.
+  if(opts.urbanPreview?.length){ctx.save();for(const c of opts.urbanPreview){ctx.fillStyle=c.main?'rgba(138,47,31,.55)':'rgba(43,36,26,.38)';ctx.fillRect(c.x+.12,c.y+.12,.76,.76);}ctx.restore();}
   if(opts.previewRing){ctx.beginPath();const pts=wallPolygon(opts.previewRing);for(const [a,b] of wallSegments(opts.previewRing)){ctx.moveTo(a[0],a[1]);ctx.lineTo(b[0],b[1]);}ctx.setLineDash([.5,.4]);ctx.strokeStyle='#5f4c3a';ctx.lineWidth=.24;ctx.stroke();ctx.setLineDash([]);void pts;}
   if(opts.bridgePreview){ctx.fillStyle='#547b5c55';for(const k of opts.bridgePreview.cells)ctx.fillRect(k%W,Math.floor(k/W),1,1);ctx.strokeStyle='#547b5c';ctx.lineWidth=.12;for(const e of opts.bridgePreview.ends)ctx.strokeRect(e.x+.05,e.y+.05,.9,.9);}
   else if(opts.placingCenter&&opts.hover&&opts.hover.x>=0&&opts.hover.x<W&&opts.hover.y>=0&&opts.hover.y<H){

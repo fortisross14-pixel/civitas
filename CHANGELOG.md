@@ -1,9 +1,22 @@
 # CIVITAS changelog
 
-## v2.3 (in progress) — Planned streets
+## v2.3 — Streets and buildings by age
 
-From 1650 new streets follow a city-wide grid instead of branching at random, so later quarters grow as grids of straight, parallel streets beside the winding medieval core. Blocks get larger with each era (lines every 4, 5 and 6 cells), and in industrial and modern quarters every few lines is a wide avenue where shops gather. Streets are still laid only when the town needs room, so grids fill as they grow. New test: `tests/streets.test.js`.
+**Urban works cards** (`src/urbanWorks.js`): seven cards that lay out part of the street plan where you tap, with a dashed preview first. One or two per age, sold in the Market Hall in their years, no Decree slot:
+- *High Street* (1300–1599): a straight main street toward the centre; shops gather along it.
+- *Planned Extension* (1600–1849): a New Town, a grid of streets framed by avenues, zoned for homes.
+- *Garden Square* (1650–1899): a garden ringed by a street, homes around it.
+- *Industrial Quarter* (1800–1949): wide blocks framed by avenues, zoned for workshops.
+- *Grand Boulevard* (1850–1949): a straight avenue across the town; unprotected houses in its way are cleared.
+- *Garden Suburb* (1900–2030): curving streets and wide plots.
+- *Ring Road* (1950–2030): a main road around the town.
+Planned quarters become their own districts and keep their planned names (*New Town*, *The Works*, *Garden Suburb*).
 
+**Planned streets**: from 1650 new streets follow a city-wide grid instead of branching at random, with larger blocks in each later era and avenues in industrial and modern quarters.
+
+**Building shapes**: homes and shops fill their plot's street front, so neighbouring plots join into continuous rows. Each age has its own house form: narrow, deep medieval burgage plots with gables to the street, stone houses, classical terrace fronts, brick terraces with back extensions, modern slabs set back behind grass, detached houses in gardens. Small roofs are plain gables (no more crossed hips), the roof shading is softer, rows are straight except informal building, medieval civic halls have a tower, the market square has stalls and a market cross, and landmark stone is warmer and darker.
+
+**Tests**: new `tests/urbanWorks.test.js` and `tests/streets.test.js`; the Founder-overlap exit test now averages two seeds.
 
 ## v2.2 — Less text, one style
 

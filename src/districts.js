@@ -98,7 +98,10 @@ export function updateDistricts(city,origin){
     const anchor=[Math.floor(oldest.x),Math.floor(oldest.y)];
     const r=rand(hash(city.seed,anchor[0],anchor[1],7717));
     const info=describe(city,p.buildings,origin);
-    const name=nameFor(city,info,p.buildings,taken,p.id===originPiece&&!taken.has('Old Town')&&!taken.has('Old Centre'),r);taken.add(name);
+    // v2.3: a quarter laid out by an urban-works card keeps the name it was planned with.
+    const planned=(city.quarterNames||[]).find(q=>within(q.x,q.y)&&piece[key(q.x,q.y)]===p.id);
+    const plannedName=planned&&(taken.has(planned.name)?['New','Upper','Lower','Little'].map(w=>`${w} ${planned.name.replace(/^The /,'')}`).find(n=>!taken.has(n)):planned.name);
+    const name=plannedName||nameFor(city,info,p.buildings,taken,p.id===originPiece&&!taken.has('Old Town')&&!taken.has('Old Centre'),r);taken.add(name);
     out.push({id:`d${anchor[0]}-${anchor[1]}-${city.year}`,name,anchor,founded:city.year});
   }
   return out;

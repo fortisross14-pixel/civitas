@@ -16,6 +16,7 @@ import {POLICIES,POLICY_INDEX,activePolicies,policyIssue,policyEffects,policyHoo
 import {updateDistricts,districtDetails} from './districts.js';
 import {characterOf} from './character.js';
 import {perk,perkMult,hardshipOf} from './perks.js';
+import {planUrbanWork,URBAN_WORKS} from './urbanWorks.js';
 import {cardDoctrines,tierOf,DOCTRINE_IDS,doctrineState,doctrineFlags,scoreBonus,cardType,decreesInPlay,decreeSlots,cardLevel,MAX_LEVEL,doctrinesOn,wondersDue} from './doctrines.js';
 import {deckOf,normalizeDeck,restockShop,shopDue,playedCopies,MAX_COPIES,YEARS_PER_INTERVAL} from './cards.js';
 export {POLICIES,POLICY_INDEX,activePolicies,policyIssue,districtDetails};
@@ -722,11 +723,12 @@ export function selectTurningPoint(city,cardId){
 // v1.5: play a card from the hand. It becomes a choice tagged via:'hand', so
 // modifiers, synergies and landmark projects treat it like a Turning Point pick.
 // Temporary cards last YEARS_PER_INTERVAL years per Turning Point interval.
-export function playCard(city,uid){
+export function playCard(city,uid,placing=false){
   if(city.finished)return {city,error:'The chronicle is complete.'};
   if(city.awaitingCenter)return {city,error:'Found the town first.'};
   const deck=deckOf(city),held=deck.hand.find(c=>c.uid===uid),card=held&&CARD_INDEX[held.cardId];
   if(!card)return {city,error:'That card is not in your hand.'};
+  if(card.urban&&!placing)return {city,error:`${card.name}: choose where on the map`};
   if(doctrinesOn(city)){
     const level=cardLevel(city,card.id),type=cardType(card);
     if(level>=MAX_LEVEL)return {city,error:`${card.name} is already at level ${MAX_LEVEL}.`};
@@ -738,6 +740,27 @@ export function playCard(city,uid){
   const next=applyChoice({...city,deck:{...deck,hand:deck.hand.filter(c=>c.uid!==uid),played:deck.played+1}},card,record,`${card.name} played from the hand${stack>1?` (stack ×${stack})`:''}.`);
   const wonders=awardWonders(next);
   return {city:next,error:null,stack,wonders};
+}
+// v2.3 urban works: play the card where the player tapped. The plan's streets,
+// zone and cleared buildings apply at once; the quarter takes its name when it
+// has houses (districts.js reads city.quarterNames).
+export function urbanPlan(city,cardId,x,y){
+  const card=CARD_INDEX[cardId];if(!card?.urban)return {error:'Not an urban work'};
+  return planUrbanWork(city,card.urban,x,y,{origin:cityOrigin(city),reach:cityReach(city,stats(city).population)});
+}
+export function playUrbanCard(city,uid,x,y){
+  const held=deckOf(city).hand.find(c=>c.uid===uid),card=held&&CARD_INDEX[held.cardId];
+  if(!card?.urban)return {city,error:'That card is not an urban work in your hand.'};
+  const plan=urbanPlan(city,card.id,x,y);if(plan.error)return {city,error:plan.error};
+  const r=playCard(city,uid,true);if(r.error)return r;
+  const next=r.city,cleared=new Set(plan.clear);
+  next.roads=[...next.roads.filter(rd=>!plan.streets.some(s=>s.x===rd.x&&s.y===rd.y)),...plan.streets.map(s=>({x:s.x,y:s.y,born:city.year,pattern:patternFor(city.year),cls:s.cls,work:card.urban}))];
+  if(cleared.size)next.buildings=next.buildings.filter(b=>!cleared.has(b.id));
+  if(plan.zone){const z=plan.zone,rect={x:Math.max(0,z.x),y:Math.max(0,z.y),w:Math.min(W-Math.max(0,z.x),z.w),h:Math.min(H-Math.max(0,z.y),z.h)};next.zones=[...next.zones.filter(q=>!insideRect(q,rect)),{...rect,type:z.type,year:city.year,pattern:patternFor(city.year)}];}
+  if(plan.garden){const placed=constructAt(next,'garden',plan.garden.x,plan.garden.y,'urban',URBAN_WORKS[card.urban].label,2);if(!placed)constructAt(next,'garden',plan.garden.x+1,plan.garden.y+1,'urban',URBAN_WORKS[card.urban].label,1);}
+  if(plan.name)next.quarterNames=[...(next.quarterNames||[]),{x,y,name:plan.name,year:city.year}];
+  next.events=[...next.events,{year:city.year,type:'works',x,y,text:`${card.name}: ${plan.summary}.`}];
+  return {city:next,error:null,plan};
 }
 // v1.8: retire a Decree or Patron to free its slot. Its copies stop counting.
 // v1.9: a Lv3 card with its Patron evolves into a Wonder to place on the map.

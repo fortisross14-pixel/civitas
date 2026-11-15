@@ -72,4 +72,16 @@ export const HYBRID_CARDS=[
   card('patent_office','Patent Office','education','rare','permanent','Inventors protected: invention and industry grow together.',{innovation:.08,industry:.1},{minYear:1750})
 ];
 
-export const DOCTRINE_ONLY_CARDS=[...BUILDING_CARDS,...NEW_DOCTRINE_CARDS,...HYBRID_CARDS];
+// v2.3 urban works: lay out part of the street plan where you tap (src/urbanWorks.js).
+// Instant cards: no Decree slot. One or two for each age.
+const urban=(id,work,name,domain,rarity,from,to,description)=>card(id,name,domain,rarity,'instant',description,{},{urban:work,minYear:from,maxYear:to});
+export const URBAN_CARDS=[
+  urban('urb_high_street','high_street','High Street','trade','common',1300,1599,'Lay a straight main street toward the centre; shops gather along it.'),
+  urban('urb_new_town','planned_extension','Planned Extension','population','uncommon',1600,1849,'Lay out a New Town: a grid of straight streets, zoned for homes.'),
+  urban('urb_garden_square','garden_square','Garden Square','culture','common',1650,1899,'A garden ringed by a street, with homes zoned around it.'),
+  urban('urb_industrial','industrial_quarter','Industrial Quarter','industry','common',1800,1949,'A grid of wide blocks on a main spine, zoned for workshops.'),
+  urban('urb_boulevard','grand_boulevard','Grand Boulevard','culture','uncommon',1850,1949,'Cut a straight avenue across the town. Buildings in its way are cleared.'),
+  urban('urb_garden_suburb','garden_suburb','Garden Suburb','population','uncommon',1900,2030,'Curving streets and wide plots at the edge of town.'),
+  urban('urb_ring_road','ring_road','Ring Road','wildcard','uncommon',1950,2030,'A main road around the whole town.')
+];
+export const DOCTRINE_ONLY_CARDS=[...BUILDING_CARDS,...NEW_DOCTRINE_CARDS,...HYBRID_CARDS,...URBAN_CARDS];

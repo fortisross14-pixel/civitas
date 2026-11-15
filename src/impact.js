@@ -6,6 +6,7 @@ import {CARD_INDEX,eraEffects,turningMode} from './turningPoints.js';
 import {BUILDING_EFFECTS,BASIC_INDEX,SPECIAL_BUILDINGS} from './construction.js';
 import {NEEDS} from './needs.js';
 import {stats} from './sim.js';
+import {URBAN_WORKS} from './urbanWorks.js';
 import {annualRevenue} from './economy.js';
 
 export const EFFECT_LABELS={
@@ -50,7 +51,8 @@ export function cardSummary(card,city=null){
   const merged={...(effects||{})};if(kind&&BUILDING_EFFECTS[kind])for(const [k,v] of Object.entries(BUILDING_EFFECTS[kind]))merged[k]=(merged[k]||0)+v;
   const lines=linesFor(merged);
   const duration=card.durationPoints?`for ${card.durationPoints*25} years`:card.kind==='figure'?'while they live':kind?'once placed, for good':'for the rest of the run';
-  return {lines,building:def?{kind,name:def.name||card.name}:kind?{kind,name:card.name}:null,duration,needs:kind?needsAnswered(kind,city?.year??1300):[]};
+  const urban=card.urban?URBAN_WORKS[card.urban]?.label:null;
+  return {lines,building:def?{kind,name:def.name||card.name}:kind?{kind,name:card.name}:urban?{kind:'urban',name:urban,urban:true}:null,duration:urban?'for good: streets stay':duration,needs:kind?needsAnswered(kind,city?.year??1300):[]};
 }
 
 // What changes the moment this card is played: every city figure that moves,
@@ -60,7 +62,7 @@ const NOW_METRICS=[['prosperity','Prosperity',0],['capacity','Housing for',0],['
   ['culturalPrestige','Cultural prestige',0],['educationIndex','Learning',0],['gdpPerCapita','Output per person',0],['infrastructureEfficiency','Infrastructure',0],
   ['tourismAppeal','Tourism appeal',0],['pollution','Smoke',1],['jobs','Jobs',0],['unemployment','Unemployment %',1]];
 export function previewImpact(city,card){
-  if(!city||!card||card.kind==='figure'||card.building||city.awaitingCenter)return null;
+  if(!city||!card||card.kind==='figure'||card.building||card.urban||city.awaitingCenter)return null;
   const choices=city.turning?.choices||[];
   const trial={...city,turning:{...city.turning,choices:[...choices,{index:-1,year:city.year,cardId:card.id,via:'hand'}]}};
   const before=stats(city),after=stats(trial),fmt=v=>Math.round(v).toLocaleString('en-US');

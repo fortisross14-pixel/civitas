@@ -1,6 +1,7 @@
 import React,{useEffect,useMemo,useRef,useState} from 'react';
 import {Maximize2} from 'lucide-react';
-import {W,H,ZONES,terrain,zoneCell,STYLE_NAMES,styleAt,cityOrigin,tourismUnlocked,bridgeAt,publicWorkCost,constructionSite} from './sim';
+import {W,H,ZONES,terrain,zoneCell,STYLE_NAMES,styleAt,cityOrigin,tourismUnlocked,bridgeAt,publicWorkCost,constructionSite,urbanPlan} from './sim';
+import {deckOf} from './cards.js';
 import {footprint} from './geo.js';
 import {drawCity,mapTransform,DISTRICT_COLORS,roofTone,markerPositions,mapWarp,MARKER_RADIUS} from './render.js';
 export {DISTRICT_COLORS};
@@ -32,7 +33,9 @@ export function CityMap({city,tool,layer,onZone,onPlace,onInspect,onMarker=null,
   const zoom=(ratio,cx=dimensions.width/2,cy=dimensions.height/2)=>{const old=transform(),next=Math.max(.65,Math.min(7,view.current.zoom*ratio));if(next===view.current.zoom)return;const newScale=old.scale*next/view.current.zoom;const wx=(cx-old.ox)/old.scale,wy=(cy-old.oy)/old.scale;view.current={zoom:next,dx:cx-wx*newScale-(dimensions.width-W*newScale)/2,dy:cy-wy*newScale-(dimensions.height-H*newScale)/2};redraw();};
   useEffect(()=>{const el=canvas.current;if(!el)return;const wheel=e=>{e.preventDefault();const r=el.getBoundingClientRect();zoom(e.deltaY>0?.86:1.16,e.clientX-r.left,e.clientY-r.top);};el.addEventListener('wheel',wheel,{passive:false});return()=>el.removeEventListener('wheel',wheel);},[dimensions]);
   // Where the selected building would go: a 2×2 site, a single parcel, or why not.
-  const placingId=tool.startsWith('place:')&&!['place:bridge','place:center'].includes(tool)&&!readOnly?tool.slice(6):null;
+  const urbanUid=tool.startsWith('place:urban:')&&!readOnly?Number(tool.slice(12)):null;
+  const placingId=tool.startsWith('place:')&&!urbanUid&&!['place:bridge','place:center'].includes(tool)&&!readOnly?tool.slice(6):null;
+  const urbanPreview=useMemo(()=>{if(!urbanUid||!hover)return null;const held=deckOf(city).hand.find(h=>h.uid===urbanUid);if(!held)return null;const p=urbanPlan(city,held.cardId,hover.x,hover.y);return p.error?null:p.streets.map(st=>({x:st.x,y:st.y,main:st.cls==='main'}));},[urbanUid,hover?.x,hover?.y,city.roads,city.buildings]);
   const site=useMemo(()=>placingId&&hover&&hover.x>=0&&hover.x<W&&hover.y>=0&&hover.y<H?constructionSite(city,placingId,hover.x,hover.y):null,[placingId,hover?.x,hover?.y,city.buildings,city.roads,city.projects]);
   const bridgePreview=useMemo(()=>tool==='place:bridge'&&hover&&!readOnly?bridgeAt(city,hover.x,hover.y):null,[tool,hover?.x,hover?.y,city.roads,city.buildings,readOnly]);
   // Gentle animation (windmills, boats, caption fades) while time runs or captions show.
@@ -45,7 +48,7 @@ export function CityMap({city,tool,layer,onZone,onPlace,onInspect,onMarker=null,
     const now=performance.now();
     const caps=liveCaptions.map(cap=>{const age=now-cap.t0;return {...cap,alpha:age<600?age/600:age>CAPTION_MS-1500?(CAPTION_MS-age)/1500:1};});
     const [line,fill]=SELECTION_STYLE[tool]||['#3c6d57','#3c895231'];
-    drawCity(ctx,city,width,height,{view:view.current,maxStaleMs:animate?350:0,layer,selectedId,previewRing:readOnly?null:previewRing,bridgePreview,
+    drawCity(ctx,city,width,height,{view:view.current,maxStaleMs:animate?350:0,layer,selectedId,previewRing:readOnly?null:previewRing,bridgePreview,urbanPreview,
       cartouche:!!archiveYear||window.innerWidth<=760,selection:selection?{...selection,line,fill}:null,hover,placing:tool.startsWith('place:')&&!readOnly,placingCenter:tool==='place:center'&&!readOnly,site,captions:caps,now,population,archiveYear,score:archiveYear?null:score});
   },[city,layer,selection,dimensions,frame,hover,tool,readOnly,previewRing,bridgePreview,site,selectedId,tick,captions,population,archiveYear]);
 

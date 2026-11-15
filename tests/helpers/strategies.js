@@ -70,7 +70,7 @@ function tendCity(c){
 function sensibleTurn(c){
   c=tendCity(c);
   for(const h of [...deckOf(c).hand]){const p=playCard(c,h.uid);if(!p.error)c=placeProjects(p.city);}
-  const offer=[...(deckOf(c).shop?.offers||[])].sort((a,b)=>a.price-b.price)[0];
+  const offer=[...(deckOf(c).shop?.offers||[])].filter(o=>placeable(o.cardId)).sort((a,b)=>a.price-b.price)[0];
   if(offer&&c.funds>=offer.price*3){const b=buyCard(c,offer.uid);if(!b.error){const p=playCard(b.city,offer.uid);c=p.error?b.city:p.city;}}
   return c;
 }
@@ -78,6 +78,8 @@ function sensibleTurn(c){
 // v1.8 doctrine players. focused:<doctrine> buys and drafts only that doctrine;
 // spread buys whichever doctrine it holds least of. Same budget rule for both.
 const tags=id=>cardDoctrines(CARD_INDEX[id]);
+// Scripted players cannot choose a spot on the map, so they leave urban works (street plans) alone.
+const placeable=id=>!CARD_INDEX[id]?.urban;
 function preferFor(strategy,c){
   // v2.0 opportunist: follows the cards it is dealt, preferring whatever doctrine it already holds most of.
   if(strategy==='opportunist'){const counts=doctrineState(c).counts;return id=>{const t=tags(id);return 1+(t.length?Math.max(...t.map(d=>counts[d]||0)):0);};}
@@ -91,7 +93,7 @@ function doctrineTurn(strategy,c){
   for(const h of [...deckOf(c).hand]){const p=playCard(c,h.uid);if(!p.error)c=placeProjects(p.city);}
   let rerolled=false;
   for(let k=0;k<2;k++){
-    let offers=[...(deckOf(c).shop?.offers||[])].filter(o=>prefer(o.cardId)>0).sort((a,b)=>prefer(b.cardId)-prefer(a.cardId)||a.price-b.price);
+    let offers=[...(deckOf(c).shop?.offers||[])].filter(o=>placeable(o.cardId)&&prefer(o.cardId)>0).sort((a,b)=>prefer(b.cardId)-prefer(a.cardId)||a.price-b.price);
     // Nothing for my build: pay once a decade for a new selection, as a player would.
     if(!offers.length&&!rerolled&&strategy.startsWith('focused:')&&deckOf(c).shop&&c.funds>=rerollPrice(c)*4){const r=rerollShop(c,stats(c));rerolled=true;if(!r.error){c=r.city;k--;continue;}}
     const offer=offers[0];if(!offer||c.funds<offer.price*2)break;

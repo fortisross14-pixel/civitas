@@ -34,8 +34,8 @@ export function CardFace({city,cardId,size='hand',selected=false,dim=false,onCli
 // v2.2: a card face shows one thing it does (two in the shop); the rest is behind (i).
 function EffectChips({city,card,max}){
   const s=cardSummary(card,city);
-  const items=[...(s.building?[{key:'build',text:'Builds',label:s.building.name,good:true,build:true}]:[]),...s.lines].slice(0,max);
-  return <ul className="hcardEffects">{items.map(l=><li key={l.key} className={l.build?'build':l.good?'good':'bad'}>{l.build?`Builds ${l.label}`:`${l.text} ${l.label}`}</li>)}</ul>;
+  const items=[...(s.building?[{key:'build',text:s.building.urban?'Lays out':'Builds',label:s.building.name,good:true,build:true}]:[]),...s.lines].slice(0,max);
+  return <ul className="hcardEffects">{items.map(l=><li key={l.key} className={l.build?'build':l.good?'good':'bad'}>{l.build?`${l.text} ${l.label}`:`${l.text} ${l.label}`}</li>)}</ul>;
 }
 // One line: what changes the moment it is played.
 export function CardNow({city,card}){
@@ -90,7 +90,7 @@ export function HandTray({city,disabled,onPlay,onSell,onMerge,onOpenShop,shopFre
       <CardNow city={city} card={card}/>
       {!doctrinesOn(city)&&<CollectionLine city={city} cardId={card.id}/>}
       <div className="handActions">
-        <button className="primary" disabled={disabled||stack>=MAX_COPIES} onClick={()=>{onPlay(selected.uid);setSel(null);}}><Play size={16}/> {card.building?'Place on the map':'Play card'}</button>
+        <button className="primary" disabled={disabled||stack>=MAX_COPIES} onClick={()=>{onPlay(selected.uid);setSel(null);}}><Play size={16}/> {card.building||card.urban?'Place on the map':'Play card'}</button>
         <button disabled={disabled} onClick={()=>{onSell(selected.uid);setSel(null);}}><Tag size={16}/> Sell {compact(Math.round(selected.paid*SELL_SHARE))}</button>
         {card.rarity!=='epic'&&<button disabled={disabled} aria-label="Merge" title="Merge three cards into a rarer one" onClick={()=>{setMerging([selected.uid]);setSel(null);}}><Combine size={16}/></button>}
       </div>

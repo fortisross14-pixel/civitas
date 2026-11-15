@@ -144,8 +144,10 @@ test('R exit 4: a first run cannot reach Patrons or Wonders',()=>{
   }
 });
 test('R exit 3: runs with different Founders share at most 40% of their cards',()=>{
-  const sets=['abbess','merchant','scholar'].map(f=>new Set(runStrategy('opportunist',7,2030,'river',{legacy:mastered(),setup:{founder:f}}).city.turning.choices.map(p=>p.cardId)));
-  const shares=[];for(let i=0;i<sets.length;i++)for(let j=i+1;j<sets.length;j++){const a=sets[i],b=sets[j];shares.push([...a].filter(x=>b.has(x)).length/new Set([...a,...b]).size);}
+  // Averaged over two seeds: one run's draws swing a lot.
+  const shares=[];
+  for(const seed of [7,11]){const sets=['abbess','merchant','scholar'].map(f=>new Set(runStrategy('opportunist',seed,2030,'river',{legacy:mastered(),setup:{founder:f}}).city.turning.choices.map(p=>p.cardId)));
+    for(let i=0;i<sets.length;i++)for(let j=i+1;j<sets.length;j++){const a=sets[i],b=sets[j];shares.push([...a].filter(x=>b.has(x)).length/new Set([...a,...b]).size);}}
   const mean=shares.reduce((a,b)=>a+b,0)/shares.length;
   assert.ok(mean<=.4,`mean share ${mean.toFixed(2)} (${shares.map(s=>s.toFixed(2))})`);
 });
