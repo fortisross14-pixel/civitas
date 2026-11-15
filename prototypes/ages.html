@@ -129,7 +129,7 @@ function layRow(p,side,s0,s1,z,o={}){
     {const fw=dist(A.f,B.f),bw=dist(A.b,B.b);if(bw>fw*1.7&&A.d>0&&B.d>0){const k=clamp((fw*.7)/(bw-fw),0,1),sh=(c)=>({...c,d:c.d*k,b:[c.f[0]+(c.b[0]-c.f[0])*k,c.f[1]+(c.b[1]-c.f[1])*k]});if(A!==prevB)Object.assign(A,sh(A));Object.assign(B,sh(B));}}
     const q=[A.f,B.f,B.b,A.b];
     if(A.d<3||B.d<3||!quadFree(q)||!zoneAt((A.f[0]+B.b[0])/2,(A.f[1]+B.b[1])/2)){deadAt(z,p,side,s);prevB=null;s+=.8;continue;}
-    made.push(addPlot(q,{p,side,s0:sA,s1:sB,zone:z,row:row.id,kind:'croft',w:sB-sA,d:(A.d+B.d)/2}));prevB=B;s=sB;
+    const np=addPlot(q,{p,side,s0:sA,s1:sB,zone:z,row:row.id,kind:'croft',w:sB-sA,d:(A.d+B.d)/2,A,B});if(A===prevB&&made.length){np.prev=made.at(-1);made.at(-1).next=np;}made.push(np);prevB=B;s=sB;
     if(p.kind==='path'){p.kind='lane';p.hw=KIND.lane.hw;p.settled=Y;}}
   return made;}
 const deadAt=(z,p,side,s)=>{(z.dead=z.dead||new Set()).add(p.id*4096+(side>0?2048:0)+Math.round(s));};
@@ -171,7 +171,7 @@ function nearZone(p,z){for(let s=0;s<=p.len;s+=2){const a=at(p,s);if(inPoly(a.x,
 // the zone, meets plots or water, or runs into another street (then it joins it).
 function traceContour(x0,y0,z,max=26){const half=dir=>{const out=[];let x=x0,y=y0,[gx,gy]=grad(x,y),sl=Math.hypot(gx,gy)||1,hx=-gy/sl*dir,hy=gx/sl*dir;
     for(let i=0;i<max/1.3;i++){[gx,gy]=grad(x,y);sl=Math.hypot(gx,gy);if(sl>1e-6){let cx=-gy/sl,cy=gx/sl;if(cx*hx+cy*hy<0){cx=-cx;cy=-cy;}hx=hx*.35+cx*.65;hy=hy*.35+cy*.65;}
-      const wob=(noise(x,y,13,23)-.5)*.3;hx+=-hy*wob;hy+=hx*wob;const l=Math.hypot(hx,hy);hx/=l;hy/=l;
+      const wob=(noise(x,y,13,23)-.5)*.3*(1-STREETS(Y).straight);hx+=-hy*wob;hy+=hx*wob;const l=Math.hypot(hx,hy);hx/=l;hy/=l;
       const nx=x+hx*1.3,ny=y+hy*1.3;if(zoneAt(nx,ny)!==z||flood(nx,ny)||onWall(nx,ny)||inPlot(nx,ny,.3)||inPlace(nx,ny))break;
       const dn=nearPath(nx,ny,4,null,true);if(dn.d<1.4){out.push([dn.x,dn.y]);break;}out.push([nx,ny]);x=nx;y=ny;}return out;};
   return [...half(-1).reverse(),[x0,y0],...half(1)];}
@@ -183,7 +183,7 @@ function reachLane(z){let xs=z.poly.map(p=>p[0]),ys=z.poly.map(p=>p[1]),best=nul
     const np=nearPath(x,y,30,null,true);if(np.d<7)continue;const sc=value(x,y)-np.d*.012+rnd()*.25;if(sc>bs){bs=sc;best={x,y,np};}}
   if(!best||!best.np.p)return false;
   const line=traceContour(best.x,best.y,z);if(line.length<8)return false;
-  const c=addPath(line,'lane',{open:true});
+  const c=addPath(line,STREETS(Y).kind,{open:true});
   // The connector: from the nearest street to the nearest point of the new line, over easy ground.
   let bi=0,bd=1e9;for(let i=0;i<line.length;i++){const d=nearPath(...line[i],30,c,true).d;if(d<bd){bd=d;bi=i;}}
   const np=nearPath(...line[bi],30,c,true);if(np.p&&np.d>1.5&&np.d<14){const link=route([np.x,np.y],line[bi],{climb:30000,avoid:(x,y)=>inPlot(x,y,.4)||onWall(x,y)?60:0});if(link.length>=2)addPath(link,'lane');}
@@ -204,8 +204,8 @@ function growLane(z,o={}){
   const open=stubs.filter(t=>t.z===z&&!t.used);if(open.length&&(rnd()<.8||!bq)){const t=open[Math.floor(rnd()*open.length)];t.tries=(t.tries||0)+1;if(t.tries>=3)t.used=true;bq={p:t.p,a:{x:t.x,y:t.y},hx:t.hx,hy:t.hy,tip:false};}
   if(!bq)return false;
   // Most lanes swing onto the level line at once; one in four is a short connector straight up or down the slope.
-  const connector=!o.straight&&rnd()<.25;
-  let x=bq.a.x,y=bq.a.y,hx=bq.hx,hy=bq.hy;const pts=[[x,y]],L=o.len??(connector?7+rnd()*7:16+rnd()*22),ST=1.25,straight=o.straight??(connector?.85:0);let joined=false;
+  const connector=rnd()<.25;
+  let x=bq.a.x,y=bq.a.y,hx=bq.hx,hy=bq.hy;const pts=[[x,y]],L=o.len??(connector?7+rnd()*7:16+rnd()*22),ST=1.25,straight=connector?.85:(o.straight??0);let joined=false;
   for(let i=0;i<L/ST;i++){const [gx,gy]=grad(x,y),sl=Math.hypot(gx,gy);
     if(i>=1&&sl>1e-5&&straight<1){let cx=-gy/sl,cy=gx/sl;if(cx*hx+cy*hy<0){cx=-cx;cy=-cy;}const wc=clamp(sl/(STEEP*.25),0,1)*.72*(1-straight);hx=hx*(1-wc)+cx*wc;hy=hy*(1-wc)+cy*wc;}
     const wob=(noise(x,y,11,21)-.5)*.42*(1-straight);hx+=-hy*wob;hy+=hx*wob;const hl=Math.hypot(hx,hy);hx/=hl;hy/=hl;
@@ -217,7 +217,7 @@ function growLane(z,o={}){
     pts.push([nx,ny]);x=nx;y=ny;}
   if(!joined&&pts.length>=6){for(let r=2;r<=8;r+=1.5){const ex=x+hx*r,ey=y+hy*r;if(flood(ex,ey)||inPlot(ex,ey,0))break;const dn=nearPath(ex,ey,2,null,true);if(dn.d<.6){pts.push([dn.x,dn.y]);joined=true;break;}}}
   if(pts.length<6)return false;if(bq.tip)bq.p.open=false;for(const t of stubs)if(!t.used&&Math.hypot(t.x-bq.a.x,t.y-bq.a.y)<.5)t.used=true;
-  addPath(pts,o.kind||'lane',{open:!joined});return true;}
+  addPath(pts,o.kind||'lane',{open:!joined,hw:o.kind==='street'?.6:undefined});return true;}
 // ───────────── houses ─────────────
 // Each plot keeps a list of events: [year, state]. state: {b:'house'|'farm'|..., dv: depth share, style, plan}.
 const STYLE_BY_YEAR=y=>y<1500?'timber':y<1700?'stone':y<1850?'classical':y<1950?'brick':y<2000?'modernist':'contemporary';
@@ -291,9 +291,22 @@ const SCRIPT=[
  [1450,()=>{const w=walls[0];if(!w)return;const [wx,wy]=centre(w.poly);for(const [gi,g] of w.gates.entries()){const dx=g.x-wx,dy=g.y-wy,l=Math.hypot(dx,dy)||1;
      const cx=g.x+dx/l*12,cy=g.y+dy/l*12;if(flood(cx,cy))continue;addZone(blob(cx,cy,12,9,12,8+gi),'suburb',null,{wall:{poly:w.poly,inside:false},rate:.7});}}],
  [1475,()=>{town.push(addZone(blob(C0[0]-20,C0[1]-40,22,16,14,10),'town','Hill street'));}],
+ [1545,()=>{cutSquare(C0[0]+8,C0[1]-22,17,11,'Town Hall');}],
+ [1560,()=>{bridge();}],
+ [1575,()=>{const z=addZone(blob(FORD[0]+6,riverY(FORD[0])+28,26,14,14,11),'suburb','Over the bridge',{rate:.9});}],
+ [1590,()=>{town.push(addZone(blob(C0[0]+46,C0[1]-48,26,18,14,12),'town','New quarter'));}],
+ [1620,()=>{bastions();}],
+ // The land between the old wall and the new trace is zoned: three quarters where it is open.
+ [1625,()=>{const bw=walls.find(w=>w.kind==='bastion'),old=walls[0],pts=[];for(let t=0;t<2500&&pts.length<500;t++){const x=lerp(60,360,hsh(t,1,99)),y=lerp(40,220,hsh(t,2,99));
+     if(inPoly(x,y,bw.poly)&&!inPoly(x,y,old.poly)&&ringDist(x,y,old.poly)>3&&ringDist(x,y,bw.poly)>4&&!flood(x,y)&&!inPlot(x,y,1)&&slopeAt(x,y)<STEEP*1.4)pts.push([x,y]);}
+   let C=[pts[0],pts[Math.floor(pts.length/3)],pts[Math.floor(pts.length*2/3)]].filter(Boolean);
+   for(let it=0;it<8;it++){const g=C.map(()=>[]);for(const p of pts){let bi=0,bd=1e9;C.forEach((c,i)=>{const d=dist(c,p);if(d<bd){bd=d;bi=i;}});g[bi].push(p);}C=g.map((a,i)=>a.length?centre(a):C[i]);}
+   C.forEach((c,i)=>town.push(addZone(blob(c[0],c[1],16,12,12,20+i),'town',['Bastion quarter','Garden quarter','St John'][i],{wall:{poly:bw.poly,inside:true}})));}],
 ];
 function addZone(poly,kind,name,o={}){const z={poly,kind,name,born:Y,died:null,rate:o.rate??1,lay:o.lay||{},wall:o.wall||null,cx:centre(poly)[0],cy:centre(poly)[1]};zones.push(z);trackTo(z);if(name)labels.push({text:name,x:z.cx,y:Math.min(...poly.map(p=>p[1]))+3,born:Y,kind:'zone'});return z;}
 // Growth: how many households arrive in a year, by Age.
+// How each Age lays new streets.
+const STREETS=y=>y<1500?{kind:'lane',straight:0}:y<1700?{kind:'street',straight:.55}:{kind:'street',straight:.8};
 const RATE=y=>y<1348?2.4:y<1360?.4:y<1500?2.1:y<1700?3:y<1850?6:y<1950?22:14;
 // ───────────── history ─────────────
 function foundRoads(){
@@ -304,6 +317,61 @@ function foundRoads(){
   // Footpaths that were there before the houses: to the spring, the church, the mill, the village.
   for(const [a,b] of [[C0,SPRING],[C0,CHURCH],[C0,MILL],[CHURCH,SPRING],[VIL,[VIL[0]+30,VIL[1]-40]],[C0,MILL2],[SPRING,HAMLET]])addPath(route(a,b,{climb:50000}),'path');}
 let carry=0,FAILS=0;const census=[];
+// ───────────── Renaissance processes ─────────────
+// Stone replaces timber from the centre outward; dense houses grow back over their gardens.
+function rebuildWave(){const r=(Y-1500)*.32+10;
+  for(let k=0;k<6;k++){const live=plots.filter(p=>aliveO(p)&&p.built);const pl=live[Math.floor(rnd()*live.length)];if(!pl)return;const st=stateAt(pl,Y);if(!st||st.b==='farm')continue;
+    const [cx,cy]=centre(pl.pts),d=Math.hypot(cx-C0[0],cy-C0[1]),v=value(cx,cy);
+    if(st.style==='timber'&&d<r&&rnd()<.6)setState(pl,{style:'stone',dv:clamp(st.dv+(v>.6?.12:.05),.3,.85),plan:v>.6?1:st.plan,gap:v>.55?0:st.gap});
+    else if(st.style!=='timber'&&v>.7&&st.dv<.8&&rnd()<.3)setState(pl,{dv:clamp(st.dv+.1,.3,.85),plan:1});}}
+// Neighbouring plots in a dear street merge into a courtyard palace.
+function mergePalace(){const live=plots.filter(p=>aliveO(p)&&p.built&&p.next&&aliveO(p.next)&&p.next.built&&stateAt(p,Y)?.b==='house');
+  for(let t=0;t<12;t++){const a=live[Math.floor(rnd()*live.length)];if(!a)return;const v=value(...centre(a.pts));if(v<.75)continue;
+    const run=[a];while(run.length<3&&run.at(-1).next&&aliveO(run.at(-1).next)&&run.at(-1).next.built&&stateAt(run.at(-1).next,Y)?.b==='house')run.push(run.at(-1).next);
+    const w=run.reduce((m,p)=>m+p.w,0);if(run.length<2||w<4.4)continue;
+    const A=run[0].A,B=run.at(-1).B,q=[A.f,B.f,B.b,A.b];for(const r of run)r.died=Y;
+    const pl=addPlot(q,{p:a.p,side:a.side,s0:run[0].s0,s1:run.at(-1).s1,zone:a.zone,kind:'palace',w,d:(A.d+B.d)/2,A,B,prev:run[0].prev,next:run.at(-1).next,built:Y});
+    if(pl.prev)pl.prev.next=pl;if(pl.next)pl.next.prev=pl;
+    setState(pl,{b:'palace',style:'stone',dv:clamp(9/pl.d,.5,.95),gap:0,plan:0});return;}}
+// A planned square cut into the old fabric, with the player's town hall on it.
+function cutSquare(cx,cy,w,h,name){const road=nearPath(cx,cy,20,null,true),a=road.p?at(road.p,nearestS(road.p,[cx,cy])):{tx:1,ty:0},ang=Math.atan2(a.ty,a.tx);
+  const c=Math.cos(ang),sn=Math.sin(ang),Pt=(u,v)=>[cx+u*c-v*sn,cy+u*sn+v*c],sq=[Pt(-w/2,-h/2),Pt(w/2,-h/2),Pt(w/2,h/2),Pt(-w/2,h/2)];
+  const big=[Pt(-w/2-.4,-h/2-.4),Pt(w/2+.4,-h/2-.4),Pt(w/2+.4,h/2+.4),Pt(-w/2-.4,h/2+.4)];
+  for(const pl of plots)if(aliveO(pl)&&(pl.pts.some(([x,y])=>inQuad(x,y,big))||inQuad(...centre(pl.pts),big)||big.some(([x,y])=>inQuad(x,y,pl.pts))))pl.died=Y;
+  for(const p of paths)if(aliveP(p)&&p.kind==='lane'&&p.pts.filter(([x,y])=>inQuad(x,y,big)).length>p.pts.length*.4)p.died=Y;
+  addPlace(sq,'square',{name});const ep=addPath([...sq,sq[0]],'edge',{hw:.05});
+  // The town hall stands on the far side, facing the square; stone fronts line the rest.
+  const th=addLandmark('townhall',...Pt(0,-h/2-3.4),ang,{pull:1.4,reach:15,name,parts:[{poly:R(-6,-2.8,6,2.8),ridge:[[-5.6,0],[5.6,0]],tone:'stone'},{poly:R(-1.4,2.8,1.4,4.2),tone:'tower'},{poly:R(-3.4,-1.2,3.4,1.2),tone:'court'}]});
+  for(const pl of plots)if(aliveO(pl)&&pl.pts.some(([x,y])=>Math.hypot(x-th.x,y-th.y)<6.5))pl.died=Y;
+  const z=zoneAt(cx,cy);if(z)for(const sd of [1,-1])for(const np of layRow(ep,sd,.5,ep.len-.5,z,{width:()=>2.6+rnd()*1.6,depth:7.5,noGaps:true})){setState(np,{b:'house',style:'stone',dv:.7,gap:0,plan:1});np.built=Y;}
+  return th;}
+// The bastioned trace: an angular ring with arrow-head bastions, wrapping the town and its gate suburbs.
+function bastions(){const old=walls[0],zs=zones.filter(z=>aliveO(z)&&(z.kind==='town'||z.kind==='suburb'));
+  const tc=centre(old.poly),n=40,r=new Array(n).fill(0);
+  for(const pl of plots)if(aliveO(pl)&&pl.built&&zs.includes(pl.zone))for(const [x,y] of pl.pts){const a=Math.atan2(y-tc[1],x-tc[0]),k=((Math.round(a/(2*Math.PI)*n)%n)+n)%n;r[k]=Math.max(r[k],Math.hypot(x-tc[0],y-tc[1]));}
+  for(const [x,y] of old.poly){const a=Math.atan2(y-tc[1],x-tc[0]),k=((Math.round(a/(2*Math.PI)*n)%n)+n)%n;r[k]=Math.max(r[k],Math.hypot(x-tc[0],y-tc[1])+4);}
+  const ring=r.map((v,i)=>{const a=i/n*2*Math.PI;return [tc[0]+Math.cos(a)*(v+7),tc[1]+Math.sin(a)*(v+7)];}).filter(([x,y])=>y<riverY(x)-RIVER_HW-1);
+  // Corners: the hull, cut down to about seven; each land corner becomes an arrow-head bastion.
+  let H=hull(ring);while(H.length>7){let bi=0,bl=1e9;for(let i=0;i<H.length;i++){const l=dist(H[i],H[(i+1)%H.length]);if(l<bl){bl=l;bi=i;}}const a=H[bi],b=H[(bi+1)%H.length];H.splice(bi,2,[(a[0]+b[0])/2,(a[1]+b[1])/2]);if(bi===H.length)H.shift();}
+  const bank=(x)=>riverY(x)-RIVER_HW-1;const poly=[];
+  for(let i=0;i<H.length;i++){const [x,y]=H[i],[px,py]=H[(i+H.length-1)%H.length],[nx,ny]=H[(i+1)%H.length];
+    const atBank=y>bank(x)-4;if(atBank){poly.push([x,Math.min(y,bank(x))]);
+      // Along the river the trace follows the bank to the next corner.
+      if(ny>bank(nx)-4){for(let t=1;t<6;t++){const xx=x+(nx-x)*t/6;poly.push([xx,bank(xx)]);}}continue;}
+    const ux1=(x-px),uy1=(y-py),l1=Math.hypot(ux1,uy1)||1,ux2=(nx-x),uy2=(ny-y),l2=Math.hypot(ux2,uy2)||1;
+    const ox=(ux1/l1-ux2/l2),oy=(uy1/l1-uy2/l2),ol=Math.hypot(ox,oy)||1,bx=ox/ol,by=oy/ol;
+    // Flanks back along each curtain, then the faces meet at the point.
+    poly.push([x-ux1/l1*6,y-uy1/l1*6],[x-ux1/l1*6+bx*3,y-uy1/l1*6+by*3],[x+bx*8,y+by*8],[x+ux2/l2*6+bx*3,y+uy2/l2*6+by*3],[x+ux2/l2*6,y+uy2/l2*6]);}
+  for(const pt of poly){const b=riverY(pt[0])-RIVER_HW-.8;if(pt[1]>b)pt[1]=b;}
+  const w={poly,born:Y,died:null,gates:[],towers:[],kind:'bastion'};walls.push(w);
+  for(const p of paths)if(aliveP(p)&&p.kind==='road')for(let i=1;i<p.pts.length;i++){const a=p.pts[i-1],b=p.pts[i];if(inPoly(...a,poly)!==inPoly(...b,poly))w.gates.push({x:(a[0]+b[0])/2,y:(a[1]+b[1])/2,a:Math.atan2(b[1]-a[1],b[0]-a[0]),road:p});}
+  // The glacis: a clear band outside the trace.
+  for(const pl of plots)if(aliveO(pl)&&pl.pts.some(([x,y])=>ringDist(x,y,poly)<2.2))pl.died=Y;
+  // Suburbs now inside the trace belong to the town.
+  for(const z of zones)if(aliveO(z)&&z.kind==='suburb'&&inPoly(z.cx,z.cy,poly)){z.kind='town';z.wall={poly,inside:true};}
+  for(const z of zones)if(aliveO(z)&&z.kind==='town')z.wall=inPoly(z.cx,z.cy,poly)?{poly,inside:true}:null;
+  return w;}
+function bridge(){const x=FORD[0],y0=riverY(x)-RIVER_HW-2,y1=riverY(x)+RIVER_HW+2;const b=addPath([[x,y0],[x+.6,y1]],'road',{hw:.9,name:'the bridge'});b.bridge=true;return b;}
 // A home for one household in zone z: the best empty plot, unless new plots on
 // dearer frontage (or a new lane into dear land) would beat it.
 function findHome(z){
@@ -312,20 +380,22 @@ function findHome(z){
     if(pl&&(!fr||pv>=fr.v*.8))return pl;
     if(fr){layRun(fr,z);continue;}
     if(pl)return pl;
-    if(!growLane(z)&&!reachLane(z))return null;}
+    if(!growLane(z,STREETS(Y))&&!reachLane(z))return null;}
   return nextPlot(z);}
 function yearStep(){
   for(const [y,f] of SCRIPT)if(y===Y)f();
   // The wall: once the town is big enough to need one.
   const townHouses=plots.filter(p=>aliveO(p)&&p.built&&town.includes(p.zone)).length;
-  if(!walls.length&&townHouses>=150){const tc=centre(plots.filter(p=>aliveO(p)&&p.built&&town.includes(p.zone)).flatMap(p=>p.pts));const w=throwWall(tc[0],tc[1],town,2.6);for(const z of town)z.wall={poly:w.poly,inside:true};}
+  if(!walls.length&&townHouses>=150){const tc=centre(plots.filter(p=>aliveO(p)&&p.built&&town.includes(p.zone)).flatMap(p=>p.pts));const w=throwWall(tc[0],tc[1],town,2.6);for(const z of town)if(inPoly(z.cx,z.cy,w.poly))z.wall={poly:w.poly,inside:true};}
+  if(Y>=1500){rebuildWave();if(Y>=1520&&rnd()<.35)mergePalace();}
   carry+=RATE(Y);
   const live=zones.filter(z=>aliveO(z)),wsum=live.reduce((a,z)=>a+z.rate,0);
   while(carry>=1){carry-=1;
     // Which zone the household settles in, by the zones' pull.
-    let t=rnd()*wsum,z=live[0];for(const o of live){t-=o.rate;if(t<=0){z=o;break;}}
-    let pl=findHome(z);
-    for(const o of live.slice().sort(()=>rnd()-.5)){if(pl)break;if(o!==z)pl=findHome(o);}
+    const open=live.filter(o=>!(o.full>Y)),osum=open.reduce((a,o)=>a+o.rate,0);if(!open.length){FAILS++;continue;}
+    let t=rnd()*osum,z=open[0];for(const o of open){t-=o.rate;if(t<=0){z=o;break;}}
+    let pl=findHome(z);if(!pl)z.full=Y+4;
+    for(const o of open.slice().sort(()=>rnd()-.5)){if(pl)break;if(o!==z&&!(o.full>Y)){pl=findHome(o);if(!pl)o.full=Y+4;}}
     if(pl)buildOn(pl);else FAILS++;}
   census.push({y:Y,houses:plots.filter(p=>aliveO(p)&&p.built).length});}
 // ───────────── drawing ─────────────
@@ -360,10 +430,11 @@ const GR=4,ground=document.createElement('canvas');ground.width=WW*GR;ground.hei
 const trees=[];for(let y=2;y<WH;y+=2.6)for(let x=2;x<WW;x+=2.6){const jx=x+hsh(x*10,y*10,5)*2,jy=y+hsh(x*10,y*10,6)*2;if(slopeAt(jx,jy)>STEEP*1.1&&noise(jx,jy,34,9)>.5&&hsh(x*10,y*10,7)<.8&&!flood(jx,jy))trees.push([jx,jy,.7+hsh(x*10,y*10,8)*.6]);}
 const poly=pts=>{g.beginPath();pts.forEach(([x,y],i)=>i?g.lineTo(x,y):g.moveTo(x,y));g.closePath();};
 const line=(pts,w,col)=>{g.beginPath();pts.forEach(([x,y],i)=>i?g.lineTo(x,y):g.moveTo(x,y));g.lineWidth=w;g.strokeStyle=col;g.stroke();};
-const ROOF={timber:['#8a6a52','#93725a','#7f6450','#8c5d48'],stone:['#9a7a5e','#a3845f','#8d6f57'],farm:['#857557','#8f7d5d']};
+const ROOF={timber:['#8a6a52','#93725a','#7f6450','#8c5d48'],stone:['#a3866a','#9b8064','#ad9174','#94785e'],palace:['#b8a27f','#c0aa86'],farm:['#857557','#8f7d5d']};
 function Qf(pl){if(pl.Q)return pl.Q;const [FL,FR,RR,RL]=pl.pts;return pl.Q=(u,v)=>{const ax=FL[0]+(FR[0]-FL[0])*u,ay=FL[1]+(FR[1]-FL[1])*u,bx=RL[0]+(RR[0]-RL[0])*u,by=RL[1]+(RR[1]-RL[1])*u;return [ax+(bx-ax)*v,ay+(by-ay)*v];};}
 // A house plan inside its plot (u along the front, v from front to back). dv: share of the plot it covers.
-function housePlan(pl,st){const k=st.plan,dv=st.dv,g0=st.gap,a=.38+hsh(pl.id,4)*.25,mir=hsh(pl.id,5)<.5,M=uv=>mir?uv.map(([u,v])=>[1-u,v]).reverse():uv;
+function housePlan(pl,st){if(st.b==='palace'){const dv=st.dv,c0=.28,c1=.72;return [{uv:[[0,0],[1,0],[1,dv],[c1,dv],[c1,dv*.32],[c0,dv*.32],[c0,dv],[0,dv]],ridge:[[.04,dv*.16],[.96,dv*.16]]},{uv:[[c0,dv*.32],[c1,dv*.32],[c1,dv],[c0,dv]],col:'#ddd0b0'}];}
+  const k=st.plan,dv=st.dv,g0=st.gap,a=.38+hsh(pl.id,4)*.25,mir=hsh(pl.id,5)<.5,M=uv=>mir?uv.map(([u,v])=>[1-u,v]).reverse():uv;
   const u0=g0,u1=1-g0,F=dv*.62,uv=(u,v)=>[u0+(u1-u0)*u,v];
   if(st.b==='farm')return [{uv:M([[0,0],[.62,0],[.62,dv*.6],[0,dv*.6]].map(([u,v])=>uv(u,v))),ridge:[uv(.04,dv*.3),uv(.58,dv*.3)]},{uv:M([[.7,.1],[1,.1],[1,dv*1.25],[.7,dv*1.25]].map(([u,v])=>uv(u,v))),ridge:[uv(.85,.14),uv(.85,dv*1.2)],col:'#75684f'}];
   const box=[{uv:[[0,0],[1,0],[1,dv],[0,dv]].map(([u,v])=>uv(u,v)),ridge:[uv(.5,.04),uv(.5,dv*.96)]}];
@@ -384,7 +455,7 @@ function draw(year){
   // zones (the player's paint): dashed, faint once built up
   for(const z of zones){if(!aliveO(z))continue;const fresh=clamp(1-(year-z.born)/80,.25,1);poly(z.poly);g.setLineDash([1.6,1.2]);g.lineWidth=.35;g.strokeStyle=`rgba(106,47,34,${.5*fresh})`;g.stroke();g.setLineDash([]);}
   // places: market, churchyard
-  for(const pl of places){if(!aliveO(pl))continue;poly(pl.poly);g.fillStyle=pl.kind==='churchyard'?'#c9cf9e':pl.kind==='market'?'#e8dcc0':'#e2d7ba';g.fill();g.lineWidth=.3;g.strokeStyle='rgba(100,80,55,.55)';g.stroke();
+  for(const pl of places){if(!aliveO(pl))continue;poly(pl.poly);g.fillStyle=pl.kind==='churchyard'?'#c9cf9e':pl.kind==='market'?'#e8dcc0':pl.kind==='square'?'#ece2c6':'#e2d7ba';g.fill();g.lineWidth=.3;g.strokeStyle='rgba(100,80,55,.55)';g.stroke();
     if(pl.kind==='churchyard'){g.fillStyle='rgba(90,90,70,.5)';const [cx,cy]=centre(pl.poly);for(let i=0;i<26;i++){const x=cx+(hsh(i,pl.born,9)-.5)*14,y=cy+(hsh(i,pl.born,10)-.5)*10;if(inPoly(x,y,pl.poly))g.fillRect(x,y,.5,.3);}}}
   // plots: gardens and crofts behind the houses
   const live=plots.filter(p=>p.born<=year&&(p.died==null||p.died>year));
@@ -395,14 +466,14 @@ function draw(year){
     if(p.kind==='edge')continue;
     if(p.kind==='path'){if(pass){g.setLineDash([1,.8]);line(p.pts,.35,'#a98f68');g.setLineDash([]);}continue;}
     line(p.pts,pass?p.hw*2-.2:p.hw*2+.3,pass?'#f3ebd6':'rgba(110,92,66,.7)');}
-  // the ford
-  {const x=FORD[0];line([[x,riverY(x)-RIVER_HW],[x+1,riverY(x+1)+RIVER_HW]],1.6,'rgba(200,186,150,.8)');}
+  // the ford (until the bridge)
+  if(!paths.some(p=>p.bridge&&aliveP(p))){const x=FORD[0];line([[x,riverY(x)-RIVER_HW],[x+1,riverY(x+1)+RIVER_HW]],1.6,'rgba(200,186,150,.8)');}
   // walls
-  for(const w of walls){if(!aliveO(w))continue;g.beginPath();w.poly.forEach(([x,y],i)=>i?g.lineTo(x,y):g.moveTo(x,y));g.closePath();g.lineWidth=1.3;g.strokeStyle='#5d4a38';g.stroke();g.lineWidth=.5;g.strokeStyle='#a48c6a';g.stroke();
+  for(const w of walls){if(!aliveO(w))continue;if(w.kind==='bastion'){poly(w.poly);g.lineWidth=5.5;g.strokeStyle='rgba(150,170,120,.35)';g.stroke();g.lineWidth=1.6;g.strokeStyle='#5d4a38';g.stroke();g.lineWidth=.5;g.strokeStyle='#b8a17c';g.stroke();for(const gt of w.gates){g.save();g.translate(gt.x,gt.y);g.rotate(gt.a);g.fillStyle='#5d4a38';g.fillRect(-1.8,-2.4,3.6,1.4);g.fillRect(-1.8,1,3.6,1.4);g.restore();}continue;}g.beginPath();w.poly.forEach(([x,y],i)=>i?g.lineTo(x,y):g.moveTo(x,y));g.closePath();g.lineWidth=1.3;g.strokeStyle='#5d4a38';g.stroke();g.lineWidth=.5;g.strokeStyle='#a48c6a';g.stroke();
     for(const [x,y] of w.towers){g.beginPath();g.arc(x,y,1.05,0,7);g.fillStyle='#6b5642';g.fill();}
     for(const gt of w.gates){g.save();g.translate(gt.x,gt.y);g.rotate(gt.a);g.fillStyle='#5d4a38';g.fillRect(-1.6,-2.2,3.2,1.3);g.fillRect(-1.6,.9,3.2,1.3);g.restore();}}
   // houses
-  for(const pl of live){const st=stateAt(pl,year);if(!st)continue;const Q=Qf(pl),cols=ROOF[st.b==='farm'?'farm':st.style]||ROOF.timber,col=cols[Math.floor(hsh(pl.id,7)*cols.length)];
+  for(const pl of live){const st=stateAt(pl,year);if(!st)continue;const Q=Qf(pl),cols=ROOF[st.b==='farm'?'farm':st.b==='palace'?'palace':st.style]||ROOF.timber,col=cols[Math.floor(hsh(pl.id,7)*cols.length)];
     for(const part of housePlan(pl,st)){const pts=part.uv.map(([u,v])=>Q(u,v));
       g.save();g.translate(.35,.45);poly(pts);g.fillStyle='rgba(58,44,32,.22)';g.fill();g.restore();
       poly(pts);g.fillStyle=part.col||col;g.fill();g.lineWidth=.12;g.strokeStyle='rgba(50,36,26,.7)';g.stroke();
@@ -410,7 +481,7 @@ function draw(year){
   // landmarks
   for(const m of landmarks){if(!aliveO(m))continue;for(const part of m.parts){const pts=part.poly.map(([x,y])=>lmPoint(m,x,y));
     g.save();g.translate(.4,.5);poly(pts);g.fillStyle='rgba(58,44,32,.25)';g.fill();g.restore();
-    poly(pts);g.fillStyle=part.tone==='tower'?'#7d5a44':part.tone==='mill'?'#8a6f52':'#b9a27c';g.fill();g.lineWidth=.22;g.strokeStyle='#3e2e20';g.stroke();
+    poly(pts);g.fillStyle=part.tone==='tower'?'#7d5a44':part.tone==='mill'?'#8a6f52':part.tone==='court'?'#e2d6b8':'#b9a27c';g.fill();g.lineWidth=.22;g.strokeStyle='#3e2e20';g.stroke();
     if(part.ridge)line(part.ridge.map(([x,y])=>lmPoint(m,x,y)),.1,'rgba(40,28,20,.6)');}
     if(m.kind==='mill'){const [x,y]=lmPoint(m,0,0);g.beginPath();g.arc(x+2.4,y+1.8,1.2,0,7);g.lineWidth=.25;g.strokeStyle='#3e2e20';g.stroke();}}
   g.restore();
@@ -422,7 +493,7 @@ function draw(year){
   const text=`${year} · ${age} · ${c.houses} houses · ${paths.filter(p=>aliveP(p)&&p.kind==='lane').length} lanes`;
   document.getElementById('cap').textContent=text;g.font='italic 22px Georgia';g.lineWidth=6;g.strokeStyle='rgba(246,239,220,.9)';g.strokeText(text,18,34);g.fillStyle='#4a3828';g.fillText(text,18,34);}
 // ───────────── run ─────────────
-const LAST=+(q.get('upto')||1499);
+const LAST=+(q.get('upto')||1699);
 foundRoads();
 for(Y=Y0;Y<=LAST;Y++)yearStep();
 const sl=document.getElementById('y');sl.max=LAST;const y0=+(q.get('y')||LAST);sl.value=y0;draw(y0);window.ready=true;
