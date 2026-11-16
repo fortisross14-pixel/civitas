@@ -230,6 +230,7 @@ function App(){
    window.addEventListener('beforeinstallprompt',onPrompt);window.addEventListener('appinstalled',onInstalled);
    return()=>{window.removeEventListener('beforeinstallprompt',onPrompt);window.removeEventListener('appinstalled',onInstalled);};},[]);
  const installApp=async()=>{if(!installPrompt)return;installPrompt.prompt();try{await installPrompt.userChoice;}finally{setInstallPrompt(null);}};
+ const [drawnPick,setDrawnPick]=useState(null);
  const [previewRing,setPreviewRing]=useState(null),[undoCount,setUndoCount]=useState(0),undoStack=useRef([]),undoCity=useRef(null);
  const fileInput=useRef(null);const city=saves.find(c=>c.id===activeId)||null;const playCity=preview||city;const s=useMemo(()=>playCity?stats(playCity):null,[playCity]);const selectedBasic=tool.startsWith('place:')?BASIC_BUILDINGS.find(b=>b.id===tool.slice(6))||null:null;
  const marketSamples=useMemo(()=>page==='market'||page==='home'?new Map(saves.map(c=>[c.id,stats(c)])):new Map(),[saves,page]);
@@ -438,7 +439,7 @@ function App(){
       onExport={()=>downloadBackup(saves,legacy)} onImport={()=>fileInput.current?.click()}/>:
     <GameScreen city={playCity} s={s} legacy={legacy} simulating={simulating} clockSpeed={clockSpeed} runClock={runClock} stopSimulation={()=>{stopSimulation();setMessage('Paused');}}
       tool={tool} setTool={setTool} message={message} captions={captions} undo={undo} undoCount={undoCount} goHome={goHome}
-      onZone={onZone} onPlace={onPlace} onInspect={b=>setSelectedId(b?.id||null)} selectedBuilding={selectedBuilding} protect={protectSelected}
+      onZone={onZone} onPlace={onPlace} onInspect={(b,drawn)=>{setSelectedId(b?.id||null);setDrawnPick(drawn||null);}} selectedBuilding={selectedBuilding} drawnPick={drawnPick} protect={protectSelected}
       onPlayCard={onPlayCard} onBuyCard={onBuyCard} onBuyPack={onBuyPack} onReroll={onReroll} onSellCard={onSellCard} onRetire={onRetire} shopFresh={deckOf(playCity).shop!=null&&seenShop[playCity.id]!==deckOf(playCity).shop.year}
       onTax={onTax} onAnswerOmen={onAnswerOmen} onHeritage={onHeritage} onRingRoad={onRingRoad} onBuildForNeed={onBuildForNeed} onWall={onWall} onRing={onRing} onCenterUpgrade={onCenterUpgrade}
       pickCard={pickCard} answerEvent={answerEvent} onSignCharter={onSignCharter} onContinueAge={onContinueAge}

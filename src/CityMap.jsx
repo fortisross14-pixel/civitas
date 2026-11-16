@@ -1,4 +1,5 @@
 import {FORMS} from './zoning.js';
+import {organicPick} from './organic/index.js';
 import React,{useEffect,useMemo,useRef,useState} from 'react';
 import {Maximize2} from 'lucide-react';
 import {W,H,ZONES,terrain,zoneCell,STYLE_NAMES,styleAt,cityOrigin,tourismUnlocked,bridgeAt,publicWorkCost,constructionSite,urbanPlan} from './sim';
@@ -14,7 +15,7 @@ const DRAG_TOOLS=new Set([...Object.keys(ZONES),...Object.keys(FORMS),'erase','d
 const SELECTION_STYLE={erase:['#7a7464','#7a746426'],demolish:['#a2513f','#b8604a2e']};
 export const CAPTION_MS=7000;
 
-export function CityMap({city,tool,layer,onZone,onPlace,onInspect,onMarker=null,score=null,selectedId=null,readOnly=false,previewRing=null,describeSelection=null,captions=[],animate=false,population=0,archiveYear=null,minimal=false,lens=null,pendingRect=null,pendingPoint=null}){
+export function CityMap({pick=null,city,tool,layer,onZone,onPlace,onInspect,onMarker=null,score=null,selectedId=null,readOnly=false,previewRing=null,describeSelection=null,captions=[],animate=false,population=0,archiveYear=null,minimal=false,lens=null,pendingRect=null,pendingPoint=null}){
   const canvas=useRef(null),drag=useRef(null),view=useRef({zoom:1,dx:0,dy:0});
   const [dimensions,setDimensions]=useState({width:600,height:500}),[frame,setFrame]=useState(0),[selection,setSelection]=useState(null),[hover,setHover]=useState(null),[tick,setTick]=useState(0);
   const [showLegend,setShowLegend]=useState(()=>typeof window==='undefined'||window.innerWidth>760);
@@ -53,10 +54,10 @@ export function CityMap({city,tool,layer,onZone,onPlace,onInspect,onMarker=null,
     // v3.1: the organic map grows toward the city's year a few milliseconds per frame.
     const organic=minimal&&!!city.center,behind=organic&&!organicSync(city,12);
     const [line,fill]=SELECTION_STYLE[tool]||['#3c6d57','#3c895231'];
-    drawCity(ctx,city,width,height,{organic,lens:organic?lens:null,view:view.current,maxStaleMs:animate?350:0,layer,selectedId,previewRing:readOnly?null:previewRing,bridgePreview,urbanPreview,
+    drawCity(ctx,city,width,height,{organic,pick:organic&&pick?{x:pick.fx,y:pick.fy}:null,lens:organic?lens:null,view:view.current,maxStaleMs:animate?350:0,layer,selectedId,previewRing:readOnly?null:previewRing,bridgePreview,urbanPreview,
       cartouche:!minimal&&(!!archiveYear||window.innerWidth<=760),selection:selection?{...selection,line,fill}:pendingRect?{...pendingRect,line,fill}:null,hover:aim,placing:tool.startsWith('place:')&&!readOnly,placingCenter:tool==='place:center'&&!readOnly,site,captions:caps,now,population,archiveYear,score:archiveYear?null:score});
     if(behind){const id=requestAnimationFrame(redraw);return()=>cancelAnimationFrame(id);}
-  },[city,layer,lens,selection,pendingRect,pendingPoint,dimensions,frame,hover,tool,readOnly,previewRing,bridgePreview,site,selectedId,tick,captions,population,archiveYear]);
+  },[pick,city,layer,lens,selection,pendingRect,pendingPoint,dimensions,frame,hover,tool,readOnly,previewRing,bridgePreview,site,selectedId,tick,captions,population,archiveYear]);
 
   const dragTool=DRAG_TOOLS.has(tool);
   // v1.5: two-finger pinch zooms and pans in any tool; it cancels a drag in progress.
@@ -77,7 +78,13 @@ export function CityMap({city,tool,layer,onZone,onPlace,onInspect,onMarker=null,
     const d=drag.current;if(!d)return;drag.current=null;const p=toMap(e),still=Math.hypot(e.clientX-d.cx,e.clientY-d.cy)<9;
     if((tool==='inspect'||readOnly)&&still&&!readOnly&&onMarker){const rect=e.currentTarget.getBoundingClientRect(),t=transform(),sx=e.clientX-rect.left,sy=e.clientY-rect.top;
       const hit=markerPositions(city,mapWarp(city),t.ox,t.oy,t.scale).find(m=>Math.hypot(m.x-sx,m.y-sy)<=MARKER_RADIUS+6);if(hit){onMarker(hit);return;}}
-    if(tool==='inspect'||readOnly){if(still){const b=city.buildings.find(b=>{const f=footprint(b);return p.x>=f.x&&p.x<f.x+f.w&&p.y>=f.y&&p.y<f.y+f.h;});onInspect?.(b||null);}}
+    if(tool==='inspect'||readOnly){if(still){
+      // v3.6 the drawn town: what is under the finger (a house, a public building, a square) and the game building on that parcel.
+      let drawn=null;if(minimal&&city.center){const r=e.currentTarget.getBoundingClientRect(),{scale,ox,oy}=transform();drawn=organicPick(city,(e.clientX-r.left-ox)/scale,(e.clientY-r.top-oy)/scale);}
+      const inCell=b=>{const f=footprint(b);return p.x>=f.x&&p.x<f.x+f.w&&p.y>=f.y&&p.y<f.y+f.h;};
+      let b=city.buildings.find(inCell);if(!b&&drawn)b=city.buildings.filter(x=>Math.hypot(x.x+.5-p.x-.5,x.y+.5-p.y-.5)<1.6).sort((u,v)=>Math.hypot(u.x-p.x,u.y-p.y)-Math.hypot(v.x-p.x,v.y-p.y))[0];
+      const fx=minimal&&city.center?(()=>{const r=e.currentTarget.getBoundingClientRect(),{scale,ox,oy}=transform();return {x:(e.clientX-r.left-ox)/scale,y:(e.clientY-r.top-oy)/scale};})():null;
+      onInspect?.(b||null,drawn?{...drawn,x:p.x,y:p.y,fx:fx?.x,fy:fx?.y}:null);}}
     else if(tool.startsWith('place:')){if(still)onPlace?.(tool.slice(6),p.x,p.y);}
     else if(dragTool){const x=Math.max(0,Math.min(W-1,Math.min(d.start.x,p.x))),y=Math.max(0,Math.min(H-1,Math.min(d.start.y,p.y)));
       const mx=Math.max(0,Math.min(W-1,Math.max(d.start.x,p.x))),my=Math.max(0,Math.min(H-1,Math.max(d.start.y,p.y)));

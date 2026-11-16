@@ -7,7 +7,7 @@
 import React,{useEffect,useMemo,useRef,useState} from 'react';
 import {ChevronLeft,LandPlot,Hammer,Landmark,ScrollText,Play,Pause,X,Users,Coins,Target,Undo2,Eraser,Store,Package,RefreshCw,Crown,Castle,Waves,Route,Check,Trophy,Star,ShieldCheck,ShieldOff,Bomb,Flame,Hourglass,ArrowRight,Sparkles} from 'lucide-react';
 import {CityMap} from '../CityMap.jsx';
-import {demandOf,rezonedOf,ZONES,stats,zoningCost,constructionSite,tourismUnlocked,publicWorkIssue,publicWorkCost,PUBLIC_WORKS,townCenterIssue,STYLE_NAMES,styleAt,getOpportunity,unrestLine,RUIN_AT} from '../sim.js';
+import {W as MAP_W,cityFields as cityFieldsOf,demandOf,rezonedOf,ZONES,stats,zoningCost,constructionSite,tourismUnlocked,publicWorkIssue,publicWorkCost,PUBLIC_WORKS,townCenterIssue,STYLE_NAMES,styleAt,getOpportunity,unrestLine,RUIN_AT} from '../sim.js';
 import {TOWN_CENTER_LEVELS,townCenterLevel} from '../construction.js';
 import {CARD_INDEX,RARITY_COLORS} from '../turningPoints.js';
 import {deckOf,handLimit,rerollPrice,PACK_SIZE,SELL_SHARE,RESTOCK_YEARS} from '../cards.js';
@@ -192,6 +192,24 @@ function GovernSheet({city,s,c,tab,setTab,onClose}){
   return <Sheet title="Govern" eyebrow={`Unrest ${Math.round(city.unrest||0)}/${RUIN_AT}`} tabs={tabs} tab={tab} onTab={setTab} onClose={onClose}>{body}</Sheet>;
 }
 
+// ───────────── What is under the finger ─────────────
+// The drawn house (or public building, or square) and the game's building on that parcel:
+// what it is, when it was built, who lives or works there, and what the spot is like.
+const DRAWN={house:'House',palace:'Palace',works:'Workshop',shed:'Works',shop:'Shop',tower:'Tower',farm:'Farm'};
+const PLACE={market:'Market square',plaza:'Plaza',square:'Square',churchyard:'Churchyard',garden:'Garden',park:'Park',chase:'Royal chase',pit:'Quarry',spoil:'Spoil heap',yard:'Yard'};
+function Peek({city,b,d,ro,c}){
+  const f=cityFieldsOf(city),x=d?.x??(b?Math.floor(b.x):0),y=d?.y??(b?Math.floor(b.y):0),k=y*MAP_W+x;
+  const title=d?.kind==='landmark'?(d.name||(b?.label)||'Public building'):d?.kind==='place'?(d.name||PLACE[d.type]||'Open ground'):d?.kind==='plot'?(d.type==='house'&&d.use&&d.use!=='res'?({trade:'Shop',craft:'Workshop',civic:'Civic building',farm:'Farm',hotel:'Hotel'}[d.use]||'Building'):DRAWN[d.type]||'Building'):b?.label||ZONES[b?.type]?.label||'Building';
+  const form=d?.form&&FORMS[d.form]?FORMS[d.form].label:b?.form&&FORMS[b.form]?FORMS[b.form].label:null,style=d?.style||b?.style||styleAt(b?.born||city.year),built=d?.built||b?.born;
+  const who=b?(b.type==='res'?`${full(b.capacity||0)} people`:b.jobs?`${full(b.jobs)} jobs`:null):null;
+  const spot=[['Living',Math.round(f.living?.[k]??50)],['Land value',Math.round(f.value?.[k]??0)],...(city.year>=1900?[['Traffic',`${Math.round((f.traffic?.[k]||0)*100)}%`]]:[])];
+  return <div className="g-peek" role="dialog" aria-label={title}>
+    <div><small>{[form,d?.kind!=='place'&&STYLE_NAMES[style],built&&`built ${built}`].filter(Boolean).join(' · ')}</small><b>{title}{d?.converting?<em className="g-tag">changing use</em>:null}</b>
+      <span className="g-spot">{who&&<i>{who}</i>}{spot.map(([l,v])=><i key={l}>{l} <b>{v}</b></i>)}</span></div>
+    {!ro&&b&&<button className="g-small" onClick={()=>c.protect(!b.protected)}>{b.protected?<><ShieldOff size={13}/>Unprotect</>:<><ShieldCheck size={13}/>Protect</>}</button>}
+    <button className="g-close" aria-label="Close" onClick={()=>c.onInspect(null)}><X size={18}/></button></div>;
+}
+
 // ───────────── What the city wants built ─────────────
 // Building happens only on zoned land: the bars say what is wanted, and a red one that land is short.
 const DEMAND=[['res','Homes'],['trade','Shops'],['craft','Work'],['farm','Farms']];
@@ -319,7 +337,7 @@ export function GameScreen(c){
   const zoneShort=useMemo(()=>{try{const d=demandOf(city);return Object.values(d).some(x=>x.short);}catch{return false;}},[city.year,city.zones,city.buildings.length]);
   const b=c.selectedBuilding;
   return <div className="g3">
-    <div className="g-map"><CityMap minimal lens={zoning?null:lens} city={city} tool={ro?'inspect':tool} layer={zoning?'zones':sheet==='govern'&&tab('govern')==='needs'?'needs':'urban'} onZone={(rect,type)=>setPend({rect,type})} onPlace={(id,x,y)=>setPend({id,x,y})} pendingRect={pend?.rect||null} pendingPoint={pend&&!pend.rect?{x:pend.x,y:pend.y}:null} onInspect={c.onInspect} onMarker={m=>{if(m.type==='heritage'){setSheet(null);setSite(m.item);}else open('govern','needs');}} selectedId={b?.id} animate={c.simulating} captions={c.captions} population={s.population}
+    <div className="g-map"><CityMap minimal pick={c.drawnPick} lens={zoning?null:lens} city={city} tool={ro?'inspect':tool} layer={zoning?'zones':sheet==='govern'&&tab('govern')==='needs'?'needs':'urban'} onZone={(rect,type)=>setPend({rect,type})} onPlace={(id,x,y)=>setPend({id,x,y})} pendingRect={pend?.rect||null} pendingPoint={pend&&!pend.rect?{x:pend.x,y:pend.y}:null} onInspect={c.onInspect} onMarker={m=>{if(m.type==='heritage'){setSheet(null);setSite(m.item);}else open('govern','needs');}} selectedId={b?.id} animate={c.simulating} captions={c.captions} population={s.population}
       describeSelection={(r,t)=>{if(!ZONES[t]&&!FORMS[t])return t==='erase'?'Erase zoning':t==='demolish'?'Demolish':null;const {cells,cost}=zoningCost(city,r.x,r.y,r.w,r.h);return cells?`${cells} parcels · ${full(cost)}${cost>city.funds?' · not enough coins':''}`:'Rezoning is free';}}/></div>
 
     <div className="g-top">
@@ -360,10 +378,7 @@ export function GameScreen(c){
       <button onClick={()=>open('details')}><ScrollText size={22}/><span>Details</span></button>
     </nav>}
 
-    {b&&!sheet&&!placing&&!zoning&&<div className="g-peek" role="dialog" aria-label="Building">
-      <div><small>{STYLE_NAMES[b.style||styleAt(b.born)]} · built {b.born}</small><b>{b.label||ZONES[b.type]?.label||'Building'}</b></div>
-      {!ro&&<button className="g-small" onClick={()=>c.protect(!b.protected)}>{b.protected?<><ShieldOff size={13}/>Unprotect</>:<><ShieldCheck size={13}/>Protect</>}</button>}
-      <button className="g-close" aria-label="Close" onClick={()=>c.onInspect(null)}><X size={18}/></button></div>}
+    {(b||c.drawnPick)&&!sheet&&!placing&&!zoning&&<Peek city={city} b={b} d={c.drawnPick} ro={ro} c={c}/>}
 
     {finished&&<div className="g-finished"><b>{city.ruined?`Fell into Ruin in ${city.ruined}`:'The Chronicle is complete'}</b>{c.onSummary&&<button className="g-primary" onClick={c.onSummary}><Trophy size={15}/>Results</button>}</div>}
 

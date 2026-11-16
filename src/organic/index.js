@@ -35,3 +35,6 @@ export function organicLiving(city){const e=engines.get(city.id)?.engine;return 
 const siteCache=new Map();
 export function organicSites(city){const e=engines.get(city.id)?.engine;if(!e)return [];const k=`${e.year}|${e.version}|${e.stats().houses}`,hit=siteCache.get(city.id);if(hit?.k===k)return hit.v;
   const v=e.sites().map(s=>({...s,x:s.x/K,y:s.y/K}));siteCache.set(city.id,{k,v});if(siteCache.size>4)siteCache.delete(siteCache.keys().next().value);return v;}
+// What is drawn at a point given in grid cells (fractions allowed).
+export function organicPick(city,x,y){const e=engines.get(city.id)?.engine;return e?e.pick(x*K,y*K,city.year):null;}
+export function organicOutline(ctx,city,x,y,lw){const e=engines.get(city.id)?.engine;if(!e)return false;ctx.save();ctx.scale(1/K,1/K);const r=e.outline(ctx,x*K,y*K,city.year,lw*K);ctx.restore();return r;}

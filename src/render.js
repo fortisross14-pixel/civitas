@@ -8,7 +8,7 @@ import {openSites} from './heritage.js';
 import {W,H,ZONES,terrain,zoneCell,styleAt,cityOrigin,homeLand,cityFields,districtDetails,wallPolygon,wallSegments} from './sim.js';
 import {hash,rand,valueNoise,waterGrid,clamp} from './geo.js';
 import {ageAt} from './ages.js';
-import {organicDraw,organicVersion,organicLens,organicLabels,organicSites} from './organic/index.js';
+import {organicDraw,organicVersion,organicLens,organicLabels,organicSites,organicOutline} from './organic/index.js';
 
 export const DISTRICT_COLORS=['#b5835a','#6f8f9c','#9b8a4e','#8a6f9b','#6f9a7a','#a8706c','#7d8bb0','#a59267','#5f8c8c','#9c7a8a','#87955f','#b08a7a'];
 const PAPER='#e9e0c6',LAND='#d9d3ad',FIELD_LINE='rgba(150,146,104,.45)',HEDGE='rgba(120,128,88,.55)';
@@ -641,9 +641,10 @@ export function drawCity(ctx,city,width,height,opts={}){
   // v3.2: names of the places the city made (plazas, parks, museums).
   if(opts.organic){ctx.save();ctx.textAlign='center';ctx.textBaseline='middle';const fs=Math.max(.9,Math.min(1.6,11/scale));ctx.font=`italic ${fs}px Georgia,serif`;ctx.lineWidth=fs*.28;ctx.strokeStyle='rgba(246,239,220,.9)';ctx.fillStyle='#4a3828';
     for(const l of organicLabels(city,opts.archiveYear||city.year)){ctx.strokeText(l.text,l.x,l.y);ctx.fillText(l.text,l.x,l.y);}ctx.restore();}
-  // Interaction overlays.
+  // Interaction overlays. On the drawn town the selection outlines what was tapped.
+  if(opts.organic&&opts.pick)organicOutline(ctx,city,opts.pick.x,opts.pick.y,1.6/scale);
   for(const b of city.buildings||[]){
-    if(!(b.protected&&layer==='heritage')&&opts.selectedId!==b.id)continue;
+    if(!(b.protected&&layer==='heritage')&&(opts.selectedId!==b.id||opts.organic))continue;
     const n=sizeOf(b),[wx,wy]=warp(Math.floor(b.x)+n/2,Math.floor(b.y)+n/2);
     if(b.protected&&layer==='heritage'){ctx.strokeStyle='#c99b3e';ctx.lineWidth=.1;ctx.strokeRect(wx-n/2+.04,wy-n/2+.04,n-.08,n-.08);}
     if(opts.selectedId===b.id){ctx.strokeStyle='#235e4c';ctx.lineWidth=.16;ctx.strokeRect(wx-n/2-.04,wy-n/2-.04,n+.08,n+.08);}

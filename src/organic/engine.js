@@ -871,6 +871,17 @@ return {
       const mp=places.at(-1).poly,ep=addPath([...mp,mp[0]],'edge',{hw:.05});const z0=zoneAt(C0[0],C0[1]-6)||fed.implicit;if(z0)for(const sd of [1,-1])layRow(ep,sd,.5,ep.len-.5,z0,{width:()=>1.7+rnd()*.7,depth:6,noGaps:true});}
     const end=city.year,t0=(typeof performance!=='undefined'?performance:Date).now();while(Y<end){yearStep(city);Y++;if((typeof performance!=='undefined'?performance:Date).now()-t0>ms)break;}if(Y>=end)applyHeritage(city);return Y>=end;},
   draw(ctx,year,part,opts){drawWorld(ctx,year,part,opts);},
+  // Outline what is drawn at a point (the selection on the map).
+  outline(ctx,x,y,year,lw){const sy=Y;Y=Math.min(year,Y);let P=null;
+    for(const m of landmarks){if(!aliveO(m)||!m.parts.length)continue;for(const part of m.parts){const Q=part.abs?part.poly:part.poly.map(([px,py])=>lmPoint(m,px,py));if(inPoly(x,y,Q)){P=Q;break;}}if(P)break;}
+    if(!P){const pl=inPlot(x,y,0);if(pl)P=pl.pts;}if(!P)for(const pl of places)if(aliveO(pl)&&inPoly(x,y,pl.poly)){P=pl.poly;break;}
+    Y=sy;if(!P)return false;ctx.save();ctx.beginPath();P.forEach(([px,py],i)=>i?ctx.lineTo(px,py):ctx.moveTo(px,py));ctx.closePath();ctx.lineJoin='round';ctx.lineWidth=lw*2.2;ctx.strokeStyle='rgba(251,247,235,.95)';ctx.stroke();ctx.lineWidth=lw;ctx.strokeStyle='#235e4c';ctx.stroke();ctx.restore();return true;},
+  // What is drawn at a point (world units): a house, a public building or a square.
+  pick(x,y,year){const sy=Y;Y=Math.min(year,Y);let out=null;
+    for(const m of landmarks){if(!aliveO(m)||!m.parts.length)continue;for(const part of m.parts){const P=part.abs?part.poly:part.poly.map(([px,py])=>lmPoint(m,px,py));if(inPoly(x,y,P)){out={kind:'landmark',type:m.kind,name:m.name,born:m.born};break;}}if(out)break;}
+    if(!out){const pl=inPlot(x,y,0);if(pl&&pl.built){const st=stateAt(pl,Y);out={kind:'plot',type:st?.b||'house',style:st?.style,built:st?.built||pl.built,form:pl.zone?.form||null,use:pl.zone?.use||'res',w:pl.w,d:pl.d,palace:st?.b==='palace',converting:!!pl.conv};}}
+    if(!out)for(const pl of places)if(aliveO(pl)&&inPoly(x,y,pl.poly)){out={kind:'place',type:pl.kind,name:pl.name};break;}
+    Y=sy;return out;},
   // Sites the player may decide on (world units), and a version that changes when a decision lands.
   sites(){return mapSites();},
   get version(){return ver;},
