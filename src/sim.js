@@ -1,6 +1,6 @@
 import {heritageEffects,decideHeritage} from './heritage.js';
 import {PEOPLE_PER_PARCEL,densityRatio} from './density.js';
-import {FORMS,resolveZone,formOf,formCap,formJobs,successor} from './zoning.js';
+import {FORMS,LAWS,resolveZone,formOf,formCap,formJobs,successor} from './zoning.js';
 import {FIGURES,FIGURE_INDEX} from './legacy.js';
 import {INITIAL_DEVELOPMENT,developmentOf,applyPulse,advanceDevelopment,accumulateDevelopment,productivityGrowth,developmentCapacity} from './development.js';
 import {BASIC_INDEX,BASIC_BUILDINGS,BUILDING_EFFECTS,SPECIAL_BUILDINGS,basicsForYear,TOWN_CENTER_LEVELS,TOWN_CENTER_MAX,townCenterLevel,basicLimit,CITYWIDE_COPIES} from './construction.js';
@@ -70,6 +70,8 @@ function zonedGrid(city){
 }
 export function zoneCell(city,x,y){if(!within(x,y))return null;return zonedGrid(city).grid[key(x,y)];}
 // v3.3 the urban form of a zoned cell (zoning.js).
+// v3.9 the zone (its record) at a cell: the latest designation that covers it.
+export function zoneAt(city,x,y){if(!within(x,y))return null;const i=zonedGrid(city).order[key(x,y)];return i?city.zones[i-1]:null;}
 export function zoneFormAt(city,x,y){if(!within(x,y))return null;return zonedGrid(city).forms[key(x,y)];}
 export function density(city){return {...zonedGrid(city).counts};}
 
@@ -115,7 +117,7 @@ export function addZone(city,x,y,w,h,tool){
   const rect=zoneRect(city,x,y,w,h);if(!rect)return city;
   // Zoning designates land; streets grow toward it over the following months.
   // Earlier designations fully covered by this one are dropped (latest wins anyway).
-  return {...city,zones:[...city.zones.filter(z=>!insideRect(z,rect)),{...rect,type,form,year:city.year,pattern:patternFor(city.year)}]};
+  return {...city,zones:[...city.zones.filter(z=>!insideRect(z,rect)),{...rect,type,form,year:city.year,pattern:patternFor(city.year),law:'revamp',lawHist:[[city.year,'revamp']]}]};
 }
 // v3.6 real densities: people a parcel (≈17 m square) holds by Age, so land and people agree with
 // the map: about two medieval houses, a few storeys by 1700, tenements in the 1800s, towers later.
@@ -303,6 +305,8 @@ export function cityEffects(city){
   for(const [k,v] of Object.entries(charterEffects(city)))add(k,v);
   // v3.3 urban forms: each building adds its form's small effect (garden cities raise living, terraces lower it).
   {const n={};for(const b of city.buildings||[])if(b.form)n[b.form]=(n[b.form]||0)+1;for(const [f,c] of Object.entries(n)){const F=FORMS[f];if(!F)continue;const k=Math.min(c,60);if(F.prosperity)add('prosperity',F.prosperity*k*4);if(F.transport)add('transport',F.transport*Math.min(1,k/20));}}
+  // v3.9 quarters being revamped: building sites and moving families cost a little prosperity while it lasts.
+  {const n=(city.zones||[]).filter(z=>z.law==='revamp'&&z.lawHist&&city.year-z.lawHist.at(-1)[0]<25).length;if(n)add('prosperity',-Math.min(5,n*1.2));}
   // v3.2 decisions on the old city (heritage.js).
   for(const [k,v] of Object.entries(heritageEffects(city)))add(k,v);
   // v1.8 doctrine tiers.
@@ -318,20 +322,32 @@ function rememberLoss(city,b,year,reason){
 // v3.5 a new Age: zones whose form belongs to the old one take its successor (zoning.js).
 // Where the successor builds something else (terraces to towers) the change comes over decades.
 function migrateZones(city,year){const moved={};
-  city.zones=city.zones.map(z=>{if(z.type==='clear')return z;const n=successor(z,year);if(!n)return z;const was=formOf(z);moved[`${FORMS[was].label} → ${FORMS[n].label}`]=(moved[`${FORMS[was].label} → ${FORMS[n].label}`]||0)+1;return {...z,type:FORMS[n].type,form:n,formHist:[...(z.formHist||[[Number(z.year)||FIRST_YEAR,was]]),[year,n]]};});
-  const lines=Object.entries(moved);if(lines.length)city.events.push({year,type:'rezoning',text:`A new Age for the town's quarters: ${lines.map(([k,n])=>`${k}${n>1?` (${n})`:''}`).join('; ')}.`});}
+  city.zones=city.zones.map(z=>{if(z.type==='clear')return z;const n=successor(z,year);if(!n)return z;const was=formOf(z);moved[`${FORMS[was].label} → ${FORMS[n].label}`]=(moved[`${FORMS[was].label} → ${FORMS[n].label}`]||0)+1;return {...z,type:FORMS[n].type,form:n,formHist:[...(z.formHist||[[Number(z.year)||FIRST_YEAR,was]]),[year,n]],law:'protect',lawHist:[...(z.lawHist||[]),[year,'protect']]};});
+  const lines=Object.entries(moved);if(lines.length)city.events.push({year,type:'rezoning',text:`A new Age for the town's quarters: ${lines.map(([k,n])=>`${k}${n>1?` (${n})`:''}`).join('; ')}. They are protected: tap a quarter to renew or revamp it.`});}
 // v3.4 rezoning: land repainted for another use (or another form) changes over the years.
 // Each year about one in twenty mismatched buildings comes down; growth then builds the new
 // use there. Protected buildings and landmarks stay. Homes lost while the city is full
 // leave families without a roof: Unrest rises.
 export const REZONE_RATE=.05;
-export function rezonedOf(city){return city.buildings.filter(b=>{if(b.special||b.protected)return false;const x=Math.floor(b.x),y=Math.floor(b.y),t=zoneCell(city,x,y);if(!t)return false;
-  if(t!==b.type)return true;const f=zoneFormAt(city,x,y);return !!(f&&b.form&&f!==b.form&&FORMS[f]?.type===b.type&&(FORMS[f].b||'house')!==(FORMS[b.form].b||'house'));});}
+// v3.9 what each neighbourhood's law asks of the buildings that stand:
+//   protect  nothing (only a building of another use is rebuilt);
+//   renew    buildings older than the law are rebuilt the same kind, in this Age's style;
+//   revamp   buildings of another form are replaced by the zone's form.
+export function rezonedOf(city,kind=null){return city.buildings.filter(b=>{if(b.special||b.protected)return false;const x=Math.floor(b.x),y=Math.floor(b.y),z=zoneAt(city,x,y);if(!z||z.type==='clear')return false;
+  const f=formOf(z),law=z.law||'protect';let k=null;
+  if(z.type!==b.type)k='revamp';else if(law==='revamp'&&b.form!==f&&(FORMS[f]?.b||'house')!==(FORMS[b.form]?.b||'house'))k='revamp';
+  else if(law==='renew'&&(b.born||FIRST_YEAR)<(z.lawHist?.at(-1)?.[0]??z.year))k='renew';
+  return k&&(!kind||k===kind);});}
+export function setZoneLaw(city,index,law){const z=city.zones[index];if(!z||!LAWS[law]||z.type==='clear')return {city,error:'No such quarter'};if((z.law||'protect')===law)return {city,error:null};
+  const zones=[...city.zones];zones[index]={...z,law,lawHist:[...(z.lawHist||[]),[city.year,law]]};
+  return {city:{...city,zones,events:[...city.events,{year:city.year,type:'rezoning',text:`${FORMS[formOf(z)]?.label||'A quarter'}: ${LAWS[law].label.toLowerCase()} (${LAWS[law].note.toLowerCase()}).`}]},error:null};}
 function convertRezoned(city,year,r){
   const due=rezonedOf(city);if(!due.length)return;
   const n=Math.max(1,Math.round(due.length*REZONE_RATE)),pick=new Set();while(pick.size<Math.min(n,due.length))pick.add(due[Math.floor(r()*due.length)].id);
-  let homes=0;for(const b of city.buildings)if(pick.has(b.id)){rememberLoss(city,b,year,'rezoned');if(b.type==='res')homes+=b.capacity||0;}
-  city.buildings=city.buildings.filter(b=>!pick.has(b.id));
+  // Renewed buildings are rebuilt on the spot (same use, this Age's style and size); revamped ones come down for the new form.
+  const renew=new Set(due.filter(b=>pick.has(b.id)&&rezonedOf({...city,buildings:[b]},'renew').length).map(b=>b.id));
+  let homes=0;for(const b of city.buildings)if(pick.has(b.id)&&!renew.has(b.id)){rememberLoss(city,b,year,'rezoned');if(b.type==='res')homes+=b.capacity||0;}
+  city.buildings=city.buildings.filter(b=>!pick.has(b.id)||renew.has(b.id)).map(b=>renew.has(b.id)?{...createBuilding(city,b.type,{x:Math.floor(b.x),y:Math.floor(b.y)},year,r),id:b.id,renovations:[...(b.renovations||[]),{year,action:'Rebuilt in the style of the Age'}]}:b);
   if(homes>0){const s=stats(city),over=s.population-s.capacity;if(over>0){const displaced=Math.min(over,homes);if(city.needsOn)city.unrest=Math.min(100,(city.unrest||0)+displaced/Math.max(1,s.population)*60);
     city.displaced=(city.displaced||0)+Math.round(displaced);}}
   if(year%10===0)city.events.push({year,type:'rezoning',text:`Rezoning: ${pick.size} building${pick.size===1?'':'s'} came down for the new use; ${Math.max(0,due.length-pick.size)} still to change.`});

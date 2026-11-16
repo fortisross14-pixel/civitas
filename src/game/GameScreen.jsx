@@ -4,10 +4,10 @@
 //   · a dock of four verbs: Zone, Build, Govern, Details.
 // Everything else opens in one bottom sheet at a time (✕, tap outside or
 // swipe down to close). Decisions that stop the clock are centred cards.
-import React,{useEffect,useMemo,useRef,useState} from 'react';
+import React,{Fragment,useEffect,useMemo,useRef,useState} from 'react';
 import {ChevronLeft,LandPlot,Hammer,Landmark,ScrollText,Play,Pause,X,Users,Coins,Target,Undo2,Eraser,Store,Package,RefreshCw,Crown,Castle,Waves,Route,Check,Trophy,Star,ShieldCheck,ShieldOff,Bomb,Flame,Hourglass,ArrowRight,Sparkles} from 'lucide-react';
 import {CityMap} from '../CityMap.jsx';
-import {W as MAP_W,cityFields as cityFieldsOf,demandOf,rezonedOf,ZONES,stats,zoningCost,constructionSite,tourismUnlocked,publicWorkIssue,publicWorkCost,PUBLIC_WORKS,townCenterIssue,STYLE_NAMES,styleAt,getOpportunity,unrestLine,RUIN_AT} from '../sim.js';
+import {zoneAt,W as MAP_W,cityFields as cityFieldsOf,demandOf,rezonedOf,ZONES,stats,zoningCost,constructionSite,tourismUnlocked,publicWorkIssue,publicWorkCost,PUBLIC_WORKS,townCenterIssue,STYLE_NAMES,styleAt,getOpportunity,unrestLine,RUIN_AT} from '../sim.js';
 import {TOWN_CENTER_LEVELS,townCenterLevel} from '../construction.js';
 import {CARD_INDEX,RARITY_COLORS} from '../turningPoints.js';
 import {deckOf,handLimit,rerollPrice,PACK_SIZE,SELL_SHARE,RESTOCK_YEARS} from '../cards.js';
@@ -27,7 +27,7 @@ import {RANK_CATEGORIES,worldTable,formatRankValue} from '../worldRankings.js';
 import {HistoricalChart} from '../chronicleUI.jsx';
 import {organicLiving,organicSites} from '../organic/index.js';
 import {HERITAGE,optionsFor,openSites} from '../heritage.js';
-import {FORMS,formsAt,resolveZone} from '../zoning.js';
+import {FORMS,formsAt,resolveZone,GROUPS,LAWS,lawAt,formOf} from '../zoning.js';
 import {RARITY_LABEL} from '../cards.js';
 import './game.css';
 
@@ -204,10 +204,12 @@ function Peek({city,b,d,ro,c}){
   const title=d?.kind==='landmark'?(d.name||(b?.label)||'Public building'):d?.kind==='place'?(d.name||PLACE[d.type]||'Open ground'):d?.kind==='plot'?(d.type==='house'&&d.use&&d.use!=='res'?({trade:'Shop',craft:'Workshop',civic:'Civic building',farm:'Farm',hotel:'Hotel'}[d.use]||'Building'):DRAWN[d.type]||'Building'):b?.label||ZONES[b?.type]?.label||'Building';
   const form=d?.form&&FORMS[d.form]?FORMS[d.form].label:b?.form&&FORMS[b.form]?FORMS[b.form].label:null,style=d?.style||b?.style||styleAt(b?.born||city.year),built=d?.built||b?.born;
   const who=b?(b.type==='res'?`${full(b.capacity||0)} people`:b.jobs?`${full(b.jobs)} jobs`:null):null;
+  const q0=zoneAt(city,x,y),quarter=q0&&q0.type!=="clear"?q0:null,law=quarter?lawAt(quarter,city.year):null;
   const spot=[['Living',Math.round(f.living?.[k]??50)],['Land value',Math.round(f.value?.[k]??0)],...(city.year>=1900?[['Traffic',`${Math.round((f.traffic?.[k]||0)*100)}%`]]:[])];
   return <div className="g-peek" role="dialog" aria-label={title}>
     <div><small>{[form,d?.kind!=='place'&&STYLE_NAMES[style],built&&`built ${built}`].filter(Boolean).join(' · ')}</small><b>{title}{d?.converting?<em className="g-tag">changing use</em>:null}</b>
       <span className="g-spot">{who&&<i>{who}</i>}{spot.map(([l,v])=><i key={l}>{l} <b>{v}</b></i>)}</span></div>
+    {quarter&&!ro&&<div className="g-law"><small>{FORMS[formOf(quarter)]?.label||'Quarter'}: what happens to its old buildings</small><span>{Object.entries(LAWS).map(([id,L])=><button key={id} disabled={ro} className={law===id?'on':''} title={L.note} onClick={()=>c.onZoneLaw(city.zones.indexOf(quarter),id)}>{L.label}</button>)}</span><em>{LAWS[law].note}</em></div>}
     {!ro&&b&&<button className="g-small" onClick={()=>c.protect(!b.protected)}>{b.protected?<><ShieldOff size={13}/>Unprotect</>:<><ShieldCheck size={13}/>Protect</>}</button>}
     <button className="g-close" aria-label="Close" onClick={()=>c.onInspect(null)}><X size={18}/></button></div>;
 }
@@ -368,7 +370,7 @@ export function GameScreen(c){
       <div className="g-zoneTop"><span>{pend?.rect?(()=>{const {cells,cost}=zoningCost(city,pend.rect.x,pend.rect.y,pend.rect.w,pend.rect.h);return ZONES[pend.type]||FORMS[pend.type]?`${zoneLabel(pend.type)} · ${cells?`${cells} parcels · ${full(cost)} coins`:'rezoning is free'}`:pend.type==='erase'?'Erase this zoning':'Demolish these buildings';})():FORMS[zone]?`${FORMS[zone].label}: ${FORMS[zone].note.toLowerCase()}`:`Drag on the map · two fingers to pan`}</span>
         <button className="g-close" aria-label="Close the brush" onClick={()=>setZone(null)}><X size={18}/></button></div>
       <DemandRow city={city}/>
-      <div className="g-zoneTools">{zones.map(([k,v])=><button key={k} className={zone===k?'on':''} style={{'--z':v.color}} title={v.note} onClick={()=>{setZone(k);setPend(null);}}><i>{v.icon}</i><span>{v.short}</span></button>)}
+      <div className="g-zoneTools">{zones.map(([k,v],i)=><Fragment key={k}>{(i===0||zones[i-1][1].group!==v.group)&&<span className="g-zgroup">{GROUPS.find(g=>g[0]===v.group)?.[1]}</span>}<button className={zone===k?'on':''} style={{'--z':v.color}} title={v.note} onClick={()=>{setZone(k);setPend(null);}}><i>{v.icon}</i><span>{v.short}</span></button></Fragment>)}
         <button className={zone==='erase'?'on':''} onClick={()=>{setZone('erase');setPend(null);}}><i><Eraser size={16}/></i><span>Erase</span></button>
         <button className={zone==='demolish'?'on':''} onClick={()=>{setZone('demolish');setPend(null);}}><i><Bomb size={16}/></i><span>Clear</span></button></div>
       <div className="g-zoneEnd"><button className="g-ghost" disabled={!c.undoCount} onClick={c.undo}><Undo2 size={16}/>Undo</button>

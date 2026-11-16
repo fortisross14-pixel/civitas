@@ -269,3 +269,9 @@
 .g-finished~.g-peek,.g3:has(.g-finished) .g-peek{bottom:calc(env(safe-area-inset-bottom) + 160px)}
 .g-drawing{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);padding:10px 16px;border-radius:14px;background:rgba(250,245,232,.94);box-shadow:0 4px 18px rgba(48,43,34,.18);font:italic 15px Georgia,serif;color:#4a3828;pointer-events:none}
 .g-charterTag em{margin-left:auto;font-style:normal;font-size:11px;opacity:.7}.g-charter .g-buff{display:block;color:var(--doc,#6b5e4e);font-weight:600;font-size:12px;margin:2px 0}.g-dir{margin-right:4px}
+
+.g-zgroup{writing-mode:vertical-rl;transform:rotate(180deg);font-size:9px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--ink2,#7a6a55);align-self:center;justify-self:center;min-width:12px}
+.g-zoneTools{grid-auto-columns:auto}.app .g3 .g-zoneTools button{min-width:58px}
+.g-law{display:grid;gap:4px;margin-top:6px}.g-law small{font-size:11px;opacity:.75}.g-law span{display:flex;gap:4px}
+.app .g3 .g-law button{flex:1;padding:6px 4px;border-radius:10px;font-size:12px;font-weight:700;background:var(--paper2)}.app .g3 .g-law button.on{background:var(--deep);color:#fff8ea}
+.g-law em{font-size:11px;font-style:normal;opacity:.8}

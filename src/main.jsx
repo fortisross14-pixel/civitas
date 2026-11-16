@@ -1,5 +1,5 @@
 import {FORMS} from './zoning.js';
-import {rezonedOf,decideSite,buildRingRoad} from './sim.js';
+import {rezonedOf,decideSite,buildRingRoad,setZoneLaw} from './sim.js';
 import {HERITAGE} from './heritage.js';
 import {AXIS_LABELS,opportunityPulse,developmentOf} from './development.js';
 import React,{useCallback,useEffect,useMemo,useRef,useState} from 'react';
@@ -386,6 +386,7 @@ function App(){
  const openShop=()=>{setShowShop(true);const y=deckOf(playCity).shop?.year;if(playCity&&y!=null)setSeenShop(m=>({...m,[playCity.id]:y}));};
  // v1.6: answer history ahead and build what a district needs, while time runs.
  const onRingRoad=()=>applyEdit(c=>buildRingRoad(c),'Ring road built');
+ const onZoneLaw=(i,law)=>applyEdit(c=>{const r=setZoneLaw(c,i,law);return r.error?r:{city:r.city,undo:null};},law==='protect'?'Quarter protected: its buildings stay':law==='renew'?'Quarter renewing: old buildings rebuilt over the years':'Quarter revamped: it will be rebuilt in the new form over the years',{record:false});
  const onHeritage=(site,opt)=>applyEdit(c=>{const r=decideSite(c,site,opt);if(r.error)return r;return {...r,message:`${HERITAGE[site.kind].title}: ${r.option.label.toLowerCase()}.`};},'Decision taken',{record:false});
  const onAnswerOmen=(id,i)=>applyEdit(c=>{const r=answerOmen(c,id,i);if(r.error)return r;const o=omensOf(r.city).find(x=>x.id===id);return {...r,message:`${o.title}: the council will ${o.options[i].label.toLowerCase()} (${o.due}).`};},'Decision recorded',{record:false});
  const openNeeds=()=>{setSideTab('needs');setSideOpen(true);};
@@ -441,7 +442,7 @@ function App(){
       tool={tool} setTool={setTool} message={message} captions={captions} undo={undo} undoCount={undoCount} goHome={goHome}
       onZone={onZone} onPlace={onPlace} onInspect={(b,drawn)=>{setSelectedId(b?.id||null);setDrawnPick(drawn||null);}} selectedBuilding={selectedBuilding} drawnPick={drawnPick} protect={protectSelected}
       onPlayCard={onPlayCard} onBuyCard={onBuyCard} onBuyPack={onBuyPack} onReroll={onReroll} onSellCard={onSellCard} onRetire={onRetire} shopFresh={deckOf(playCity).shop!=null&&seenShop[playCity.id]!==deckOf(playCity).shop.year}
-      onTax={onTax} onAnswerOmen={onAnswerOmen} onHeritage={onHeritage} onPolicy={onPolicy} onRingRoad={onRingRoad} onBuildForNeed={onBuildForNeed} onWall={onWall} onRing={onRing} onCenterUpgrade={onCenterUpgrade}
+      onTax={onTax} onAnswerOmen={onAnswerOmen} onHeritage={onHeritage} onZoneLaw={onZoneLaw} onPolicy={onPolicy} onRingRoad={onRingRoad} onBuildForNeed={onBuildForNeed} onWall={onWall} onRing={onRing} onCenterUpgrade={onCenterUpgrade}
       pickCard={pickCard} answerEvent={answerEvent} onSignCharter={onSignCharter} onContinueAge={onContinueAge}
       onSummary={legacy.runs.some(r=>r.id===playCity.id)?()=>setSummary({cityId:playCity.id,run:legacy.runs.find(r=>r.id===playCity.id),unlocked:[]}):null}/>}
  {summary&&page==='game'&&city?.id===summary.cityId&&<RunSummary run={summary.run} unlocked={summary.unlocked} legacy={legacy} onClose={()=>setSummary(null)} onMarket={()=>{setSummary(null);setMarketTab('runs');openAuxiliary('market');}}/>}

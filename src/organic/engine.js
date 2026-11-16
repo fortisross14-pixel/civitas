@@ -4,7 +4,7 @@
 // runs on the grid (src/sim.js); this module only reads the city.
 // Engine code comes from prototypes/ages.html (one unit ≈ 4 m; K units per grid cell).
 /* eslint-disable */
-import {FORMS,formOf,formAtYear} from '../zoning.js';
+import {FORMS,formOf,formAtYear,lawAt} from '../zoning.js';
 export function createOrganic(cfg){
 'use strict';
 const SEED=cfg.seed|0,WW=cfg.W,WH=cfg.H,K=cfg.K,Y0=1300;
@@ -225,7 +225,7 @@ function setState(pl,st){pl.ev.push([Y,{...(pl.ev.at(-1)?.[1]||{}),...st}]);}
 function stateAt(pl,y){let s=null;for(const e of pl.ev){if(e[0]<=y)s=e[1];else break;}return s;}
 function buildOn(pl){const use=pl.zone.use||'res',fb=pl.zone.b;
   // A planned plot builds what the plan drew there.
-  if(pl.slot){const k=pl.slot.plan;setState(pl,{b:k==='villa'?'house':k,style:STYLE_BY_YEAR(Y),dv:k==='villa'?.5:k==='block'?.74+hsh(pl.id,81)*.14:.9,gap:0,plan:k==='villa'?0:-1,built:Y,inset:pl.slot.inset??0,tall:!!pl.slot.tall,villa:k==='villa'});pl.built=Y;return;}
+  if(pl.slot){const k=pl.slot.plan;setState(pl,{shop:!!pl.slot.shop,b:k==='villa'?'house':k,style:STYLE_BY_YEAR(Y),dv:k==='villa'?.5:k==='block'?.74+hsh(pl.id,81)*.14:.9,gap:0,plan:k==='villa'?0:-1,built:Y,inset:pl.slot.inset??0,tall:!!pl.slot.tall,villa:k==='villa'});pl.built=Y;return;}
   if(fb&&fb!=='house'){const dvr=pl.zone.dvr,dv=dvr?lerp(dvr[0],dvr[1],rnd()):fb==='palace'?clamp(9/pl.d,.6,.95):fb==='shed'?.82:fb==='tower'?.62:fb==='works'?clamp(5.5/pl.d,.45,.85):clamp(4.5/pl.d,.4,.8);
     setState(pl,{b:fb==='shed'?'shed':fb,style:STYLE_BY_YEAR(Y),dv,gap:fb==='palace'||fb==='shop'?0:.06,plan:0,built:Y});pl.built=Y;return;}
   if(pl.zone.dvr){const [a,b]=pl.zone.dvr;setState(pl,{b:'house',style:STYLE_BY_YEAR(Y),dv:lerp(a,b,rnd()),gap:.1,plan:Math.floor(hsh(pl.id,3)*3),built:Y});pl.built=Y;return;}
@@ -528,7 +528,7 @@ const PLAN={
   cbd:{block:[22,22],gapU:4,gapV:4,hwU:1.9,hwV:1.9,b:'tower'},
   estate:{block:[40,30],gapU:4,gapV:4,hwU:1.6,hwV:1.6,b:'shed'},
   pudong:{block:[44,44],gapU:6,gapV:6,hwU:2.8,hwV:2.8,b:'tower',fit:true},
-  linear:{},suburb:{}};
+  linear:{},suburb:{},mall:{},retailpark:{},campus:{},orchard:{}};
 function frameFor(z,o){const x0=z.x*K,y0=z.y*K,x1=(z.x+z.w)*K,y1=(z.y+z.h)*K,cx=(x0+x1)/2,cy=(y0+y1)/2;
   const road=nearPath(cx,cy,90,null,true),a=road.p?at(road.p,nearestS(road.p,[cx,cy])):{tx:1,ty:0};let ang=Math.atan2(a.ty,a.tx);
   // Lay the long side of the blocks along the zone's long side when the road gives no strong lead.
@@ -548,7 +548,8 @@ function planStreet(F,a,b,kind,hw,o,name){{const L0=Math.hypot(b[0]-a[0],b[1]-a[
 function planSlot(F,o,q,opt={}){const w=q.map(([a,b])=>F.P(a,b));for(const [x,y] of w)if(!inRect(x,y,F.rect)||!dry(x,y))return null;const [cx,cy]=centre(w);if(!dry(cx,cy))return null;
   const pl=addPlot(w,{zone:o,kind:'slot',w:Math.hypot(w[1][0]-w[0][0],w[1][1]-w[0][1]),d:Math.hypot(w[3][0]-w[0][0],w[3][1]-w[0][1]),A:{f:w[0],b:w[3]},B:{f:w[1],b:w[2]},slot:opt});o.slotN++;return pl;}
 const rot=(a,b,ang)=>[a*Math.cos(ang)-b*Math.sin(ang),a*Math.sin(ang)+b*Math.cos(ang)];
-function planDistrict(o,F,z){const kind=F.plan,G=PLAN[kind]||{},Fr=frameFor(z,o);o.plan=kind;o.slotN=0;o.cellN=z.w*z.h;o.regular=null;
+function planDistrict(o,F,z){const kind=F.plan,opt=F.planOpt||{},G0=PLAN[kind]||{},Fr=frameFor(z,o);o.plan=kind;o.slotN=0;o.cellN=z.w*z.h;o.regular=null;
+  const G=opt.small?{...G0,block:[24,18]}:G0;
   const {u0,u1,v0,v1}=Fr;
   if(G.block){let [bu,bv]=G.block;if(G.fit){bu=Math.min(bu,u1-u0-G.gapU);bv=Math.min(bv,v1-v0-G.gapV);}const su=bu+G.gapU,sv=bv+G.gapV;
     // Streets: avenues across u, cross streets across v, on the block lines (offset so blocks sit whole).
@@ -559,16 +560,29 @@ function planDistrict(o,F,z){const kind=F.plan,G=PLAN[kind]||{},Fr=frameFor(z,o)
     for(let i=0;i<nu;i++)for(let j=0;j<nv;j++){const a0=ou+i*su,b0=ov+j*sv,h=hsh(z.x+i,z.y+j,71);
       if(kind==='ues'){// two rows back to back along the long sides; corner buildings
         const d=bv/2;let a=a0;while(a<a0+bu-2.5){const w=Math.min(a0+bu-a,3.2+hsh(Math.round(a*7),j,72)*1.4);if(w<2.4)break;
-          planSlot(Fr,o,[[a,b0],[a+w,b0],[a+w,b0+d],[a,b0+d]],{plan:'block'});planSlot(Fr,o,[[a+w,b0+bv],[a,b0+bv],[a,b0+bv-d],[a+w,b0+bv-d]],{plan:'block'});a+=w;}}
-      else if(kind==='cbd'){const n=h<.4?1:h<.75?2:4,m=n===4?2:n,k=n===4?2:1,tw=(bu-2)/m,tv=(bv-2)/k;for(let p=0;p<m;p++)for(let q=0;q<k;q++){const a=a0+1+p*tw,b=b0+1+q*tv;planSlot(Fr,o,[[a,b],[a+tw-1,b],[a+tw-1,b+tv-1],[a,b+tv-1]],{plan:'tower',inset:n===1?.18:.12});}}
+          planSlot(Fr,o,[[a,b0],[a+w,b0],[a+w,b0+d],[a,b0+d]],{plan:'block',shop:!!opt.shops});planSlot(Fr,o,[[a+w,b0+bv],[a,b0+bv],[a,b0+bv-d],[a+w,b0+bv-d]],{plan:'block',shop:!!opt.shops});a+=w;}}
+      else if(kind==='cbd'){const n=h<.4?1:h<.75?2:4,m=n===4?2:n,k=n===4?2:1,tw=(bu-2)/m,tv=(bv-2)/k;for(let p=0;p<m;p++)for(let q=0;q<k;q++){const a=a0+1+p*tw,b=b0+1+q*tv;planSlot(Fr,o,[[a,b],[a+tw-1,b],[a+tw-1,b+tv-1],[a,b+tv-1]],{plan:'tower',inset:opt.mid?(n===1?.08:.06):(n===1?.18:.12),tall:!opt.mid});}}
       else if(kind==='estate'){const n=h<.5?2:3,tw=bu/n;for(let p=0;p<n;p++){const a=a0+p*tw;planSlot(Fr,o,[[a+.6,b0+.6],[a+tw-.6,b0+.6],[a+tw-.6,b0+bv-.6],[a+.6,b0+bv-.6]],{plan:'shed'});}}
       else if(kind==='pudong'){// a lawn, towers and slabs on it, the whole block turned its own way
         const lawn=[[a0+1,b0+1],[a0+bu-1,b0+1],[a0+bu-1,b0+bv-1],[a0+1,b0+bv-1]].map(([a,b])=>Fr.P(a,b));if(lawn.every(([x,y])=>inRect(x,y,Fr.rect)&&dry(x,y)))addPlace(lawn,'lawn',{});
         const ang=(h-.5)*.9,cu=a0+bu/2,cv=b0+bv/2,step=13,nu2=Math.max(1,Math.floor((bu-4)/step)),nv2=Math.max(1,Math.floor((bv-4)/step));
-        for(let p2=0;p2<nu2;p2++)for(let q2=0;q2<nv2;q2++){const t=p2*7+q2,hh=hsh(i,j,t,73);if(hh<.12)continue;const slab=hh<.36,hw=slab?7:4,hd=slab?2.6:4;
+        for(let p2=0;p2<nu2;p2++)for(let q2=0;q2<nv2;q2++){const t=p2*7+q2,hh=hsh(i,j,t,73);if(hh<.12)continue;const slab=opt.slabs||hh<.36,hw=slab?7:4,hd=slab?2.6:4;
           const lu=(p2-(nu2-1)/2)*step+(hsh(i,j,t,74)-.5)*2.5,lv=(q2-(nv2-1)/2)*step+(hsh(i,j,t,75)-.5)*2.5,[du,dv]=rot(lu,lv,ang);
-          const q=[[-hw,-hd],[hw,-hd],[hw,hd],[-hw,hd]].map(([a,b])=>{const [ra,rb]=rot(a,b,ang);return [cu+du+ra,cv+dv+rb];});planSlot(Fr,o,q,{plan:'tower',inset:.02,tall:!slab});}}}
+          const q=[[-hw,-hd],[hw,-hd],[hw,hd],[-hw,hd]].map(([a,b])=>{const [ra,rb]=rot(a,b,ang);return [cu+du+ra,cv+dv+rb];});planSlot(Fr,o,q,{plan:'tower',inset:.02,tall:!slab&&!opt.slabs});}}}
     return;}
+  const R2=(a0,b0,a1,b1)=>[[a0,b0],[a1,b0],[a1,b1],[a0,b1]],place=(q,k)=>{const w=q.map(([a,b])=>Fr.P(a,b));if(w.every(([x,y])=>inRect(x,y,Fr.rect)))addPlace(w,k,{});};
+  if(kind==='mall'){// one big covered mall in its car park, a road round it
+    planStreet(Fr,[u0+1,v0+1],[u1-1,v0+1],'avenue',1.5,o);planStreet(Fr,[u0+1,v1-1],[u1-1,v1-1],'avenue',1.5,o);
+    place(R2(u0+3,v0+3,u1-3,v1-3),'parking');const mu=(u1-u0)*.32,mv=(v1-v0)*.26;planSlot(Fr,o,R2(-mu,-mv,mu,mv),{plan:'shed',mall:true});return;}
+  if(kind==='retailpark'){// big boxes round three sides of a car park
+    planStreet(Fr,[u0+1,v1-1],[u1-1,v1-1],'avenue',1.5,o);place(R2(u0+16,v0+3,u1-16,v1-4),'parking');
+    for(let a=u0+2;a<u1-14;a+=15)planSlot(Fr,o,R2(a,v0+2,a+13,v0+12),{plan:'shed'});
+    for(let b=v0+14;b<v1-6;b+=12){planSlot(Fr,o,R2(u0+2,b,u0+14,b+10),{plan:'shed'});planSlot(Fr,o,R2(u1-14,b,u1-2,b+10),{plan:'shed'});}return;}
+  if(kind==='campus'){// labs and offices on a lawn, a winding drive
+    place(R2(u0+1,v0+1,u1-1,v1-1),'lawn');const pts=[];for(let a=u0+3;a<=u1-3;a+=3)pts.push([a,Math.sin((a-u0)/12)*(v1-v0)*.18]);planStreet(Fr,pts[0],pts.at(-1),'street',.9,o);
+    for(let a=u0+6;a<u1-10;a+=16)for(const sd of [1,-1]){const b=sd*((v1-v0)*.3),h=hsh(a|0,sd,95);planSlot(Fr,o,R2(a,b-3,a+(h<.5?12:8),b+3),{plan:'tower',inset:.04});}return;}
+  if(kind==='orchard'){// rows of trees over the zone, a farmstead or two
+    place(R2(u0+1,v0+1,u1-1,v1-1),opt.big?'orchardBig':'orchard');for(let a=u0+4;a<u1-8;a+=opt.big?30:40)planSlot(Fr,o,R2(a,v0+2,a+(opt.big?10:6),v0+(opt.big?7:6)),{plan:opt.big?'shed':'villa'});return;}
   if(kind==='linear'){// the spine down the long axis, cross streets every 22 units, villas both sides
     const L=u1-u0,Wd=v1-v0;planStreet(Fr,[u0,0],[u1,0],'boulevard',2.3,o,'the Avenue');
     for(let a=u0+11;a<u1-4;a+=22)planStreet(Fr,[a,v0],[a,v1],'street',.8,o);
@@ -618,7 +632,7 @@ function housePlan(pl,st){
   if(st.villa)return [{uv:[[.2,.14],[.8,.14],[.8,.56],[.2,.56]]}];
   if(st.b==='block')return [{uv:[[.01,0],[.99,0],[.99,st.dv],[.01,st.dv]]}];
   if(st.b==='tower'&&pl.slot){const m=st.inset||0;return [{uv:[[m,m],[1-m,m],[1-m,1-m],[m,1-m]]}];}
-  if(st.b==='shed'&&pl.slot)return [{uv:[[.04,.06],[.96,.06],[.96,.7],[.04,.7]]}];
+  if(st.b==='shed'&&pl.slot)return pl.slot.mall?[{uv:[[0,0],[1,0],[1,1],[0,1]]},{uv:[[.4,-.15],[.6,-.15],[.6,0],[.4,0]]}]:[{uv:[[.04,.06],[.96,.06],[.96,.7],[.04,.7]]}];
   if(st.b==='tower'||st.b==='shed'){const dv=st.dv,m=st.b==='tower'?.12:.04;return [{uv:[[m,.04],[1-m,.04],[1-m,dv],[m,dv]]}];}
   if(st.b==='works'){const dv=st.dv;return [{uv:[[.05,0],[.95,0],[.95,dv],[.05,dv]],ridge:[[.5,.03],[.5,dv*.97]]},{uv:[[.2,dv],[.5,dv],[.5,dv*1.12],[.2,dv*1.12]],col:'#5e5850'}];}
   if(st.b==='palace'&&pl.d<7)return [{uv:[[0,0],[1,0],[1,.92],[0,.92]],ridge:[[.04,.46],[.96,.46]]}];
@@ -679,11 +693,18 @@ function feed(city){
     else o=addZone(poly,'town',null,{use:z.type,rate:1});
     formZone(o,fid,F);if(F.plan)planDistrict(o,F,z);markRezoned(o);
     if(o.kind==='town')town.push(o);const w=walls.find(w=>aliveO(w));if(w&&o.kind==='town'&&inPoly(o.cx,o.cy,w.poly))o.wall={poly:w.poly,inside:true};fed.zones.set(i,o);});
-  // A zone that changed form with a new Age: new plots follow the new form, old ones turn over.
-  (city.zones||[]).forEach((z,i)=>{if(!z.formHist)return;const o=fed.zones.get(i);if(!o)return;const f=formAtYear(z,Y);if(f===o.form)return;const F=FORMS[f]||{};
-    const oldB=o.b||'house';o.form=f;o.lot=F.lot||null;o.b=F.b||null;o.detached=F.detached||0;o.dvr=F.dv||null;o.curve=!!F.curve;o.use=F.type||o.use;
-    if(F.regular&&!o.regular){const a=nearPath(o.cx,o.cy,80,null,true),t=a.p?at(a.p,nearestS(a.p,[o.cx,o.cy])):{tx:1,ty:0};o.regular={ang:Math.atan2(t.ty,t.tx),block:F.regular.block,S:F.regular.S};}
-    if((F.b||'house')!==oldB)for(const pl of plots)if(pl.zone===o&&aliveO(pl)){if(pl.built)pl.conv=o;else pl.died=Y;}});
+  // A zone that changed form with a new Age, or whose neighbourhood law changed (zoning.js):
+  //   protect: what stands stays, new houses follow the new form; renew: old houses are rebuilt
+  //   the same kind in this Age's style; revamp: everything is replaced by the new form.
+  (city.zones||[]).forEach((z,i)=>{const o=fed.zones.get(i);if(!o)return;
+    if(z.formHist){const f=formAtYear(z,Y);if(f!==o.form){const F=FORMS[f]||{};
+      o.form=f;o.lot=F.lot||null;o.b=F.b||null;o.detached=F.detached||0;o.dvr=F.dv||null;o.curve=!!F.curve;o.use=F.type||o.use;o.pendingPlan=F.plan?F:null;
+      if(F.regular&&!o.regular){const a=nearPath(o.cx,o.cy,80,null,true),t=a.p?at(a.p,nearestS(a.p,[o.cx,o.cy])):{tx:1,ty:0};o.regular={ang:Math.atan2(t.ty,t.tx),block:F.regular.block,S:F.regular.S};}}}
+    if(!z.lawHist)return;const law=lawAt(z,Y),since=[...z.lawHist].reverse().find(([y])=>y<=Y)?.[0]??Y;
+    if(law==='revamp'&&o.lawSeen!==since){o.lawSeen=since;
+      if(o.pendingPlan&&!o.plan){planDistrict(o,o.pendingPlan,z);o.pendingPlan=null;}
+      for(const pl of plots)if(pl.zone===o&&aliveO(pl)&&!pl.slot){if(pl.built&&pl.built<since)pl.conv=o;else if(!pl.built)pl.died=Y;}}
+    if(law==='renew')for(const pl of plots){if(pl.zone!==o||!pl.built||!aliveO(pl)||pl.slot)continue;const st=stateAt(pl,Y);if(st&&(st.built||pl.built)<since&&rnd()<.04)setState(pl,{style:STYLE_BY_YEAR(Y),built:Y,dv:clamp((st.dv||.5)+.05,.3,.9)});}});
   // Before anyone zones, the town grows around its centre (as the game's informal growth does).
   const tgt=target(city,Y);
   // The founding hamlet round the centre; after that the town grows only on zoned land.
@@ -895,7 +916,7 @@ function paving(year,live){if(typeof document==='undefined')return null;const ke
   const N=RW*RH,D=new Float32Array(N).fill(1e6);
   // Low-density planned districts keep their streets as streets: their houses are not paved round.
   for(const pl of live){if(!pl.built||pl.zone?.plan==='suburb'||pl.zone?.plan==='linear'||pl.zone?.detached)continue;cellsIn(pl.pts,k=>{D[k]=0;},true);}
-  for(const pl of places)if(pl.born<=year&&(pl.died==null||pl.died>year)&&pl.kind!=='chase'&&pl.kind!=='park'&&pl.kind!=='lawn'&&pl.kind!=='turn'&&pl.kind!=='pit'&&pl.kind!=='spoil')cellsIn(pl.poly,k=>{D[k]=0;});
+  for(const pl of places)if(pl.born<=year&&(pl.died==null||pl.died>year)&&pl.kind!=='chase'&&pl.kind!=='park'&&pl.kind!=='lawn'&&pl.kind!=='turn'&&pl.kind!=='orchard'&&pl.kind!=='orchardBig'&&pl.kind!=='pit'&&pl.kind!=='spoil')cellsIn(pl.poly,k=>{D[k]=0;});
   for(const m of landmarks)if(m.born<=year&&(m.died==null||m.died>year))for(const part of m.parts)cellsIn(part.abs?part.poly:part.poly.map(([x,y])=>lmPoint(m,x,y)),k=>{D[k]=0;});
   chamfer(D);const R=3.5/RC,D2=new Float32Array(N);for(let k=0;k<N;k++)D2[k]=D[k]<=R?1e6:0;chamfer(D2);
   // Small open patches shut in by the town (a yard, a wide crossing) are paved too.
@@ -937,7 +958,9 @@ function drawWorld(ctx,year,part='all',opts=null){g=ctx;const saveY=Y;Y=year;g.l
     poly(pl.pts);g.fillStyle=GARDEN;g.fill();g.lineWidth=.1;g.strokeStyle=GARDEN_EDGE;g.stroke();}
   // Squares, the market, churchyards, public gardens.
   for(const pl of places){if(!aliveO(pl))continue;poly(pl.poly);
-    g.fillStyle=pl.kind==='turn'?PAPER:pl.kind==='lawn'?'#c9d1a2':pl.kind==='garden'||pl.kind==='park'?'#b4c38a':pl.kind==='chase'?'#c4caa0':pl.kind==='churchyard'?'#cdd2a8':pl.kind==='pit'?'#b3a789':pl.kind==='spoil'?'#8c8170':SQUARE;g.fill();
+    g.fillStyle=pl.kind==='parking'?'#d8d3c6':pl.kind==='orchard'||pl.kind==='orchardBig'?'#ccd3a0':pl.kind==='turn'?PAPER:pl.kind==='lawn'?'#c9d1a2':pl.kind==='garden'||pl.kind==='park'?'#b4c38a':pl.kind==='chase'?'#c4caa0':pl.kind==='churchyard'?'#cdd2a8':pl.kind==='pit'?'#b3a789':pl.kind==='spoil'?'#8c8170':SQUARE;g.fill();
+    if(pl.kind==='parking'){const xs=pl.poly.map(q=>q[0]),ys=pl.poly.map(q=>q[1]);g.strokeStyle='rgba(120,112,96,.35)';g.lineWidth=.12;for(let x=Math.min(...xs)+1;x<Math.max(...xs);x+=1.4){g.beginPath();g.moveTo(x,Math.min(...ys)+1);g.lineTo(x,Math.max(...ys)-1);g.stroke();}}
+    if(pl.kind==='orchard'||pl.kind==='orchardBig'){const xs=pl.poly.map(q=>q[0]),ys=pl.poly.map(q=>q[1]),st2=pl.kind==='orchard'?2.2:1.8;g.fillStyle='rgba(84,110,66,.75)';for(let y=Math.min(...ys)+1;y<Math.max(...ys);y+=st2)for(let x=Math.min(...xs)+1;x<Math.max(...xs);x+=st2){if(inPoly(x,y,pl.poly)){g.beginPath();g.arc(x,y,.55,0,7);g.fill();}}}
     if(pl.kind==='pit'){g.lineWidth=.25;g.strokeStyle='#6f6553';g.setLineDash([.5,.4]);g.stroke();g.setLineDash([]);for(const sh of [.75,.5]){poly(grow(pl.poly,-(1-sh)*6));g.lineWidth=.15;g.stroke();}}
     if(pl.kind==='park'||pl.kind==='chase'){g.fillStyle=pl.kind==='park'?'rgba(78,104,64,.7)':'rgba(98,122,80,.6)';const [cx,cy]=pl.c||centre(pl.poly);for(let i=0;i<90;i++){const x=cx+(hsh(i,7,pl.born)-.5)*46,y=cy+(hsh(i,8,pl.born)-.5)*32;if(inPoly(x,y,pl.poly)){g.beginPath();g.arc(x,y,.7+hsh(i,9)*.5,0,7);g.fill();}}}
     if(pl.kind==='plaza'){const [cx,cy]=centre(pl.poly);g.fillStyle='rgba(78,104,64,.75)';for(const [x,y] of pl.poly){g.beginPath();g.arc(x+(cx-x)*.18,y+(cy-y)*.18,.55,0,7);g.fill();}g.beginPath();g.arc(cx,cy,.9,0,7);g.fillStyle='#8fb0ad';g.fill();}
@@ -952,8 +975,11 @@ function drawWorld(ctx,year,part='all',opts=null){g=ctx;const saveY=Y;Y=year;g.l
       g.fillRect(-1.6,-(big?2.9:2.4),3.2,big?1.6:1.2);g.fillRect(-1.6,big?1.3:1.2,3.2,big?1.6:1.2);g.restore();}}
   // Buildings: solid ink, no outline, so neighbours read as one block.
   for(const pl of live){const st=stateAt(pl,year);if(!st||!st.tall)continue;const Q=Qf(pl);g.fillStyle='rgba(70,58,44,.28)';for(const part of housePlan(pl,st)){poly(part.uv.map(([u,v])=>Q(u,v)).map(([x,y])=>[x+1.1,y+1.1]));g.fill();}}
-  for(const pl of live){const st=stateAt(pl,year);if(!st)continue;const Q=Qf(pl);g.fillStyle=INK[st.b==='house'?st.style:st.b]||INK.house;
+  for(const pl of live){const st=stateAt(pl,year);if(!st)continue;const Q=Qf(pl);g.fillStyle=st.shop?INK.shop:INK[st.b==='house'?st.style:st.b]||INK.house;
     for(const part of housePlan(pl,st)){if(part.col&&st.b==='palace'){poly(part.uv.map(([u,v])=>Q(u,v)));g.fillStyle=SQUARE;g.fill();g.fillStyle=INK.palace;continue;}poly(part.uv.map(([u,v])=>Q(u,v)));g.fill();}}
+  // Buildings due to come down for a new form (rezoned or revamped): hatched.
+  if(year>=Y){g.strokeStyle='rgba(214,196,160,.85)';g.lineWidth=.28;for(const pl of live){if(!pl.conv||!stateAt(pl,year))continue;const xs=pl.pts.map(p=>p[0]),ys=pl.pts.map(p=>p[1]),x0=Math.min(...xs),x1=Math.max(...xs),y0=Math.min(...ys),y1=Math.max(...ys);
+    g.save();poly(pl.pts);g.clip();g.beginPath();for(let t=x0-(y1-y0);t<x1;t+=1.1){g.moveTo(t,y0);g.lineTo(t+(y1-y0),y1);}g.stroke();g.restore();}}
   // Public buildings and churches in blue.
   for(const m of landmarks){if(!aliveO(m)||!m.parts.length)continue;for(const part of m.parts){poly(part.abs?part.poly:part.poly.map(([x,y])=>lmPoint(m,x,y)));g.fillStyle=part.tone==='court'?SQUARE:PUBLIC;g.fill();}}
   Y=saveY;}

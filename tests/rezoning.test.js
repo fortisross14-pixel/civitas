@@ -28,8 +28,8 @@ import {decideSite,oldTownArea,PUBLIC_WORKS} from '../src/sim.js';
 import {openSites} from '../src/heritage.js';
 test('a new Age moves zones to its own forms, and keeps their history',()=>{
   assert.equal(successor({type:'res',form:'houses',year:1400},1850),'oldtown');assert.equal(successor({type:'res',form:'houses',year:1760},1850),'workers');
-  assert.equal(successor({type:'craft',form:'guild',year:1400},1850),'manufactory');assert.equal(successor({type:'craft',form:'manufactory',year:1800},1950),'heavy');
-  assert.equal(successor({type:'res',form:'grid',year:1900},1950),null);
+  assert.equal(successor({type:'craft',form:'guild',year:1400},1850),'workshops');assert.equal(successor({type:'craft',form:'manufactory',year:1750},1850),'heavy');assert.equal(successor({type:'craft',form:'manufactory',year:1800},1950),'heavy');
+  assert.equal(successor({type:'res',form:'grid',year:1900},1950),'midrise');assert.equal(successor({type:'res',form:'highgrid',year:1900},1950),null);
   const z={type:'res',form:'dense',year:1750,formHist:[[1750,'houses'],[1850,'workers'],[1950,'dense']]};
   assert.equal(formAtYear(z,1800),'houses');assert.equal(formAtYear(z,1900),'workers');assert.equal(formAtYear(z,2000),'dense');
 });
@@ -39,4 +39,14 @@ test('the old-town question opens when its streets jam, with three answers',()=>
   const p=decideSite(c,s,'pedestrian');assert.equal(p.error,null);assert.equal(p.city.oldtown.mode,'pedestrian');
   const r=decideSite(c,s,'rebuild');assert.ok(r.city.buildings.length<c.buildings.length,'houses come down for the avenues');
   const a=oldTownArea(c);assert.ok(a.r>0);assert.ok(PUBLIC_WORKS.ring_road.from===1950);
+});
+
+test('quarters keep a law: protected after a new Age, revamped when painted, and the law can change',async()=>{
+  const {setZoneLaw}=await import('../src/sim.js');const {lawAt,LAWS}=await import('../src/zoning.js');
+  assert.deepEqual(Object.keys(LAWS),['protect','renew','revamp']);
+  const z={type:'res',form:'houses',year:1400,lawHist:[[1400,'revamp'],[1850,'protect'],[1900,'renew']]};
+  assert.equal(lawAt(z,1500),'revamp');assert.equal(lawAt(z,1860),'protect');assert.equal(lawAt(z,1950),'renew');assert.equal(lawAt({type:'res'},1950),'protect');
+  const c={...town(),zones:[{x:1,y:1,w:4,h:4,type:'res',form:'houses',year:1300}],year:1900};
+  const r=setZoneLaw(c,0,'revamp');assert.equal(r.error,null);assert.equal(r.city.zones[0].law,'revamp');assert.deepEqual(r.city.zones[0].lawHist.at(-1),[1900,'revamp']);
+  assert.ok(setZoneLaw(c,0,'nonsense').error);assert.ok(setZoneLaw(c,5,'renew').error);
 });
