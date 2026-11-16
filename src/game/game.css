@@ -253,3 +253,7 @@
 .g-lensKey{position:absolute;right:10px;top:calc(env(safe-area-inset-top) + 104px);display:flex;align-items:center;gap:5px;padding:6px 10px;border-radius:12px;background:var(--paper);box-shadow:var(--shadow);font-size:12px;z-index:4}
 .g-lensKey i{width:14px;height:10px;border-radius:3px;display:inline-block}
 @media(max-width:620px){.g-chips{justify-content:flex-start}}
+/* v3.2 the old city */
+.g-choices b .g-cost{margin-left:auto;font-style:normal;font-weight:600;font-size:13px;display:inline-flex;align-items:center;gap:3px;opacity:.85}
+.g-choices b{width:100%}
+.app .g3 .g-choices button:disabled{opacity:.5}

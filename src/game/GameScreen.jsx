@@ -24,7 +24,8 @@ import {charterLine,charterProgress,CHARTER_STATS} from '../charters.js';
 import {SCENARIO_INDEX,GOAL_STATS,goalTarget,goalText} from '../scenarios.js';
 import {RANK_CATEGORIES,worldTable,formatRankValue} from '../worldRankings.js';
 import {HistoricalChart} from '../chronicleUI.jsx';
-import {organicLiving} from '../organic/index.js';
+import {organicLiving,organicSites} from '../organic/index.js';
+import {HERITAGE,optionsFor,openSites} from '../heritage.js';
 import {RARITY_LABEL} from '../cards.js';
 import './game.css';
 
@@ -155,7 +156,7 @@ function WorksView({city,c,onClose}){
 // ───────────── Govern ─────────────
 function GovernSheet({city,s,c,tab,setTab,onClose}){
   const needs=needsOf(city).filter(n=>!n.served).sort((a,b)=>b.progress-a.progress),omens=omensOf(city).sort((a,b)=>a.due-b.due),open=omens.filter(o=>!Number.isInteger(o.choice));
-  const tabs=[['needs',`Needs${needs.length?` ${needs.length}`:''}`,needs.some(n=>n.progress>=.5)],['decisions',`Decisions${open.length?` ${open.length}`:''}`,open.length>0],['taxes','Taxes',(city.shortfall||0)>=.05],['path','Path']];
+  const nd=open.length+c.sites.length,tabs=[['needs',`Needs${needs.length?` ${needs.length}`:''}`,needs.some(n=>n.progress>=.5)],['decisions',`Decisions${nd?` ${nd}`:''}`,nd>0],['taxes','Taxes',(city.shortfall||0)>=.05],['path','Path']];
   let body;
   if(tab==='needs')body=needs.length?<div className="g-list">{needs.map(n=>{const def=NEEDS[n.kind],answers=needAnswers(n.kind,city.year),deck=deckOf(city);
     return <article key={`${n.district}:${n.kind}`} className={`g-need ${n.progress>=.66?'urgent':''}`}>
@@ -167,7 +168,7 @@ function GovernSheet({city,s,c,tab,setTab,onClose}){
         return <span key={b.id} className="g-wait">{b.name}: next restock</span>;})}</div>
     </article>;})}<p className="g-hint">Unserved districts decline when the bar fills. Build the answer inside the ring shown on the map.</p></div>
     :<div className="g-empty"><Check size={28}/><p>Every district is served.</p></div>;
-  else if(tab==='decisions')body=omens.length?<div className="g-list">{omens.map(o=>{const def=eventDefinition(o.id);return <article key={o.id} className="g-omen">
+  else if(tab==='decisions')body=omens.length||c.sites.length?<div className="g-list">{c.sites.map(st=><div key={st.id} className="g-work"><span className="g-workIcon"><Landmark size={18}/></span><div><b>{HERITAGE[st.kind].title}</b><small>{sinceText(st)} · {optionsFor(city,st).length} choices</small></div><button className="g-small" onClick={()=>c.onSite(st)}>Decide</button></div>)}{omens.map(o=>{const def=eventDefinition(o.id);return <article key={o.id} className="g-omen">
       <div className="g-needHead"><b>{o.title}</b><span><Hourglass size={12}/> {o.due}</span></div><p className="g-desc">{o.text}</p>
       <div className="g-choices">{def.choices.map((ch,i)=><button key={ch.label} className={o.choice===i?'on':''} onClick={()=>c.onAnswerOmen(o.id,i)}><b>{o.choice===i&&<Check size={13}/>}{ch.label}</b><small>{ch.detail}</small></button>)}</div>
     </article>;})}</div>:<div className="g-empty"><Check size={28}/><p>Nothing to decide.</p></div>;
@@ -187,6 +188,18 @@ function GovernSheet({city,s,c,tab,setTab,onClose}){
       {decrees.length?decrees.map(id=><div key={id} className="g-work"><span className="g-workIcon">{docOf(CARD_INDEX[id]).glyph}</span><div><b>{CARD_INDEX[id].name}</b><small>Lv{cardLevel(city,id)}</small></div><button className="g-small" onClick={()=>c.onRetire(id)}>Retire</button></div>):<p className="g-muted">Decree cards you play take a slot here.</p>}
     </div>;}
   return <Sheet title="Govern" eyebrow={`Unrest ${Math.round(city.unrest||0)}/${RUIN_AT}`} tabs={tabs} tab={tab} onTab={setTab} onClose={onClose}>{body}</Sheet>;
+}
+
+// ───────────── The old city: one site, its choices ─────────────
+const sinceText=s=>s.born&&s.born>1300?`since ${s.born}`:'since the founding';
+function HeritageSheet({city,site,c,onClose}){
+  const def=HERITAGE[site.kind],funds=Math.floor(city.funds||0);
+  return <Sheet title={def.title} eyebrow={`${site.name&&!/market/i.test(site.name)?`${site.name} · `:''}${sinceText(site)}`} onClose={onClose}>
+    <div className="g-list"><p className="g-lead">{def.lead}</p>
+      <div className="g-choices">{optionsFor(city,site).map(o=>{const short=o.cost>funds;return <button key={o.id} disabled={short} onClick={()=>{c.onHeritage(site,o.id);onClose();}}>
+        <b>{o.label}<em className="g-cost">{o.cost>0?<><Coins size={12}/>{fmt(o.cost)}</>:o.cost<0?<>+<Coins size={12}/>{fmt(-o.cost)}</>:'Free'}</em></b><small>{short?'Not enough coins':o.detail}</small></button>;})}</div>
+      <p className="g-hint">A decision for good. Check the Land value and Living lenses to see what is at stake here.</p></div>
+  </Sheet>;
 }
 
 // ───────────── Details ─────────────
@@ -275,6 +288,7 @@ export function GameScreen(c){
   const [sheet,setSheet]=useState(null),[tabs,setTabs]=useState({build:'hand',govern:'needs',details:'mission'}),[zone,setZone]=useState(null);
   const tab=k=>tabs[k],setTab=k=>v=>setTabs(t=>({...t,[k]:v}));
   const open=(k,t)=>{setSheet(k);if(t)setTabs(x=>({...x,[k]:t}));};
+  const [site,setSite]=useState(null),sites=city.center&&!city.finished?openSites(city,organicSites(city)):[];
   const [toast,setToast]=useState(null),[guide,setGuide]=useState(false),[lens,setLens]=useState(null);
   const LENSES=[[null,'Plan'],['value','Land value'],['sol','Living']];
   useEffect(()=>{if(city.charter&&!city.scenario?.id&&!guideSeen())setGuide(true);},[!!city.charter]);
@@ -294,7 +308,7 @@ export function GameScreen(c){
   const zones=Object.entries(ZONES).filter(([k])=>k!=='hotel'||tourismUnlocked(city));
   const b=c.selectedBuilding;
   return <div className="g3">
-    <div className="g-map"><CityMap minimal lens={zoning?null:lens} city={city} tool={ro?'inspect':tool} layer={zoning?'zones':sheet==='govern'&&tab('govern')==='needs'?'needs':'urban'} onZone={(rect,type)=>setPend({rect,type})} onPlace={(id,x,y)=>setPend({id,x,y})} pendingRect={pend?.rect||null} pendingPoint={pend&&!pend.rect?{x:pend.x,y:pend.y}:null} onInspect={c.onInspect} onMarker={()=>open('govern','needs')} selectedId={b?.id} animate={c.simulating} captions={c.captions} population={s.population}
+    <div className="g-map"><CityMap minimal lens={zoning?null:lens} city={city} tool={ro?'inspect':tool} layer={zoning?'zones':sheet==='govern'&&tab('govern')==='needs'?'needs':'urban'} onZone={(rect,type)=>setPend({rect,type})} onPlace={(id,x,y)=>setPend({id,x,y})} pendingRect={pend?.rect||null} pendingPoint={pend&&!pend.rect?{x:pend.x,y:pend.y}:null} onInspect={c.onInspect} onMarker={m=>{if(m.type==='heritage'){setSheet(null);setSite(m.item);}else open('govern','needs');}} selectedId={b?.id} animate={c.simulating} captions={c.captions} population={s.population}
       describeSelection={(r,t)=>{if(!ZONES[t])return t==='erase'?'Erase zoning':t==='demolish'?'Demolish':null;const {cells,cost}=zoningCost(city,r.x,r.y,r.w,r.h);return cells?`${cells} parcels · ${full(cost)}${cost>city.funds?' · not enough coins':''}`:'Rezoning is free';}}/></div>
 
     <div className="g-top">
@@ -342,7 +356,8 @@ export function GameScreen(c){
     {finished&&<div className="g-finished"><b>{city.ruined?`Fell into Ruin in ${city.ruined}`:'The Chronicle is complete'}</b>{c.onSummary&&<button className="g-primary" onClick={c.onSummary}><Trophy size={15}/>Results</button>}</div>}
 
     {sheet==='build'&&<BuildSheet city={city} c={c} tab={tab('build')} setTab={setTab('build')} onClose={()=>setSheet(null)}/>}
-    {sheet==='govern'&&<GovernSheet city={city} s={s} c={c} tab={tab('govern')} setTab={setTab('govern')} onClose={()=>setSheet(null)}/>}
+    {site&&!sheet&&<HeritageSheet city={city} site={site} c={c} onClose={()=>setSite(null)}/>}
+    {sheet==='govern'&&<GovernSheet city={city} s={s} c={{...c,sites,onSite:st=>{setSheet(null);setSite(st);}}} tab={tab('govern')} setTab={setTab('govern')} onClose={()=>setSheet(null)}/>}
     {sheet==='details'&&<DetailsSheet city={city} s={s} tab={tab('details')} setTab={setTab('details')} onClose={()=>setSheet(null)} legacy={c.legacy} onGuide={()=>{setSheet(null);setGuide(true);}}/>}
 
     {guide&&!city.charterOffer&&<Guide onClose={()=>setGuide(false)}/>}

@@ -58,7 +58,8 @@ let zoneBins=new Bins(16),zoneVer=-1;
 function indexZones(){zoneBins=new Bins(16);zones.forEach((o,i)=>{o.i=i;const xs=o.poly.map(p=>p[0]),ys=o.poly.map(p=>p[1]);zoneBins.add(o,Math.min(...xs),Math.min(...ys),Math.max(...xs),Math.max(...ys));});zoneVer=zones.length+(zones.polyVer||0);}
 function zoneAt(x,y){if(zoneVer!==zones.length+(zones.polyVer||0))indexZones();let z=null;zoneBins.near(x,y,x,y,o=>{if(aliveO(o)&&(!z||o.i>z.i)&&inPoly(x,y,o.poly))z=o;});return z;}
 function inPlace(x,y,m=0){let hit=false;placeBins.near(x-m,y-m,x+m,y+m,o=>{if(aliveO(o)&&(inPoly(x,y,o.poly)||m>0&&o.poly.some(p=>Math.hypot(p[0]-x,p[1]-y)<m))){hit=true;return false;}});return hit;}
-function addPlace(poly,kind,o={}){const pl={poly,kind,born:Y,died:null,...o};places.push(pl);const xs=poly.map(p=>p[0]),ys=poly.map(p=>p[1]);placeBins.add(pl,Math.min(...xs),Math.min(...ys),Math.max(...xs),Math.max(...ys));return pl;}
+let placeSeq=0;
+function addPlace(poly,kind,o={}){const pl={id:placeSeq++,poly,kind,born:Y,died:null,...o};places.push(pl);const xs=poly.map(p=>p[0]),ys=poly.map(p=>p[1]);placeBins.add(pl,Math.min(...xs),Math.min(...ys),Math.max(...xs),Math.max(...ys));return pl;}
 // ───────────── least-cost routes over the ground ─────────────
 // Dijkstra on the 2-unit height grid, eight directions. Climbing is expensive,
 // the floodplain is avoided, water is closed except at a named crossing.
@@ -270,7 +271,7 @@ function mainGate(w){if(!w.gates.length)return;const gt=w.gates.slice().sort((a,
   p.high=true;p.hw=1.05;}
 // ───────────── landmarks ─────────────
 // A landmark is a building plan (parts in its own frame) at x,y turned by `a`, with a pull on land value.
-function addLandmark(kind,x,y,a,o={}){const m={kind,x,y,a,born:Y,died:null,pull:o.pull??1,reach:o.reach??12,name:o.name||null,parts:o.parts||[],inWall:o.inWall??true};landmarks.push(m);
+function addLandmark(kind,x,y,a,o={}){const m={kind,x,y,a,born:Y,died:null,pull:o.pull??1,reach:o.reach??12,name:o.name||null,parts:o.parts||[],inWall:o.inWall??true,bid:o.bid??null};landmarks.push(m);
   if(o.clear){for(const pl of plots)if(aliveO(pl)&&pl.pts.some(([px,py])=>inPoly(px,py,o.clear))||aliveO(pl)&&inPoly(...centre(pl.pts),o.clear))pl.died=Y;addPlace(o.clear,o.placeKind||'yard',{owner:m});}
   return m;}
 const R=(x0,y0,x1,y1)=>[[x0,y0],[x1,y0],[x1,y1],[x0,y1]];
@@ -420,10 +421,10 @@ function feed(city){
   // Landmarks from building cards: where the player put them, when they did.
   for(const b of city.buildings||[]){if(!b.special||fed.lms.has(b.id)||(b.born||Y0)>Y)continue;fed.lms.add(b.id);
     const x=(Math.floor(b.x)+1)*K,y=(Math.floor(b.y)+1)*K,k=b.special;
-    if(isChurch(k))addLandmark('church',x,y,0,{pull:.9,reach:12,name:b.label||null,parts:churchParts(k==='chapel'?9:14),clear:blob(x,y+.5,k==='chapel'?6:10,k==='chapel'?4.5:7,14,b.id),placeKind:'churchyard'});
+    if(isChurch(k))addLandmark('church',x,y,0,{bid:b.id,pull:.9,reach:12,name:b.label||null,parts:churchParts(k==='chapel'?9:14),clear:blob(x,y+.5,k==='chapel'?6:10,k==='chapel'?4.5:7,14,b.id),placeKind:'churchyard'});
     else if(isHall(k)&&Y>=1500)cutSquare(x,y,15,10,b.label||'Town Hall');
-    else if(k==='market'||k==='market_hall')addLandmark('market',x,y,0,{pull:1.1,reach:14,name:b.label||null,clear:blob(x,y,5,4,12,b.id),placeKind:'market'});
-    else addLandmark(k,x,y,hsh(b.id,9)*.6-.3,{pull:.8,reach:10,name:b.label||null,parts:[{poly:R(-4,-2.6,4,2.6),ridge:[[-3.6,0],[3.6,0]],tone:'stone'},...(['school','university','hospital','clinic','museum','library'].includes(k)?[{poly:R(-2,-1,2,1),tone:'court'}]:[])],clear:blob(x,y,5.5,4,12,b.id)});}
+    else if(k==='market'||k==='market_hall')addLandmark('market',x,y,0,{bid:b.id,pull:1.1,reach:14,name:b.label||null,clear:blob(x,y,5,4,12,b.id),placeKind:'market'});
+    else addLandmark(k,x,y,hsh(b.id,9)*.6-.3,{bid:b.id,pull:.8,reach:10,name:b.label||null,parts:[{poly:R(-4,-2.6,4,2.6),ridge:[[-3.6,0],[3.6,0]],tone:'stone'},...(['school','university','hospital','clinic','museum','library'].includes(k)?[{poly:R(-2,-1,2,1),tone:'court'}]:[])],clear:blob(x,y,5.5,4,12,b.id)});}
   // Walls the player raised: thrown round the town that stands then; later ones are bastioned.
   (city.walls||[]).forEach((w,i)=>{if(fed.walls.has(i)||(w.built||Y0)>Y)return;fed.walls.add(i);
     if(!walls.length){const pts=plots.filter(p=>aliveO(p)&&p.built&&town.includes(p.zone));if(!pts.length)return;const tc=centre(pts.flatMap(p=>p.pts));const ww=throwWall(tc[0],tc[1],town,2.6);for(const z of town)if(inPoly(z.cx,z.cy,ww.poly))z.wall={poly:ww.poly,inside:true};if((w.built||0)>=1550)bastions();}
@@ -431,7 +432,7 @@ function feed(city){
   // A wall turned into a boulevard, park or canal: it comes down and its line becomes a ring street.
   for(const w of city.walls||[])if(w.state&&w.state!=='wall'){const yr=conversionYear(city,w);if(yr<=Y)for(const ow of walls)if(aliveO(ow)){ow.died=Y;addPath(chaikin([...ow.poly,ow.poly[0]],1),w.state==='canal'?'street':'boulevard',{hw:w.state==='boulevard'?1.9:1.2});for(const z of zones)if(z.wall?.poly===ow.poly)z.wall=null;}}
   // Bridges.
-  for(const b of city.bridges||[]){if(fed.bridges.has(b.id)||(b.built||Y0)>Y||!b.cells?.length)continue;fed.bridges.add(b.id);const a=b.cells[0],c=b.cells.at(-1);const p=addPath([[(a[0]+.5)*K,(a[1]+.5)*K],[(c[0]+.5)*K,(c[1]+.5)*K]],'road',{hw:.9});p.bridge=true;}
+  for(const b of city.bridges||[]){if(fed.bridges.has(b.id)||(b.built||Y0)>Y||!b.cells?.length)continue;fed.bridges.add(b.id);const a=b.cells[0],c=b.cells.at(-1);const p=addPath([[(a[0]+.5)*K,(a[1]+.5)*K],[(c[0]+.5)*K,(c[1]+.5)*K]],'road',{hw:.9});p.bridge=true;p.wid=String(b.id);}
   return tgt;}
 function conversionYear(city,w){const ev=(city.events||[]).find(e=>e.type==='works'&&/became|ring boulevard|linear park|canal ring/i.test(e.text||''));return ev?ev.year:city.year;}
 // How many houses the town should have in a year: the game's buildings then (from its yearly record), in plot terms.
@@ -486,18 +487,59 @@ function digCanal(){if(!anyWater)return;let best=null,bd=1e9;for(let j=0;j<GH;j+
 function makeChase(){let best=null,bs=-1e9;for(let t=0;t<500;t++){const a=hsh(t,1,77)*Math.PI*2,r=55+hsh(t,2,77)*45,x=C0[0]+Math.cos(a)*r,y=C0[1]+Math.sin(a)*r;
     if(x<30||y<30||x>WW-30||y>WH-30||flood(x,y)||inPlot(x,y,18)||inPlace(x,y,20))continue;let tr=0;for(const [tx,ty] of trees)if(Math.abs(tx-x)<20&&Math.abs(ty-y)<14)tr++;const sc=tr*.05-slopeAt(x,y)/STEEP+hsh(t,3,77)*.5;if(sc>bs){bs=sc;best=[x,y];}}
   if(!best)return;const pl=addPlace(blob(best[0],best[1],22,15,18,91),'chase',{name:'the Royal Chase'});for(const o of plots)if(aliveO(o)&&inPoly(...centre(o.pts),pl.poly))o.died=Y;}
-function parkWhenSurrounded(){for(const pl of places){if(!aliveO(pl)||pl.kind!=='chase')continue;const [cx,cy]=centre(pl.poly);let n=0,hit=0;
-  for(const [x,y] of pl.poly){const dx=x-cx,dy=y-cy,d=Math.hypot(dx,dy)||1;n++;if(inPlot(x+dx/d*8,y+dy/d*8,3))hit++;}
-  if(hit/n>=.35){pl.kind='park';pl.name=pl.name.replace('the Royal Chase','Chase Park');pl.parked=Y;
-    // Walks across the new park.
-    const a=pl.poly[0],b=pl.poly[Math.floor(pl.poly.length/2)],c2=pl.poly[Math.floor(pl.poly.length/4)],d2=pl.poly[Math.floor(pl.poly.length*3/4)];addPath(chaikin([a,[cx,cy],b],2),'walk',{hw:.35});addPath(chaikin([c2,[cx,cy],d2],2),'walk',{hw:.35});}}}
-// The old market place becomes a plaza (trees, a fountain) once trade has moved to market halls.
-function plazas(){let first=true;for(const pl of places)if(aliveO(pl)&&pl.kind==='market'){pl.kind='plaza';pl.name=pl.name==='Gate market'?'Gate Plaza':first?'Plaza Mayor':null;if(pl.name==='Plaza Mayor')first=false;}}
-// An abandoned palace becomes a museum.
-const MUSEUMS=['the Museum','the Gallery','the Library'];let museums=0;
-function museum(){if(museums>=MUSEUMS.length)return;const pals=plots.filter(p=>aliveO(p)&&p.built&&stateAt(p,Y)?.b==='palace');if(!pals.length)return;
-  const pl=pals.sort((a,b)=>valAt(...centre(a.pts))-valAt(...centre(b.pts)))[Math.floor(rnd()*Math.min(3,pals.length))];pl.died=Y;
-  const [cx,cy]=centre(pl.pts),m=addLandmark('museum',cx,cy,0,{pull:1,reach:12,name:MUSEUMS[museums++],parts:[{abs:true,poly:grow(pl.pts,-.3)},{abs:true,poly:grow(pl.pts,-1.6),tone:'court'}]});}
+// Is the chase surrounded by the town? Then it is a question for the player (heritage.js).
+function surrounded(pl){const [cx,cy]=centre(pl.poly);let n=0,hit=0;
+  for(const [x,y] of pl.poly){const dx=x-cx,dy=y-cy,d=Math.hypot(dx,dy)||1;n++;if(inPlot(x+dx/d*8,y+dy/d*8,3))hit++;}return hit/n>=.35;}
+function walksAcross(pl){const [cx,cy]=centre(pl.poly),P=pl.poly,a=P[0],b=P[Math.floor(P.length/2)],c2=P[Math.floor(P.length/4)],d2=P[Math.floor(P.length*3/4)];
+  addPath(chaikin([a,[cx,cy],b],2),'walk',{hw:.35});addPath(chaikin([c2,[cx,cy],d2],2),'walk',{hw:.35});}
+// ───────────── the player's decisions on the old city ─────────────
+// city.heritage: {siteId:{kind,option,year,name}}. Applied after the year's growth,
+// so a replay from the start lands in the same place as the live decision.
+const applied=new Set();
+const lmOf=bid=>landmarks.find(m=>aliveO(m)&&m.bid!=null&&String(m.bid)===bid);
+const mainCanal=()=>paths.find(p=>aliveP(p)&&p.canal);
+function applyHeritage(city){const H=city.heritage||{};let any=false;
+  for(const [id,d] of Object.entries(H)){if(applied.has(id)||d.year>Y)continue;applied.add(id);any=true;
+    const [k,ref]=id.split(':'),o=d.option,nm=d.name;
+    if(k==='canal'){const c=mainCanal();if(!c)continue;if(o==='street'){c.covered=Y;c.kind='street';c.hw=.95;c.high=true;c.name=nm;}else if(o==='walk'){c.prom=true;c.name=nm;}}
+    else if(k==='chase'){const pl=places.find(q=>aliveO(q)&&q.kind==='chase');if(!pl)continue;
+      if(o==='park'){pl.kind='park';pl.name=nm;walksAcross(pl);}
+      else if(o==='sell'){pl.died=Y;const z=addZone(pl.poly,'town',null,{rate:1.6,use:Y>=1950?'trade':'res'});town.push(z);if(Y>=1950)z.offices=true;}}
+    else if(k==='market'){const pl=places.find(q=>q.id===+ref&&aliveO(q));if(!pl)continue;
+      if(o==='plaza'){pl.kind='plaza';pl.name=pl.name==='Gate market'?'Gate Plaza':plazaName();}
+      else if(o==='hall'){const [cx,cy]=centre(pl.poly),xs=pl.poly.map(q=>q[0]),ys=pl.poly.map(q=>q[1]),w=Math.min(14,(Math.max(...xs)-Math.min(...xs))*.62),h=Math.min(10,(Math.max(...ys)-Math.min(...ys))*.55);
+        addLandmark('market_hall',cx,cy,0,{pull:1.2,reach:14,name:nm,parts:[{poly:R(-w/2,-h/2,w/2,h/2),tone:'stone'},...(nm==='the Mall'?[]:[{poly:R(-w/2+1.2,-.5,w/2-1.2,.5),tone:'court'}])]});}}
+    else if(k==='bridge'){const p=paths.find(q=>aliveP(q)&&q.bridge&&q.wid===ref);if(!p)continue;
+      if(o==='walk'){p.walkOnly=true;p.hw=.6;p.name=nm;}else if(o==='widen')p.hw=1.5;
+      else if(o==='new'){const a=at(p,0),b=at(p,p.len),nx=-a.ty*9,ny=a.tx*9;const q=addPath([[a.x+nx,a.y+ny],[b.x+nx,b.y+ny]],'road',{hw:1.4});q.bridge=true;p.walkOnly=true;p.name='the Old Bridge';
+        for(const e of [a,b]){const near=nearPath(e.x+nx,e.y+ny,14,null,true);if(near.p){const t=at(near.p,nearestS(near.p,[e.x+nx,e.y+ny]));addPath([[e.x+nx,e.y+ny],[t.x,t.y]],'road',{hw:1.1});}}}}
+    else if(k==='b'){const m=lmOf(ref);if(!m)continue;
+      if(o==='campus'){m.kind='library';m.name=nm;campus();}
+      else if(o==='grow'){m.name='the University';for(const pl of plots)if(aliveO(pl)&&pl.built&&Math.hypot(...centre(pl.pts).map((v,i)=>v-[m.x,m.y][i]))<16&&rnd()<.6){pl.died=Y;}
+        for(let i=0;i<4;i++){const a=i*1.57+.4,x=m.x+Math.cos(a)*10,y=m.y+Math.sin(a)*8;if(!flood(x,y))addLandmark('college',x,y,a,{pull:.3,reach:6,parts:[{poly:R(-3,-2.2,3,2.2),tone:'stone'},{poly:R(-1.6,-1,1.6,1),tone:'court'}]});}}
+      else if(o==='culture'){m.kind='arts';m.name=nm;}
+      else if(o==='sell'){m.died=Y;}
+      else if(o==='front'){m.name=nm;const pl=addPath([[m.x-14,m.y],[m.x+14,m.y]],'promenade',{hw:.8});pl.name=null;}
+      else if(nm)m.name=nm;}
+    else if(k==='palace'){const pl=plots.find(q=>q.id===+ref&&aliveO(q));if(!pl)continue;
+      if(o==='museum'||o==='offices'){pl.died=Y;const [cx,cy]=centre(pl.pts);addLandmark(o==='museum'?'museum':'ministry',cx,cy,0,{pull:1,reach:12,name:nm,parts:[{abs:true,poly:grow(pl.pts,-.3)},{abs:true,poly:grow(pl.pts,-1.6),tone:'court'}]});}
+      else if(o==='flats'){setState(pl,{b:'house',style:STYLE_BY_YEAR(Y),dv:.85,built:Y,gap:0,plan:1});}}}
+  if(any){computeFields();ver++;}}
+let ver=0,plazaN=0;
+const plazaName=()=>['Plaza Mayor','Plaza Nueva','Plaza del Carmen','Plaza Real'][plazaN++%4];
+// A new campus on the edge of the town: blue halls round a green.
+function campus(){let best=null,bs=-1e9;for(let t=0;t<400;t++){const a=hsh(t,4,51)*Math.PI*2,r=60+hsh(t,5,51)*50,x=C0[0]+Math.cos(a)*r,y=C0[1]+Math.sin(a)*r;
+    if(x<25||y<25||x>WW-25||y>WH-25||flood(x,y)||inPlot(x,y,10)||inPlace(x,y,12))continue;const sc=-Math.abs(r-80)*.05-slopeAt(x,y)/STEEP+hsh(t,6,51);if(sc>bs){bs=sc;best=[x,y];}}
+  if(!best)return;const [x,y]=best;addPlace(blob(x,y,14,10,14,31),'garden',{name:'the Campus'});
+  for(let i=0;i<6;i++){const a=i/6*Math.PI*2,hx=x+Math.cos(a)*10,hy=y+Math.sin(a)*7;addLandmark('college',hx,hy,a,{pull:.6,reach:10,parts:[{poly:R(-3.4,-1.8,3.4,1.8),tone:'stone'}]});}}
+// Sites on the map that can become questions: the canal, the chase, the market squares, palaces.
+function mapSites(){const out=[];const c=mainCanal();if(c&&!c.covered&&!c.prom){const a=at(c,c.len*.5);out.push({id:'canal',kind:'canal',x:a.x,y:a.y,born:c.born});}
+  const ch=places.find(q=>aliveO(q)&&q.kind==='chase');if(ch){const [x,y]=centre(ch.poly);out.push({id:'chase',kind:'chase',x,y,born:ch.born,ripe:surrounded(ch)});}
+  for(const pl of places)if(aliveO(pl)&&pl.kind==='market'){const [x,y]=centre(pl.poly);out.push({id:`market:${pl.id}`,kind:'market',x,y,born:pl.born,name:pl.name});}
+  if(fieldYear<0)computeFields();
+  const pals=plots.filter(p=>aliveO(p)&&p.built&&stateAt(p,Y)?.b==='palace'&&Y-(stateAt(p,Y).built||p.born)>=60).map(p=>{const [x,y]=centre(p.pts);return {p,x,y,v:valAt(x,y)};}).sort((a,b)=>a.v-b.v).slice(0,2);
+  for(const {p,x,y} of pals)out.push({id:`palace:${p.id}`,kind:'palace',x,y,born:stateAt(p,Y).built||p.born});
+  return out;}
 // Dear land changes use: the street front of the high street and the squares turns to shops; old dear houses are rebuilt.
 function marketChange(){for(const pl of plots){if(!aliveO(pl)||!pl.built)continue;const st=stateAt(pl,Y);if(!st||st.b==='palace'||st.b==='works')continue;const [cx,cy]=centre(pl.pts),v=valAt(cx,cy);
   if(st.b==='house'&&v>70&&(pl.p?.high||pl.p?.kind==='edge')&&rnd()<.25)setState(pl,{b:'shop'});
@@ -505,12 +547,9 @@ function marketChange(){for(const pl of plots){if(!aliveO(pl)||!pl.built)continu
 function evolve(){
   if(Y===1310)digCanal();
   if(Y===1580)makeChase();
-  if(Y>=1650&&Y%10===0)parkWhenSurrounded();
-  if(Y===1865)plazas();
-  if(Y>=1830&&Y<=1910&&Y%40===10)museum();
-  if(Y===1872)for(const p of paths)if(aliveP(p)&&p.canal&&!p.covered){p.covered=Y;p.kind='street';p.hw=.9;p.name='Canal Street';}
   if(Y%5===0){computeFields();if(Y>=1500)marketChange();}}
 function yearStep(city){
+  applyHeritage(city);
   const tgt=feed(city);
   evolve();
   infill();
@@ -568,7 +607,7 @@ function drawWorld(ctx,year,part='all'){g=ctx;const saveY=Y;Y=year;g.lineJoin='r
     if(pl.kind==='plaza'){const [cx,cy]=centre(pl.poly);g.fillStyle='rgba(78,104,64,.75)';for(const [x,y] of pl.poly){g.beginPath();g.arc(x+(cx-x)*.18,y+(cy-y)*.18,.55,0,7);g.fill();}g.beginPath();g.arc(cx,cy,.9,0,7);g.fillStyle='#8fb0ad';g.fill();}
     if(pl.kind==='garden'){g.fillStyle='rgba(78,104,64,.75)';for(const [x,y] of pl.poly.map((q,i)=>{const r=pl.poly[(i+1)%pl.poly.length];return [(q[0]+r[0])/2,(q[1]+r[1])/2];})){g.beginPath();g.arc(x,y,.6,0,7);g.fill();}}}
   // Promenades and boulevards: rows of trees.
-  for(const p of paths)if(aliveP(p)&&(p.kind==='promenade'||p.kind==='boulevard')){g.fillStyle='rgba(78,104,64,.8)';for(let s2=0;s2<p.len;s2+=2.2){const a=at(p,s2);for(const sd of [1,-1]){g.beginPath();g.arc(a.x-a.ty*sd*(p.hw-.3),a.y+a.tx*sd*(p.hw-.3),.5,0,7);g.fill();}}}
+  for(const p of paths)if(aliveP(p)&&(p.kind==='promenade'||p.kind==='boulevard'||p.prom)){g.fillStyle='rgba(78,104,64,.8)';const off=p.prom?p.hw+1:p.hw-.3;for(let s2=0;s2<p.len;s2+=2.2){const a=at(p,s2);for(const sd of [1,-1]){g.beginPath();g.arc(a.x-a.ty*sd*off,a.y+a.tx*sd*off,.5,0,7);g.fill();}}}
   // Walls: a heavy ink line with towers; gates as breaks with two towers.
   for(const w of walls){if(!aliveO(w))continue;poly(w.poly);
     if(w.kind==='bastion'){g.lineWidth=5;g.strokeStyle='rgba(150,165,118,.35)';g.stroke();g.lineWidth=1.5;g.strokeStyle='#2f2620';g.stroke();}
@@ -593,10 +632,13 @@ return {
   sync(city,ms=14){if(!started){Y=Y0;started=true;if(!city.center)return true;C0=[(city.center.x+.5)*K,(city.center.y+.5)*K];feed(city);
       const m=addLandmark('market',C0[0],C0[1],0,{pull:1.25,reach:16,name:null,clear:marketPlace(C0,paths.filter(p=>p.kind==='road'&&Math.hypot(at(p,nearestS(p,C0)).x-C0[0],at(p,nearestS(p,C0)).y-C0[1])<4),4.2),placeKind:'market'});
       const mp=places.at(-1).poly,ep=addPath([...mp,mp[0]],'edge',{hw:.05});const z0=zoneAt(C0[0],C0[1]-6)||fed.implicit;if(z0)for(const sd of [1,-1])layRow(ep,sd,.5,ep.len-.5,z0,{width:()=>1.7+rnd()*.7,depth:6,noGaps:true});}
-    const end=city.year,t0=(typeof performance!=='undefined'?performance:Date).now();while(Y<end){yearStep(city);Y++;if((typeof performance!=='undefined'?performance:Date).now()-t0>ms)break;}return Y>=end;},
+    const end=city.year,t0=(typeof performance!=='undefined'?performance:Date).now();while(Y<end){yearStep(city);Y++;if((typeof performance!=='undefined'?performance:Date).now()-t0>ms)break;}if(Y>=end)applyHeritage(city);return Y>=end;},
   draw(ctx,year,part){drawWorld(ctx,year,part);},
+  // Sites the player may decide on (world units), and a version that changes when a decision lands.
+  sites(){return mapSites();},
+  get version(){return ver;},
   lens(ctx,kind){drawLens(ctx,kind);},
-  labels(year){const out=[];const sy=Y;Y=year;for(const pl of places)if(aliveO(pl)&&pl.name){const [x,y]=centre(pl.poly);out.push({text:pl.name,x,y,kind:pl.kind});}for(const m of landmarks)if(aliveO(m)&&m.kind==='museum')out.push({text:m.name,x:m.x,y:m.y-3,kind:'museum'});Y=sy;
+  labels(year){const out=[];const sy=Y;Y=year;for(const pl of places)if(aliveO(pl)&&pl.name){const [x,y]=centre(pl.poly);out.push({text:pl.name,x,y,kind:pl.kind});}for(const m of landmarks)if(aliveO(m)&&m.name&&['museum','ministry','library','arts','market_hall'].includes(m.kind))out.push({text:m.name,x:m.x,y:m.y-3,kind:'museum'});for(const p of paths)if(aliveP(p)&&p.name&&(p.covered||p.prom||p.walkOnly)){const a=at(p,p.len*.5);out.push({text:p.name,x:a.x,y:a.y-2,kind:'street'});}Y=sy;
     // One name per spot: overlapping places (a plaza on an older square) keep the first.
     return out.filter((l,i)=>!out.slice(0,i).some(o=>Math.hypot(o.x-l.x,o.y-l.y)<14));},
   living(){if(fieldYear<0)computeFields();let s=0,n=0,v=0;for(const pl of plots)if(aliveO(pl)&&pl.built){const [x,y]=centre(pl.pts);s+=solAt(x,y);v+=valAt(x,y);n++;}return {sol:n?Math.round(s/n):50,value:n?Math.round(v/n):0};},

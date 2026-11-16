@@ -1,3 +1,4 @@
+import {heritageEffects} from './heritage.js';
 import {FIGURES,FIGURE_INDEX} from './legacy.js';
 import {INITIAL_DEVELOPMENT,developmentOf,applyPulse,advanceDevelopment,accumulateDevelopment,productivityGrowth,developmentCapacity} from './development.js';
 import {BASIC_INDEX,BASIC_BUILDINGS,BUILDING_EFFECTS,SPECIAL_BUILDINGS,basicsForYear,TOWN_CENTER_LEVELS,TOWN_CENTER_MAX,townCenterLevel,basicLimit,CITYWIDE_COPIES} from './construction.js';
@@ -287,6 +288,8 @@ export function cityEffects(city){
   }
   add('transport',Math.min(4,(city.bridges||[]).length)*.03);
   for(const [k,v] of Object.entries(townCenterLevel(city)?.effects||{}))add(k,v);
+  // v3.2 decisions on the old city (heritage.js).
+  for(const [k,v] of Object.entries(heritageEffects(city)))add(k,v);
   // v1.8 doctrine tiers.
   for(const [k,v] of Object.entries(doctrineState(city).effects))add(k,v);
   // v2.6 trinkets carried into the run (demand keys are read by monthGrowth).
@@ -1236,6 +1239,7 @@ export function normalizeCity(input){
   c.walls=Array.isArray(input.walls)?input.walls.filter(w=>w&&Number.isFinite(w.cx)&&Number.isFinite(w.cy)&&Number.isFinite(w.r)&&['wall','canal','boulevard'].includes(w.state)):[];
   c.bridges=Array.isArray(input.bridges)?input.bridges.filter(b=>b&&Array.isArray(b.cells)):[];
   c.routes=Array.isArray(input.routes)?input.routes.filter(r=>r&&Array.isArray(r.cells)):[];
+  c.heritage=Object.fromEntries(Object.entries(input.heritage&&typeof input.heritage==='object'?input.heritage:{}).filter(([,r])=>r&&typeof r.kind==='string'&&typeof r.option==='string'&&Number.isFinite(r.year)));
   // v1.2 population scale: older saves counted people 12× smaller.
   if((Number(input.schema)||0)<10){
     c.residents*=K;

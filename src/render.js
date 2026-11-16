@@ -4,10 +4,11 @@
 // from the street network, rows of small houses fronting their streets,
 // walls that follow the town with towers, bastions and gates, windmills,
 // boats, district names and event captions in an old surveyor's italic.
+import {openSites} from './heritage.js';
 import {W,H,ZONES,terrain,zoneCell,styleAt,cityOrigin,homeLand,cityFields,districtDetails,wallPolygon,wallSegments} from './sim.js';
 import {hash,rand,valueNoise,waterGrid,clamp} from './geo.js';
 import {ageAt} from './ages.js';
-import {organicDraw,organicVersion,organicLens,organicLabels} from './organic/index.js';
+import {organicDraw,organicVersion,organicLens,organicLabels,organicSites} from './organic/index.js';
 
 export const DISTRICT_COLORS=['#b5835a','#6f8f9c','#9b8a4e','#8a6f9b','#6f9a7a','#a8706c','#7d8bb0','#a59267','#5f8c8c','#9c7a8a','#87955f','#b08a7a'];
 const PAPER='#e9e0c6',LAND='#d9d3ad',FIELD_LINE='rgba(150,146,104,.45)',HEDGE='rgba(120,128,88,.55)';
@@ -694,6 +695,8 @@ export function markerPositions(city,warp,ox,oy,scale){
   const out=[];
   for(const n of city.needs||[]){const [x,y]=warp?warp(n.x,n.y):[n.x,n.y];out.push({type:'need',item:n,x:ox+x*scale,y:oy+y*scale});}
   for(const o of city.omens||[]){if(!Number.isFinite(o.x))continue;const [x,y]=warp?warp(o.x,o.y):[o.x,o.y];out.push({type:'omen',item:o,x:ox+x*scale,y:oy+y*scale});}
+  // v3.2 the old city: a canal, a chase, a square, a bridge… waiting for a decision.
+  if(city.center&&!city.finished)for(const s of openSites(city,organicSites(city))){const [x,y]=warp?warp(s.x,s.y):[s.x,s.y];out.push({type:'heritage',item:s,x:ox+x*scale,y:oy+y*scale});}
   return out;
 }
 function drawMarkers(ctx,city,warp,ox,oy,scale,opts){
@@ -707,6 +710,11 @@ function drawMarkers(ctx,city,warp,ox,oy,scale,opts){
       ctx.strokeStyle=col;ctx.lineCap='round';ctx.beginPath();ctx.arc(x,y,r-2,-Math.PI/2,-Math.PI/2+Math.PI*2*Math.max(.04,n.progress));ctx.stroke();
       ctx.fillStyle=col;ctx.font=`600 ${r}px Georgia, 'Times New Roman', serif`;ctx.fillText(NEED_GLYPH[n.kind]||'!',x,y+1);
       if(urgent&&!n.served&&opts.now){ctx.globalAlpha=.35+.35*Math.sin(opts.now/260);ctx.strokeStyle=col;ctx.lineWidth=2;ctx.beginPath();ctx.arc(x,y,r+4,0,Math.PI*2);ctx.stroke();ctx.globalAlpha=1;}
+    }else if(m.type==='heritage'){const col='#3e5a78';
+      ctx.shadowColor='rgba(48,43,34,.35)';ctx.shadowBlur=6;ctx.fillStyle='#fbf7eb';ctx.beginPath();ctx.arc(x,y,r,0,Math.PI*2);ctx.fill();ctx.shadowBlur=0;
+      ctx.lineWidth=2.5;ctx.strokeStyle=col;ctx.beginPath();ctx.arc(x,y,r-2,0,Math.PI*2);ctx.stroke();
+      // A small column: the old city asks what to become.
+      ctx.fillStyle=col;ctx.fillRect(x-5,y-6,10,2);ctx.fillRect(x-3.5,y-4,2,8);ctx.fillRect(x+1.5,y-4,2,8);ctx.fillRect(x-6,y+4,12,2);
     }else{const o=m.item,decided=Number.isInteger(o.choice),left=Math.max(0,o.due-year),col=decided?'#4d6a7a':'#6a2f22';
       ctx.shadowColor='rgba(48,43,34,.35)';ctx.shadowBlur=6;ctx.fillStyle=col;ctx.beginPath();ctx.moveTo(x,y-r);ctx.lineTo(x+r,y);ctx.lineTo(x,y+r);ctx.lineTo(x-r,y);ctx.closePath();ctx.fill();ctx.shadowBlur=0;
       ctx.fillStyle='#fbf7eb';ctx.font=`700 ${r}px Georgia, serif`;ctx.fillText(decided?'✓':'!',x,y+1);
