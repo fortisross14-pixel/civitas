@@ -12,7 +12,7 @@ import {CARD_EVENT_EVERY,CARD_INDEX,TURNING_POINTS,turningYears,turningSchedule,
 import {W,H,CELLS,DIRS4,clamp,within,key,kx,ky,rand,hash,terrain,waterGrid,footprint,POP_SCALE} from './geo.js';
 const K=POP_SCALE;
 import {scenarioYear,SCENARIO_INDEX} from './scenarios.js';
-import {charterOptions,charterYear} from './charters.js';
+import {charterOptions,charterYear,charterEffects} from './charters.js';
 import {trinketEffects,trinketDemand,DEMAND_KEYS} from './trinkets.js';
 import {wallCells,buildGrids,markRoad,markBuilding,pickParcel,growRoads,patternFor,layMainRoads,addRoute,routeBetween,fitWall,ringCells,findBridge,roadClass,homeLand,wallPolygon,insideWall,wallSegments,wallLength} from './growth.js';
 export {wallPolygon,insideWall,wallSegments};
@@ -299,6 +299,8 @@ export function cityEffects(city){
   }
   add('transport',Math.min(4,(city.bridges||[]).length)*.03);
   for(const [k,v] of Object.entries(townCenterLevel(city)?.effects||{}))add(k,v);
+  // v3.7 the signed charter's buffs for its Age.
+  for(const [k,v] of Object.entries(charterEffects(city)))add(k,v);
   // v3.3 urban forms: each building adds its form's small effect (garden cities raise living, terraces lower it).
   {const n={};for(const b of city.buildings||[])if(b.form)n[b.form]=(n[b.form]||0)+1;for(const [f,c] of Object.entries(n)){const F=FORMS[f];if(!F)continue;const k=Math.min(c,60);if(F.prosperity)add('prosperity',F.prosperity*k*4);if(F.transport)add('transport',F.transport*Math.min(1,k/20));}}
   // v3.2 decisions on the old city (heritage.js).
@@ -779,8 +781,8 @@ export function selectTurningPoint(city,cardId){
     if(card.kind==='figure'){next=applyChoice(city,card,{index:pending.index,year:pending.year,cardId},`The Almanac of ${pending.year}: ${card.name} joins the city.`);next.turning={...next.turning,eventsTaken:taken};}
     else{const deck=deckOf(city);
       next={...city,deck:{...deck,hand:[...deck.hand,{uid:deck.nextUid,cardId,paid:0,gift:true}],nextUid:deck.nextUid+1},turning:{...city.turning,pending:null,eventsTaken:taken},
-        events:[...city.events,{year:city.year,type:'card',cardId,via:'event',text:`The Almanac of ${pending.year}: ${card.name} added to your hand.${d?` The Market Hall now favours ${d} cards for 25 years.`:''}`}]};}
-    if(d)next.turning={...next.turning,favour:{doctrine:d,until:pending.year+CARD_EVENT_EVERY}};
+        events:[...city.events,{year:city.year,type:'card',cardId,via:'event',text:`The Almanac of ${pending.year}: ${card.name} added to your hand.`}]};}
+    // v3.7: the Market Hall follows the charter's direction, not the card events.
     return next;
   }
   return applyChoice(city,card,{index:pending.index,year:pending.year,cardId},`Turning Point ${pending.index+1}: ${card.name} chosen.`);
@@ -1294,6 +1296,8 @@ export function normalizeCity(input){
   // Old saves resume at the next future checkpoint; past opportunities are not granted retroactively.
   const campaignYears=turningSchedule(input);
   const skipped=Math.max(0,campaignYears.filter(y=>y<=c.year).length-tpChoices-(pending?1:0));
+  // v3.7: every game the player can start plays the era way (cards and the Market, src/runs.js);
+  // the classic 20 Turning Points survive only in the scripted test cities, until M4 rewrites them.
   c.turning={...(input.turning?.mode==='era'?{mode:'era'}:{}),choices,pending:pending||null,skipped:Math.max(Number(input.turning?.skipped)||0,skipped),rerollsUsed:Math.max(0,Number(input.turning?.rerollsUsed)||0),cardPool:Array.isArray(input.turning?.cardPool)?input.turning.cardPool:undefined,figurePool:Array.isArray(input.turning?.figurePool)?input.turning.figurePool:[],featuredFigures:Array.isArray(input.turning?.featuredFigures)?input.turning.featuredFigures:[],...(input.turning?.boon?{boon:true}:{})};
   // v2.1: keep the card-event steer; a save from before the 25-year events skips those already past.
   if(c.turning.mode==='era'){c.turning.eventsTaken=Number.isFinite(input.turning?.eventsTaken)?Math.max(0,Math.floor(input.turning.eventsTaken)):choices.filter(p=>p.via!=='hand').length;

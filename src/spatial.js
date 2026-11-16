@@ -100,7 +100,7 @@ function computeSpatial(city,effects,policies){
   for(const b of city.buildings)if(WELL_OFF.has(b.form)){const x=Math.floor(b.x),y=Math.floor(b.y);if(within(x,y))value[key(x,y)]+=.6;}
   // v3.4 traffic: workers who cannot walk to a job drive (from 1900), and the streets carry them.
   // Narrow old streets carry little; main roads, rings and boulevards carry much.
-  const cars=carShare(year);
+  const cars=carShare(year)*(policies.public_transit?.hooks?.cars??1);
   // Stations and transit hubs: homes within reach take the train or tram instead.
   const transitF=new Float32Array(CELLS);for(const b of city.buildings)if(TRANSIT[b.special]&&!b.vacant)stamp(transitF,Math.floor(b.x),Math.floor(b.y),b.special==='transit_hub'?12:9,1.4);
   // The old town (its walls, or the first streets): closed to cars, or cut through by avenues.
@@ -135,7 +135,7 @@ function computeSpatial(city,effects,policies){
     else if(b.type==='trade'||b.type==='hotel'){const j=b.jobs||0;tradeJobs+=j;if(trade[k]>=.35)tradeServed+=j;}
     else if(b.type==='craft'){const j=b.jobs||0;craftJobs+=j;if(nearWater(water,Math.floor(b.x),Math.floor(b.y)))riverCraft+=j;}
   }
-  return {green,pollution,prestige,service,trade,homePull,shopPull,homeShield,value:valueN,valueRaw:value,living,livingAvg:homes?livSum/homes:50,valueAvg:homes?valSum/homes:0,traffic,carShare:cars,congestion,coreJam,unaffordable:homes?unaffordable/homes:0,jammedShare:homes?jammed/homes:0,
+  return {green,pollution,prestige,service,trade,homePull,shopPull,homeShield,value:valueN,valueRaw:value,living,livingAvg:homes?livSum/homes:50,valueAvg:homes?valSum/homes:0,traffic,carShare:cars,congestion,coreJam,unaffordable:homes?unaffordable/homes*(policies.rent_control?.hooks?.rent??1):0,jammedShare:homes?jammed/homes:0,
     pollutedShare:homes?polluted/homes:0,coverage:homes?covered/homes:1,prestigeShare:homes?prestigious/homes:0,
     tradeAccess:tradeJobs?tradeServed/tradeJobs:0,riverIndustry:craftJobs?riverCraft/craftJobs:0};
 }

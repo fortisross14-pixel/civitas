@@ -96,11 +96,13 @@ export function cardType(card){
   if(card.kind==='instant'||card.durationPoints)return 'event';
   return 'decree';
 }
-export const TYPE_LABEL={building:'Building',decree:'Decree',event:'Event',patron:'Patron'};
+// v3.7: with no slots, a card is a building, a lasting change, or a one-time effect.
+export const TYPE_LABEL={building:'Building',decree:'Lasting',event:'Once',patron:'Lasting'};
 export const MAX_LEVEL=3;
 
 export function doctrinesOn(city){return city?.turning?.mode==='era';}
-export function decreeSlots(city){const l=townCenterLevel(city)?.level||1;return 8+(l>=3?1:0)+(l>=5?1:0)+perk(city,'decreeBonus');}
+// v3.7: no decree slots: every card you hold can be played.
+export function decreeSlots(city){if(!DOCTRINE_POWERS)return Infinity;const l=townCenterLevel(city)?.level||1;return 8+(l>=3?1:0)+(l>=5?1:0)+perk(city,'decreeBonus');}
 
 // Picks that are currently in effect (not retired, not expired, buildings placed).
 export function activePicks(city){
@@ -127,9 +129,15 @@ export function doctrineState(city){
   if(key)cache.set(key,{year:city.year,blen:(city.buildings||[]).length,llen:(city.landmarks||[]).length,center:city.center?.level||0,value});
   return value;
 }
+// v3.7: doctrines no longer have powers. A card's doctrine is its family (its direction in the
+// charters); the counts remain for the city's character, nothing else.
+export const DOCTRINE_POWERS=false;
 function computeState(city){
   const counts=Object.fromEntries(DOCTRINE_IDS.map(d=>[d,0])),on=doctrinesOn(city);
   if(!on)return {on,counts,tiers:{...counts},lead:null,flags:{},effects:{}};
+  if(!DOCTRINE_POWERS){for(const id of new Set(activePicks(city).map(p=>p.cardId)))for(const d of cardDoctrines(CARD_INDEX[id]))counts[d]++;
+    const lead=DOCTRINE_IDS.filter(d=>counts[d]>0).sort((a,b)=>counts[b]-counts[a]||a.localeCompare(b))[0]||null;
+    return {on,counts,tiers:Object.fromEntries(DOCTRINE_IDS.map(d=>[d,0])),lead,flags:{},effects:{}};}
   for(const id of new Set(activePicks(city).map(p=>p.cardId)))for(const d of cardDoctrines(CARD_INDEX[id]))counts[d]++;
   const kinds=new Set((city.buildings||[]).filter(b=>b.special&&!b.vacant).map(b=>b.special));
   for(const k of kinds){const d=BUILDING_DOCTRINE[k];if(d)counts[d]++;}
@@ -185,6 +193,7 @@ function computeState(city){
 export const doctrineFlags=city=>doctrineState(city).flags;
 // Score multiplier and bonus for this year (tier-8 payoffs).
 export function scoreBonus(city,s){
+  if(!DOCTRINE_POWERS)return {mult:1,add:0};
   const st=doctrineState(city),f=st.flags;
   // Renown from the single deepest doctrine (ties: the one with the most cards).
   const deepest=st.on?DOCTRINE_IDS.reduce((b,d)=>st.tiers[d]>st.tiers[b]||(st.tiers[d]===st.tiers[b]&&st.counts[d]>st.counts[b])?d:b,DOCTRINE_IDS[0]):null;
@@ -198,14 +207,14 @@ export function scoreBonus(city,s){
 }
 // Cards that share the city's doctrines draw more often in the Market Hall.
 export function doctrineWeight(city,card){
-  const st=doctrineState(city);if(!st.on)return 1;
+  const st=doctrineState(city);if(!st.on||!DOCTRINE_POWERS)return 1;
   return 1+1.2*Math.max(0,...cardDoctrines(card).map(d=>st.counts[d]||0));
 }
 export {CARDS};
 
 // Wonders whose recipe the city now meets and has not yet been awarded.
 export function wondersDue(city){
-  if(!doctrinesOn(city))return [];const have=new Set(city.wonders||[]);
+  if(!doctrinesOn(city)||!DOCTRINE_POWERS)return [];const have=new Set(city.wonders||[]);
   return WONDERS.filter(w=>!have.has(w.id)&&cardLevel(city,w.card)>=MAX_LEVEL&&cardLevel(city,w.patron)>=1);
 }
 

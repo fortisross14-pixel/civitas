@@ -268,3 +268,4 @@
 .g-peek .g-tag{margin-left:6px;font-size:10px;font-style:normal;vertical-align:middle}
 .g-finished~.g-peek,.g3:has(.g-finished) .g-peek{bottom:calc(env(safe-area-inset-bottom) + 160px)}
 .g-drawing{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);padding:10px 16px;border-radius:14px;background:rgba(250,245,232,.94);box-shadow:0 4px 18px rgba(48,43,34,.18);font:italic 15px Georgia,serif;color:#4a3828;pointer-events:none}
+.g-charterTag em{margin-left:auto;font-style:normal;font-size:11px;opacity:.7}.g-charter .g-buff{display:block;color:var(--doc,#6b5e4e);font-weight:600;font-size:12px;margin:2px 0}.g-dir{margin-right:4px}

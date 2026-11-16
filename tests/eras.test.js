@@ -28,7 +28,8 @@ test('the first card event opens in 1325, offers Rare cards or better, and its p
   if(CARD_INDEX[pick].kind!=='figure'){
     const held=deckOf(next).hand.at(-1);assert.equal(deckOf(next).hand.length,before+1);assert.equal(held.cardId,pick);assert.ok(held.gift);
     assert.ok(!next.turning.choices.some(p=>p.cardId===pick),'not played yet');
-    const d=cardDoctrines(CARD_INDEX[pick])[0];if(d)assert.equal(storeFavour(next),d);
+    // v3.7: the Market Hall follows the charter's direction, not the card event's pick.
+    assert.equal(storeFavour(next),storeFavour(c));
   }
 });
 

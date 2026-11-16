@@ -65,10 +65,11 @@ export const cardPrice=(card,unit,city=null)=>{
 export const BANISHES_PER_RUN=3;
 // v2.1: what the Market Hall sells in doctrine cities; the doctrine of the
 // last card-event pick is FAVOUR times as likely there for 25 years.
-export const STORE_RARITIES=['common','uncommon'],EVENT_FAVOUR=2.5;
+// v3.7: the charter's direction fills about two Market offers in three (8 of 13 weight against five other families).
+export const STORE_RARITIES=['common','uncommon'],EVENT_FAVOUR=8;
 export const storeFavour=city=>{const f=city?.turning?.favour;return f&&city.year<f.until?f.doctrine:null;};
 // v2.0: the Founder's doctrine is this many times as likely in the Market Hall.
-export const FOUNDER_FAVOUR=3;
+export const FOUNDER_FAVOUR=4;
 
 // Rarity odds drift from 60/28/10/2 in 1300 to 40/32/20/8 by 2030.
 export function rarityWeights(year){

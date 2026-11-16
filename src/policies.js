@@ -28,6 +28,14 @@ export const POLICIES=[
   {id:'garden_city',name:'Garden City Planning',from:1900,to:2030,domain:'population',
    description:'Green buffers halve the harm of industry to nearby homes; growth −10%; costs upkeep.',
    effects:{development:-.10,prosperity:1},cost:6}
+,
+  // v3.7 laws for the age of cars and rents.
+  {id:'public_transit',name:'Public Transit Fund',from:1900,to:2030,domain:'trade',
+   description:'Trams, buses and metro: 25% fewer commuters drive; costs upkeep.',
+   effects:{transport:.05},cost:10,hooks:{cars:.75}},
+  {id:'rent_control',name:'Rent Control',from:1920,to:2030,domain:'population',
+   description:'Half as many homes are priced out; builders build 15% less.',
+   effects:{development:-.15},hooks:{rent:.5}}
 ];
 export const POLICY_INDEX=Object.fromEntries(POLICIES.map(p=>[p.id,p]));
 const WATER=['river','coast','estuary','lake'];

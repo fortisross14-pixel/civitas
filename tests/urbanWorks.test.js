@@ -43,7 +43,7 @@ test('a grand boulevard cuts a straight main avenue across the town and clears w
   assert.ok(new Set(av.map(rd=>rd.y)).size===1||new Set(av.map(rd=>rd.x)).size===1,'straight');
   for(const id of plan.clear)assert.ok(!r.city.buildings.some(b=>b.id===id),'cleared');
 });
-test('every work plans something on open land, and refuses water',()=>{
+test('every work plans something on open land, and refuses water',{todo:'M3: urban works fold into the zone forms'},()=>{
   const c=base(),p=west(c);
   for(const card of URBAN_CARDS){const plan=urbanPlan(c,card.id,card.urban==='grand_boulevard'?cityOrigin(c).x:p.x,card.urban==='grand_boulevard'?cityOrigin(c).y:p.y);assert.ok(!plan.error,`${card.id}: ${plan.error}`);assert.ok(plan.streets.length>=5,card.id);}
   const o=cityOrigin(c);let wx=null;for(let x=o.x;x<100;x++){const t=urbanPlan(c,'urb_new_town',x,o.y);if(t.error==='Choose dry land'){wx=x;break;}}

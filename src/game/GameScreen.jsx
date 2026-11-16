@@ -17,10 +17,11 @@ import {NEEDS,needsOf,needAnswers} from '../needs.js';
 import {omensOf,eventDefinition} from '../events.js';
 import {TAX_SECTORS,TAX_LEVELS,TAX_LABELS,taxesOf,annualRevenue,annualExpenses} from '../economy.js';
 import {cityEffects} from '../sim.js';
+import {POLICIES,policyIssue} from '../policies.js';
 import {SPEEDS} from '../pacing.js';
 import {AGES,ageAt} from '../ages.js';
 import {ageChanges} from '../ageChanges.js';
-import {charterLine,charterProgress,CHARTER_STATS} from '../charters.js';
+import {charterLine,charterProgress,CHARTER_STATS,DIRECTIONS} from '../charters.js';
 import {SCENARIO_INDEX,GOAL_STATS,goalTarget,goalText} from '../scenarios.js';
 import {RANK_CATEGORIES,worldTable,formatRankValue} from '../worldRankings.js';
 import {HistoricalChart} from '../chronicleUI.jsx';
@@ -81,7 +82,7 @@ function GoalChip({city,s,onOpen}){
   const ch=city.charter;if(!ch)return null;
   const p=charterProgress(city,s);
   return <button className={`g-goal ${ch.met?'met':ch.failed?'failed':''}`} onClick={onOpen}><Target size={14}/>
-    <span>{ch.met?'Charter fulfilled':ch.failed?'Charter missed':<>{CHARTER_STATS[ch.stat].label} <b>{fmt(p.value)}</b>/{fmt(ch.target)}</>}</span>
+    <span>{ch.met?'Goal reached':ch.failed?'Goal missed':<>{DIRECTIONS[ch.direction]?<b className="g-dir" style={{color:DIRECTIONS[ch.direction].color}}>{DIRECTIONS[ch.direction].glyph}</b>:null}{CHARTER_STATS[ch.stat].label} <b>{fmt(p.value)}</b>/{fmt(ch.target)}</>}</span>
     {!ch.met&&!ch.failed&&<><i style={{'--p':`${p.share*100}%`}}/><em>by {ch.by}</em></>}</button>;
 }
 
@@ -158,7 +159,7 @@ function WorksView({city,c,onClose}){
 // ───────────── Govern ─────────────
 function GovernSheet({city,s,c,tab,setTab,onClose}){
   const needs=needsOf(city).filter(n=>!n.served).sort((a,b)=>b.progress-a.progress),omens=omensOf(city).sort((a,b)=>a.due-b.due),open=omens.filter(o=>!Number.isInteger(o.choice));
-  const nd=open.length+c.sites.length,tabs=[['needs',`Needs${needs.length?` ${needs.length}`:''}`,needs.some(n=>n.progress>=.5)],['decisions',`Decisions${nd?` ${nd}`:''}`,nd>0],['taxes','Taxes',(city.shortfall||0)>=.05],['path','Path']];
+  const nd=open.length+c.sites.length,tabs=[['needs',`Needs${needs.length?` ${needs.length}`:''}`,needs.some(n=>n.progress>=.5)],['decisions',`Decisions${nd?` ${nd}`:''}`,nd>0],['taxes','Taxes',(city.shortfall||0)>=.05],['laws','Laws']];
   let body;
   if(tab==='needs')body=needs.length?<div className="g-list">{needs.map(n=>{const def=NEEDS[n.kind],answers=needAnswers(n.kind,city.year),deck=deckOf(city);
     return <article key={`${n.district}:${n.kind}`} className={`g-need ${n.progress>=.66?'urgent':''}`}>
@@ -182,12 +183,13 @@ function GovernSheet({city,s,c,tab,setTab,onClose}){
       <p className="g-hint">Lower taxes draw people and business; higher ones fill the treasury.</p>
       {(city.shortfall||0)>=.05&&<p className="g-warn">The treasury is empty: services are cut {Math.round(city.shortfall*100)}%.</p>}
     </div>;}
-  else{const st=doctrineState(city),rows=Object.entries(DOCTRINES).map(([id,d])=>({id,d,n:st.counts[id]||0,tier:st.tiers[id]||0})).sort((a,b)=>b.n-a.n),decrees=decreesInPlay(city);
-    body=<div className="g-list">
-      <p className="g-hint">Each card you play adds to a doctrine. At 2, 4, 6 and 8 cards the doctrine unlocks a power. Focus beats spread.</p>
-      {rows.map(({id,d,n,tier})=><div key={id} className={`g-path ${n?'':'off'}`} style={{'--doc':d.color}}><span className="g-glyph">{d.glyph}</span><div><b>{d.name}</b><small>{tier<4?`${[2,4,6,8][tier]} cards: ${d.tiers[tier]}`:'All powers unlocked'}</small></div><span className="g-pips">{[2,4,6,8].map(x=><i key={x} className={n>=x?'on':''}/>)}</span><em>{n}</em></div>)}
-      <h4>Decrees {decrees.length}/{decreeSlots(city)}</h4>
-      {decrees.length?decrees.map(id=><div key={id} className="g-work"><span className="g-workIcon">{docOf(CARD_INDEX[id]).glyph}</span><div><b>{CARD_INDEX[id].name}</b><small>Lv{cardLevel(city,id)}</small></div><button className="g-small" onClick={()=>c.onRetire(id)}>Retire</button></div>):<p className="g-muted">Decree cards you play take a slot here.</p>}
+  else{// v3.7 laws: standing choices with a trade-off, each in its window of history.
+    const laws=POLICIES.filter(p=>city.year>=p.from-0&&city.year<=p.to),on=city.policies||{};
+    body=<div className="g-list"><p className="g-hint">Laws stay in force until you repeal them. Each has a cost as well as a benefit.</p>
+      {laws.map(p=>{const active=p.id in on,issue=policyIssue(city,p.id);return <div key={p.id} className={`g-work ${active?'on':''}`}><span className="g-workIcon">{active?<Check size={18}/>:<ScrollText size={18}/>}</span>
+        <div><b>{p.name}</b><small>{issue&&!active?issue:p.description}</small></div>
+        <button className={`g-small ${active?'':'primary'}`} disabled={!active&&!!issue} onClick={()=>c.onPolicy(p.id,!active)}>{active?'Repeal':'Pass'}</button></div>;})}
+      {!laws.length&&<p className="g-muted">No laws in this Age.</p>}
     </div>;}
   return <Sheet title="Govern" eyebrow={`Unrest ${Math.round(city.unrest||0)}/${RUIN_AT}`} tabs={tabs} tab={tab} onTab={setTab} onClose={onClose}>{body}</Sheet>;
 }
@@ -242,9 +244,9 @@ function DetailsSheet({city,s,tab,setTab,onClose,legacy,onGuide}){
     body=<div className="g-list">
       {sc&&<article className="g-mission"><small>SCENARIO · {sc.from}–{sc.to}</small><h3>{sc.name}</h3>
         <ol className="g-goals">{sc.goals.map((g,i)=><li key={i} className={city.scenario.met[i]!=null?'done':''}><Star size={14} fill={city.scenario.met[i]!=null?'currentColor':'none'}/>{goalText(g,city.scenario)}</li>)}</ol></article>}
-      {ch&&<article className={`g-mission ${ch.met?'met':ch.failed?'failed':''}`}><small>CHARTER · {AGES.find(a=>a.id===ch.age)?.name.toUpperCase()}</small><h3>{charterLine(ch)}</h3>
+      {ch&&<article className={`g-mission ${ch.met?'met':ch.failed?'failed':''}`}><small>CHARTER · {AGES.find(a=>a.id===ch.age)?.name.toUpperCase()}{DIRECTIONS[ch.direction]?` · ${DIRECTIONS[ch.direction].name.toUpperCase()}`:''}</small><h3>{charterLine(ch)}</h3>{DIRECTIONS[ch.direction]&&ch.by>=city.year&&<p className="g-desc">{DIRECTIONS[ch.direction].buffLine}; the Market favours {DIRECTIONS[ch.direction].name.toLowerCase()} cards until {ch.by}.</p>}
         <div className="g-bar big"><i style={{width:`${(charterProgress(city,s)?.share||0)*100}%`}}/></div>
-        <p className="g-desc">{ch.met?`Fulfilled in ${ch.met}.`:ch.failed?`Missed in ${ch.failed}: Unrest rose.`:`By ${ch.by}. Reward: ${[ch.reward.funds&&`${full(ch.reward.funds)} coins`,ch.reward.card&&`a ${ch.reward.card} card`,ch.reward.lp&&`${ch.reward.lp} Legacy Points`].filter(Boolean).join(', ')}.`}</p></article>}
+        <p className="g-desc">{ch.met?`Fulfilled in ${ch.met}.`:ch.failed?`Missed in ${ch.failed}: no reward this time.`:`By ${ch.by}. Reward: ${[ch.reward.funds&&`${full(ch.reward.funds)} coins`,ch.reward.card&&`a ${ch.reward.card} card`,ch.reward.lp&&`${ch.reward.lp} Legacy Points`].filter(Boolean).join(', ')}.`}</p></article>}
       <h4>World Cities now · {age.name}</h4>
       <div className="g-ranks">{rank.map(r=>{const inTop=r.rank&&r.rank<=20;return <div key={r.k.id} className={inTop?'in':''}><span>{r.k.name}</span><b>{inTop?`#${r.rank}`:'Outside'}</b><small>{inTop?`${fmt(r.value)} now`:`${fmt(r.value)} · Top 20 needs ${formatRankValue(r.k.id,r.cut)}`}</small></div>;})}</div>
       <p className="g-hint">At the end of each Age your city enters the World Cities table where it stands.</p>
@@ -270,13 +272,14 @@ function CharterModal({city,onSign}){
   return <Modal label="Choose a charter">
     {age?<><small className="g-eyebrow">A NEW AGE · {age.from}</small><h2>Welcome to {age.title}</h2><p className="g-lead">{age.tagline}</p>
       {ch&&<div className="g-ageChips">{ch.landmarks.slice(0,3).map(l=><span key={l}>{l}</span>)}<span>{age.styleText.replace(/\.$/,'')}</span></div>}</>
-      :<><small className="g-eyebrow">THE TOWN IS FOUNDED · {city.year}</small><h2>Sign your first charter</h2><p className="g-lead">A goal for this Age. Meet it for a reward; miss it and Unrest rises.</p></>}
-    <h4>{age?'Choose this Age’s charter':'Choose one'}</h4>
-    <div className="g-charters">{offers.map((o,i)=><button key={i} className={`g-charter ${o.kind}`} onClick={()=>onSign(i)}>
-      <span className="g-charterTag">{o.kind==='world'?<Trophy size={13}/>:o.kind==='calling'?<Sparkles size={13}/>:<Users size={13}/>}{o.tag}</span>
+      :<><small className="g-eyebrow">THE TOWN IS FOUNDED · {city.year}</small><h2>Choose your direction</h2><p className="g-lead">For this Age: its buffs, more of its cards in the Market, and a goal with a reward.</p></>}
+    <h4>{age?'Choose this Age’s direction':'Choose one'}</h4>
+    <div className="g-charters">{offers.map((o,i)=>{const D=DIRECTIONS[o.direction];return <button key={i} className={`g-charter ${o.kind}`} style={D?{'--doc':D.color}:null} onClick={()=>onSign(i)}>
+      <span className="g-charterTag">{D?<span className="g-glyph">{D.glyph}</span>:<Users size={13}/>}{D?D.name:o.tag}<em>{o.tag}</em></span>
+      {D&&<small className="g-buff">{D.buffLine} · more {D.name.toLowerCase()} cards</small>}
       <b>{charterLine(o)}</b><small>by {o.by}</small>
       <span className="g-reward">{[o.reward.funds&&<span key="f"><Coins size={12}/>{fmt(o.reward.funds)}</span>,o.reward.card&&<span key="c">+ {o.reward.card} card</span>,o.reward.lp&&<span key="l">+{o.reward.lp} LP</span>]}</span>
-      <ArrowRight className="g-go" size={18}/></button>)}</div>
+      <ArrowRight className="g-go" size={18}/></button>;})}</div>
   </Modal>;
 }
 function CardEventModal({city,onPick}){

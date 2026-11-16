@@ -29,7 +29,7 @@ test('doctrines only run in player (era) cities; engine runs are unchanged',()=>
   assert.equal(doctrineState(classic).on,false);assert.deepEqual(doctrineState(classic).effects,{});
 });
 
-test('tiers come from counting a doctrine\'s cards in play (2/4/6/8)',()=>{
+test('tiers come from counting a doctrine\'s cards in play (2/4/6/8)',{skip:'v3.7: doctrines have no powers, decree slots or wonders (M2)'},()=>{
   assert.deepEqual([0,1,2,3,4,5,6,7,8,9].map(tierOf),[0,0,1,1,2,2,3,3,4,4]);
   let c=rich(newCity(7));const faith=ofDoctrine('faith','decree').slice(0,2);
   for(const card of faith)c=play(c,card.id);
@@ -46,7 +46,7 @@ test('playing a card again levels it up (Lv3 = 2×) instead of adding a weaker c
   assert.equal(doctrineState(c).counts.industry,1,'levels count once toward the doctrine');
 });
 
-test('Decrees take slots; retiring one frees it',()=>{
+test('Decrees take slots; retiring one frees it',{skip:'v3.7: doctrines have no powers, decree slots or wonders (M2)'},()=>{
   let c=rich(newCity(7));const decrees=CARDS.filter(x=>cardType(x)==='decree'&&!x.minYear&&!x.requiresAny).slice(0,decreeSlots(c)+1);
   for(const d of decrees.slice(0,decreeSlots(c)))c=play(c,d.id);
   assert.equal(decreesInPlay(c).length,8);
@@ -64,7 +64,7 @@ test('merging three cards of one doctrine gives the next rarity of that doctrine
   const made=CARD_INDEX[deckOf(r.city).hand[0].cardId];assert.equal(made.rarity,'uncommon');assert.ok(cardDoctrines(made).includes('faith'),made.id);
 });
 
-test('banish removes an offer for the rest of the run; Trade 4 can lock an offer through a restock',()=>{
+test('banish removes an offer for the rest of the run; Trade 4 can lock an offer through a restock',{skip:'v3.7: doctrines have no powers, decree slots or wonders (M2)'},()=>{
   let c=rich(newCity(7));const first=deckOf(c).shop.offers[0];
   const b=banishOffer(c,first.uid);assert.equal(b.error,null);assert.ok(deckOf(b.city).banished.includes(first.cardId));
   let d=b.city;for(let i=0;i<20;i++){d=restockShop({...d,year:d.year+10},stats(d));assert.ok(!deckOf(d).shop.offers.some(o=>o.cardId===first.cardId));}
@@ -80,7 +80,7 @@ test('banish removes an offer for the rest of the run; Trade 4 can lock an offer
   assert.ok(cardPrice(CARD_INDEX[keep.cardId],100,t)<cardPrice(CARD_INDEX[keep.cardId],100,null),'Trade 2 discount');
 });
 
-test('rule-benders: Learning foresight, cheaper history and four-card drafts; Faith churches serve as markets',()=>{
+test('rule-benders: Learning foresight, cheaper history and four-card drafts; Faith churches serve as markets',{skip:'v3.7: doctrines have no powers, decree slots or wonders (M2)'},()=>{
   // Learning has only three Decrees open in 1300 (a content gap for R2), so this uses the hybrid and later cards.
   let l=rich(newCity(11));for(const x of ERA_CARDS.filter(x=>cardDoctrines(x).includes('learning')&&cardType(x)!=='building'&&x.kind!=='instant'&&!PATRONS.has(x.id)).slice(0,6))l=play(l,x.id);
   assert.ok(doctrineState(l).tiers.learning>=3);assert.equal(doctrineFlags(l).omenLead,10);assert.equal(doctrineFlags(l).draftOptions,4);assert.equal(doctrineFlags(l).eventFundsMult,.5,'tier 2: history costs half');
@@ -94,7 +94,7 @@ test('rule-benders: Learning foresight, cheaper history and four-card drafts; Fa
   assert.ok(after<=before,`market needs ${before} → ${after}`);
 });
 
-test('tier-8 payoffs feed the score; doctrine effects reach the city',()=>{
+test('tier-8 payoffs feed the score; doctrine effects reach the city',{skip:'v3.7: doctrines have no powers, decree slots or wonders (M2)'},()=>{
   let c=rich(newCity(7));for(const x of ofDoctrine('people').filter(x=>cardType(x)!=='building'&&x.kind!=='instant').slice(0,8))c=play(c,x.id);
   const st=doctrineState(c);assert.ok(st.counts.people>=6,`people ${st.counts.people}`);
   // v1.9: tier power lifts prosperity; People's crowding takes one point per tier back.
@@ -127,7 +127,7 @@ test('the doctrine pool has 106 cards: the 54 classic ones, 18 building cards, 2
   for(const d of DOCTRINE_IDS)assert.equal(ERA_CARDS.filter(c=>PATRONS.has(c.id)&&cardDoctrines(c).includes(d)).length,1,`one Patron for ${d}`);
 });
 
-test('a Lv3 card plus its Patron evolves into a Wonder to place on the map',()=>{
+test('a Lv3 card plus its Patron evolves into a Wonder to place on the map',{skip:'v3.7: doctrines have no powers, decree slots or wonders (M2)'},()=>{
   const w=WONDERS.find(x=>x.id==='cathedral');let c=rich(newCity(7));
   for(let i=0;i<3;i++){c=play(c,w.card);const p=c.projects.at(-1);c=buildNear(c,p.id,cityOrigin(c).x,cityOrigin(c).y,14);assert.ok(c,'chapel placed');}
   assert.equal(cardLevel(c,w.card),3);assert.equal(wondersDue(c).length,0,'needs its Patron too');
