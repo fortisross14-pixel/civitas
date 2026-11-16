@@ -13,7 +13,7 @@ const DRAG_TOOLS=new Set([...Object.keys(ZONES),'erase','demolish']);
 const SELECTION_STYLE={erase:['#7a7464','#7a746426'],demolish:['#a2513f','#b8604a2e']};
 export const CAPTION_MS=7000;
 
-export function CityMap({city,tool,layer,onZone,onPlace,onInspect,onMarker=null,score=null,selectedId=null,readOnly=false,previewRing=null,describeSelection=null,captions=[],animate=false,population=0,archiveYear=null,minimal=false,pendingRect=null,pendingPoint=null}){
+export function CityMap({city,tool,layer,onZone,onPlace,onInspect,onMarker=null,score=null,selectedId=null,readOnly=false,previewRing=null,describeSelection=null,captions=[],animate=false,population=0,archiveYear=null,minimal=false,lens=null,pendingRect=null,pendingPoint=null}){
   const canvas=useRef(null),drag=useRef(null),view=useRef({zoom:1,dx:0,dy:0});
   const [dimensions,setDimensions]=useState({width:600,height:500}),[frame,setFrame]=useState(0),[selection,setSelection]=useState(null),[hover,setHover]=useState(null),[tick,setTick]=useState(0);
   const [showLegend,setShowLegend]=useState(()=>typeof window==='undefined'||window.innerWidth>760);
@@ -52,10 +52,10 @@ export function CityMap({city,tool,layer,onZone,onPlace,onInspect,onMarker=null,
     // v3.1: the organic map grows toward the city's year a few milliseconds per frame.
     const organic=minimal&&!!city.center,behind=organic&&!organicSync(city,12);
     const [line,fill]=SELECTION_STYLE[tool]||['#3c6d57','#3c895231'];
-    drawCity(ctx,city,width,height,{organic,view:view.current,maxStaleMs:animate?350:0,layer,selectedId,previewRing:readOnly?null:previewRing,bridgePreview,urbanPreview,
+    drawCity(ctx,city,width,height,{organic,lens:organic?lens:null,view:view.current,maxStaleMs:animate?350:0,layer,selectedId,previewRing:readOnly?null:previewRing,bridgePreview,urbanPreview,
       cartouche:!minimal&&(!!archiveYear||window.innerWidth<=760),selection:selection?{...selection,line,fill}:pendingRect?{...pendingRect,line,fill}:null,hover:aim,placing:tool.startsWith('place:')&&!readOnly,placingCenter:tool==='place:center'&&!readOnly,site,captions:caps,now,population,archiveYear,score:archiveYear?null:score});
     if(behind){const id=requestAnimationFrame(redraw);return()=>cancelAnimationFrame(id);}
-  },[city,layer,selection,pendingRect,pendingPoint,dimensions,frame,hover,tool,readOnly,previewRing,bridgePreview,site,selectedId,tick,captions,population,archiveYear]);
+  },[city,layer,lens,selection,pendingRect,pendingPoint,dimensions,frame,hover,tool,readOnly,previewRing,bridgePreview,site,selectedId,tick,captions,population,archiveYear]);
 
   const dragTool=DRAG_TOOLS.has(tool);
   // v1.5: two-finger pinch zooms and pans in any tool; it cancels a drag in progress.

@@ -7,7 +7,7 @@
 import {W,H,ZONES,terrain,zoneCell,styleAt,cityOrigin,homeLand,cityFields,districtDetails,wallPolygon,wallSegments} from './sim.js';
 import {hash,rand,valueNoise,waterGrid,clamp} from './geo.js';
 import {ageAt} from './ages.js';
-import {organicDraw,organicVersion} from './organic/index.js';
+import {organicDraw,organicVersion,organicLens,organicLabels} from './organic/index.js';
 
 export const DISTRICT_COLORS=['#b5835a','#6f8f9c','#9b8a4e','#8a6f9b','#6f9a7a','#a8706c','#7d8bb0','#a59267','#5f8c8c','#9c7a8a','#87955f','#b08a7a'];
 const PAPER='#e9e0c6',LAND='#d9d3ad',FIELD_LINE='rgba(150,146,104,.45)',HEDGE='rgba(120,128,88,.55)';
@@ -451,7 +451,7 @@ function staticCache(ctx,city,width,height,opts,layer){
   // The frame key (size, transform, view, layer, city identity) must match exactly;
   // the content key (buildings, streets…) may lag by opts.maxStaleMs while the
   // clock runs, so a growing town is not redrawn from scratch every frame.
-  const frameKey=[canvas.width,canvas.height,t.a,t.d,t.e,t.f,width,height,v.zoom,v.dx,v.dy,layer,city.id,city.type,city.seed,opts.archiveYear||0].join('|');
+  const frameKey=[canvas.width,canvas.height,t.a,t.d,t.e,t.f,width,height,v.zoom,v.dx,v.dy,layer,opts.lens||'',city.id,city.type,city.seed,opts.archiveYear||0].join('|');
   let entry=STATIC_CACHE.get(canvas);
   if(!entry){const c=document.createElement('canvas');entry={canvas:c,ctx:c.getContext('2d'),key:null};STATIC_CACHE.set(canvas,entry);}
   if(entry.canvas.width!==canvas.width||entry.canvas.height!==canvas.height){entry.canvas.width=canvas.width;entry.canvas.height=canvas.height;entry.key=null;}
@@ -477,7 +477,7 @@ export function drawCity(ctx,city,width,height,opts={}){
     // v3.1: the organic map draws the land, streets, plots and houses; the grid stays underneath, unseen.
     if(opts.organic){const yr=opts.archiveYear||city.year;organicDraw(ctx,city,yr,'ground');const water=waterLayer(city.type);if(water)ctx.drawImage(water,0,0,W,H);
       if(layer==='zones')for(let y=0;y<H;y++)for(let x=0;x<W;x++){const type=zoneCell(city,x,y);if(type){ctx.fillStyle=ZONES[type].color+'55';ctx.fillRect(x,y,1,1);}}
-      organicDraw(ctx,city,yr,'features');}
+      organicDraw(ctx,city,yr,'features');if(opts.lens)organicLens(ctx,city,opts.lens);}
     else{
     const fields=fieldsLayer(city.type,city.seed,fieldEpoch(opts.archiveYear||city.year||1300));if(fields){ctx.imageSmoothingEnabled=true;ctx.drawImage(fields,0,0,W,H);}
     // Zoning: a wash on the zoning layer, a whisper on the urban map.
@@ -637,6 +637,9 @@ export function drawCity(ctx,city,width,height,opts={}){
     const n=Math.min(spots.length,Math.min(18,2+Math.floor(trade/18)));
     for(let i=0;i<n;i++){const s=spots[i],bob=Math.sin(now/1700+i)*.12;boat(ctx,s.x+bob,s.y+Math.cos(now/2100+i)*.08,s.h*Math.PI,city.year>=1850&&i%3===0);}}
   if(city.center)townCenter(ctx,city.center,layer,1,warp(city.center.x+.5,city.center.y+.5));
+  // v3.2: names of the places the city made (plazas, parks, museums).
+  if(opts.organic){ctx.save();ctx.textAlign='center';ctx.textBaseline='middle';const fs=Math.max(.9,Math.min(1.6,11/scale));ctx.font=`italic ${fs}px Georgia,serif`;ctx.lineWidth=fs*.28;ctx.strokeStyle='rgba(246,239,220,.9)';ctx.fillStyle='#4a3828';
+    for(const l of organicLabels(city,opts.archiveYear||city.year)){ctx.strokeText(l.text,l.x,l.y);ctx.fillText(l.text,l.x,l.y);}ctx.restore();}
   // Interaction overlays.
   for(const b of city.buildings||[]){
     if(!(b.protected&&layer==='heritage')&&opts.selectedId!==b.id)continue;

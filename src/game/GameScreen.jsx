@@ -24,6 +24,7 @@ import {charterLine,charterProgress,CHARTER_STATS} from '../charters.js';
 import {SCENARIO_INDEX,GOAL_STATS,goalTarget,goalText} from '../scenarios.js';
 import {RANK_CATEGORIES,worldTable,formatRankValue} from '../worldRankings.js';
 import {HistoricalChart} from '../chronicleUI.jsx';
+import {organicLiving} from '../organic/index.js';
 import {RARITY_LABEL} from '../cards.js';
 import './game.css';
 
@@ -212,7 +213,8 @@ function DetailsSheet({city,s,tab,setTab,onClose,legacy,onGuide}){
     </div>;
   }else if(tab==='city'){
     const rev=annualRevenue(city,s,cityEffects(city)),cost=annualExpenses(city,s);
-    const rows=[['Population',full(s.population)],['Prosperity',`${s.prosperity}/100`],['Unemployment',`${s.unemployment}%`],['Homes full',`${s.housingPressure}%`],['Treasury',full(city.funds)],['Net per year',`${rev.total-cost.total>=0?'+':'−'}${full(Math.abs(rev.total-cost.total))}`],['Industry jobs',full(s.sectorJobs?.craft||0)],['Faith',full(s.religiousInfluence)],['Culture',full(s.culturalPrestige)],['Learning',full(s.educationIndex)],['Unrest',`${Math.round(city.unrest||0)}/${RUIN_AT}`],['Buildings',full(s.buildings)]];
+    const liv=organicLiving(city);
+    const rows=[['Population',full(s.population)],...(liv?[['Standard of living',`${liv.sol}/100`],['Land value',`${liv.value}/100`]]:[]),['Prosperity',`${s.prosperity}/100`],['Unemployment',`${s.unemployment}%`],['Homes full',`${s.housingPressure}%`],['Treasury',full(city.funds)],['Net per year',`${rev.total-cost.total>=0?'+':'−'}${full(Math.abs(rev.total-cost.total))}`],['Industry jobs',full(s.sectorJobs?.craft||0)],['Faith',full(s.religiousInfluence)],['Culture',full(s.culturalPrestige)],['Learning',full(s.educationIndex)],['Unrest',`${Math.round(city.unrest||0)}/${RUIN_AT}`],['Buildings',full(s.buildings)]];
     body=<div className="g-list"><div className="g-chart"><HistoricalChart city={city} metric="population" height={120}/></div><div className="g-stats">{rows.map(([k,v])=><div key={k}><span>{k}</span><b>{v}</b></div>)}</div></div>;
   }else{
     const ev=[...city.events].filter(e=>e.text&&!['shop'].includes(e.type)).slice(-60).reverse();
@@ -273,7 +275,8 @@ export function GameScreen(c){
   const [sheet,setSheet]=useState(null),[tabs,setTabs]=useState({build:'hand',govern:'needs',details:'mission'}),[zone,setZone]=useState(null);
   const tab=k=>tabs[k],setTab=k=>v=>setTabs(t=>({...t,[k]:v}));
   const open=(k,t)=>{setSheet(k);if(t)setTabs(x=>({...x,[k]:t}));};
-  const [toast,setToast]=useState(null),[guide,setGuide]=useState(false);
+  const [toast,setToast]=useState(null),[guide,setGuide]=useState(false),[lens,setLens]=useState(null);
+  const LENSES=[[null,'Plan'],['value','Land value'],['sol','Living']];
   useEffect(()=>{if(city.charter&&!city.scenario?.id&&!guideSeen())setGuide(true);},[!!city.charter]);
   useEffect(()=>{if(!c.message)return;setToast(c.message);const id=setTimeout(()=>setToast(null),4200);return()=>clearTimeout(id);},[c.message]);
   const tool=c.tool,placing=tool.startsWith('place:'),zoning=!!zone;
@@ -291,7 +294,7 @@ export function GameScreen(c){
   const zones=Object.entries(ZONES).filter(([k])=>k!=='hotel'||tourismUnlocked(city));
   const b=c.selectedBuilding;
   return <div className="g3">
-    <div className="g-map"><CityMap minimal city={city} tool={ro?'inspect':tool} layer={zoning?'zones':sheet==='govern'&&tab('govern')==='needs'?'needs':'urban'} onZone={(rect,type)=>setPend({rect,type})} onPlace={(id,x,y)=>setPend({id,x,y})} pendingRect={pend?.rect||null} pendingPoint={pend&&!pend.rect?{x:pend.x,y:pend.y}:null} onInspect={c.onInspect} onMarker={()=>open('govern','needs')} selectedId={b?.id} animate={c.simulating} captions={c.captions} population={s.population}
+    <div className="g-map"><CityMap minimal lens={zoning?null:lens} city={city} tool={ro?'inspect':tool} layer={zoning?'zones':sheet==='govern'&&tab('govern')==='needs'?'needs':'urban'} onZone={(rect,type)=>setPend({rect,type})} onPlace={(id,x,y)=>setPend({id,x,y})} pendingRect={pend?.rect||null} pendingPoint={pend&&!pend.rect?{x:pend.x,y:pend.y}:null} onInspect={c.onInspect} onMarker={()=>open('govern','needs')} selectedId={b?.id} animate={c.simulating} captions={c.captions} population={s.population}
       describeSelection={(r,t)=>{if(!ZONES[t])return t==='erase'?'Erase zoning':t==='demolish'?'Demolish':null;const {cells,cost}=zoningCost(city,r.x,r.y,r.w,r.h);return cells?`${cells} parcels · ${full(cost)}${cost>city.funds?' · not enough coins':''}`:'Rezoning is free';}}/></div>
 
     <div className="g-top">
@@ -304,6 +307,8 @@ export function GameScreen(c){
       </div>
       <SpeedBubble running={c.simulating} speed={c.clockSpeed} disabled={ro||blocking||city.awaitingCenter} onPause={c.stopSimulation} onRun={c.runClock}/>
     </div>
+    {!placing&&!zoning&&<button className={`g-lens ${lens?'on':''}`} onClick={()=>setLens(l=>LENSES[(LENSES.findIndex(x=>x[0]===l)+1)%LENSES.length][0])} aria-label="Change map lens"><span className="g-lensDot" data-l={lens||'plan'}/>{LENSES.find(x=>x[0]===lens)[1]}</button>}
+    {lens&&!placing&&!zoning&&<div className="g-lensKey">{lens==='value'?<><i style={{background:'rgba(170,100,60,.35)'}}/>cheap<i style={{background:'rgba(250,50,30,.65)'}}/>dear</>:<><i style={{background:'rgba(120,60,130,.55)'}}/>poor<i style={{background:'rgba(60,140,80,.6)'}}/>good</>}</div>}
     {!placing&&!zoning&&<div className="g-chips"><GoalChip city={city} s={s} onOpen={()=>open('details','mission')}/></div>}
 
     {toast&&!placing&&!blocking&&!sheet&&!zoning&&<div className="g-toast" role="status" onClick={()=>setToast(null)}>{toast}</div>}

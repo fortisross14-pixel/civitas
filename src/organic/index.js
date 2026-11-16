@@ -19,3 +19,7 @@ export function organicSync(city,ms=14){if(!city.center)return true;return organ
 // Draw in grid-cell coordinates (the caller's transform): the engine works in world units.
 export function organicDraw(ctx,city,year=city.year,part='all'){const e=organicFor(city);ctx.save();ctx.scale(1/K,1/K);e.draw(ctx,Math.min(year,e.year),part);ctx.restore();}
 export const organicVersion=city=>{const e=engines.get(city.id)?.engine;return e?`${e.year}|${e.stats().houses}`:'0';};
+export function organicLens(ctx,city,kind){const e=organicFor(city);ctx.save();ctx.scale(1/K,1/K);e.lens(ctx,kind);ctx.restore();}
+// Place names (plazas, parks, museums) in grid-cell coordinates.
+export function organicLabels(city,year=city.year){const e=engines.get(city.id)?.engine;return e?e.labels(Math.min(year,e.year)).map(l=>({...l,x:l.x/K,y:l.y/K})):[];}
+export function organicLiving(city){const e=engines.get(city.id)?.engine;return e?e.living():null;}
