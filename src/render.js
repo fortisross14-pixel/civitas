@@ -478,7 +478,7 @@ export function drawCity(ctx,city,width,height,opts={}){
     // v3.1: the organic map draws the land, streets, plots and houses; the grid stays underneath, unseen.
     if(opts.organic){const yr=opts.archiveYear||city.year;organicDraw(ctx,city,yr,'ground');const water=waterLayer(city.type);if(water)ctx.drawImage(water,0,0,W,H);
       if(layer==='zones')for(let y=0;y<H;y++)for(let x=0;x<W;x++){const type=zoneCell(city,x,y);if(type){ctx.fillStyle=ZONES[type].color+'55';ctx.fillRect(x,y,1,1);}}
-      organicDraw(ctx,city,yr,'features');if(opts.lens==='traffic')trafficLens(ctx,city);else if(opts.lens)organicLens(ctx,city,opts.lens);}
+      organicDraw(ctx,city,yr,'features',opts.lens==='traffic'?{traffic:true}:null);if(opts.lens&&opts.lens!=='traffic')organicLens(ctx,city,opts.lens);}
     else{
     const fields=fieldsLayer(city.type,city.seed,fieldEpoch(opts.archiveYear||city.year||1300));if(fields){ctx.imageSmoothingEnabled=true;ctx.drawImage(fields,0,0,W,H);}
     // Zoning: a wash on the zoning layer, a whisper on the urban map.

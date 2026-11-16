@@ -4,7 +4,7 @@
 // runs on the grid (src/sim.js); this module only reads the city.
 // Engine code comes from prototypes/ages.html (one unit ≈ 4 m; K units per grid cell).
 /* eslint-disable */
-import {FORMS,formOf} from '../zoning.js';
+import {FORMS,formOf,formAtYear} from '../zoning.js';
 export function createOrganic(cfg){
 'use strict';
 const SEED=cfg.seed|0,WW=cfg.W,WH=cfg.H,K=cfg.K,Y0=1300;
@@ -395,6 +395,8 @@ function syncRaster(){
   // What has gone: plots, places, public buildings, walls.
   for(let i=rLive.length-1;i>=0;i--){const pl=rLive[i];if(aliveO(pl))continue;for(const k of pl.cells)if(OCC[k]===pl.id+1)OCC[k]=0;pl.cells=null;rLive.splice(i,1);reachDirty=true;}
   for(const o of [...places,...landmarks,...walls])if(o.cells&&!aliveO(o)){const v=o.cv;for(const k of o.cells)if(OCC[k]===v)OCC[k]=0;o.cells=null;reachDirty=true;}
+  // Widened streets claim their new width once the houses in the way are gone.
+  for(const p of paths)if(p.rerast){p.rerast=false;for(let s2=0;s2<=p.len;s2+=.4){const a=at(p,s2);markDisc(a.x,a.y,p.hw+.25,-2);}reachDirty=true;}
   // What is new.
   for(;rPaths<paths.length;rPaths++){const p=paths[rPaths];if(!aliveP(p)||p.kind==='edge')continue;const r=p.hw+.25,v=p.kind==='rail'?-1:-2;for(let s=0;s<=p.len;s+=.4){const a=at(p,s);markDisc(a.x,a.y,r,v);}reachDirty=true;}
   for(;rPlaces<places.length;rPlaces++){const pl=places[rPlaces];if(!aliveO(pl))continue;pl.cells=[];pl.cv=-2;cellsIn(pl.poly,k=>{if(OCC[k]===0){OCC[k]=-2;pl.cells.push(k);}});}
@@ -570,16 +572,21 @@ function gridZone(z,poly){const [cx,cy]=centre(poly),road=nearPath(cx,cy,80,null
   const g=surveyGrid(cx-(nx*bw/2)*c-(ny*bh/2)*s,cy-(nx*bw/2)*s+(ny*bh/2)*c,ang,nx,ny,bw,bh,null,{dir:-1,rate:1.4,style:big?'brick':'classical',square:nx>=3&&ny>=2&&!big?[1,1]:null});g.use=z.type;return g;}
 function feed(city){
   // Roads first: the game's main roads, smoothed.
-  const routes=city.routes||[];for(;fed.routes<routes.length;fed.routes++){const r=routes[fed.routes];if(!r.cells?.length)continue;const pts=chaikin(r.cells.map(([x,y])=>[(x+.5)*K,(y+.5)*K]),3);if(pts.length>=2)addPath(pts,'road');}
+  const routes=city.routes||[];for(;fed.routes<routes.length;fed.routes++){const r=routes[fed.routes];if(!r.cells?.length)continue;const pts=chaikin(r.cells.map(([x,y])=>[(x+.5)*K,(y+.5)*K]),3);if(pts.length>=2){const p=addPath(pts,r.cls==='ringroad'?'avenue':'road',r.cls==='ringroad'?{hw:1.6,name:'the Ring Road'}:{});if(r.cls==='ringroad')p.ringroad=true;}}
   // Zones painted by this year.
   (city.zones||[]).forEach((z,i)=>{const born=Number(z.year)||Y0;if(born>Y||fed.zones.has(i))return;fed.zones.set(i,null);
     if(z.type==='clear'){const x0=z.x*K,y0=z.y*K,x1=(z.x+z.w)*K,y1=(z.y+z.h)*K;for(const o of zones)if(aliveO(o)&&o.cx>=x0&&o.cx<=x1&&o.cy>=y0&&o.cy<=y1)o.died=Y;return;}
-    const poly=cellPoly(z),fid=formOf(z),F=FORMS[fid]||{};let o;
+    const poly=cellPoly(z),fid=formAtYear(z,Y),F=FORMS[fid]||{};let o;
     if(z.type==='farm')o=addZone(poly,'village',null,{use:z.type,rate:.4,lay:{width:()=>3.6+rnd()*2.4,depth:11,gapEvery:22}});
     else if(F.regular)o=regularZone(z,poly,F);
     else o=addZone(poly,'town',null,{use:z.type,rate:1});
     formZone(o,fid,F);markRezoned(o);
     if(o.kind==='town')town.push(o);const w=walls.find(w=>aliveO(w));if(w&&o.kind==='town'&&inPoly(o.cx,o.cy,w.poly))o.wall={poly:w.poly,inside:true};fed.zones.set(i,o);});
+  // A zone that changed form with a new Age: new plots follow the new form, old ones turn over.
+  (city.zones||[]).forEach((z,i)=>{if(!z.formHist)return;const o=fed.zones.get(i);if(!o)return;const f=formAtYear(z,Y);if(f===o.form)return;const F=FORMS[f]||{};
+    const oldB=o.b||'house';o.form=f;o.lot=F.lot||null;o.b=F.b||null;o.detached=F.detached||0;o.dvr=F.dv||null;o.curve=!!F.curve;o.use=F.type||o.use;
+    if(F.regular&&!o.regular){const a=nearPath(o.cx,o.cy,80,null,true),t=a.p?at(a.p,nearestS(a.p,[o.cx,o.cy])):{tx:1,ty:0};o.regular={ang:Math.atan2(t.ty,t.tx),block:F.regular.block,S:F.regular.S};}
+    if((F.b||'house')!==oldB)for(const pl of plots)if(pl.zone===o&&aliveO(pl)){if(pl.built)pl.conv=o;else pl.died=Y;}});
   // Before anyone zones, the town grows around its centre (as the game's informal growth does).
   const tgt=target(city,Y);
   // The founding hamlet round the centre; after that the town grows only on zoned land.
@@ -690,6 +697,10 @@ function applyHeritage(city){const H=city.heritage||{};let any=false;
       else if(o==='sell'){m.died=Y;}
       else if(o==='front'){m.name=nm;const pl=addPath([[m.x-14,m.y],[m.x+14,m.y]],'promenade',{hw:.8});pl.name=null;}
       else if(nm)m.name=nm;}
+    else if(k==='oldtown'){const ot=city.oldtown;if(!ot||o==='pedestrian')continue;const cx=ot.cx*K,cy=ot.cy*K,R=ot.r*K;
+      // Avenues cut through the old town along its old roads: wider, and the houses in the way come down.
+      for(const p of paths){if(!aliveP(p)||(p.kind!=='road'&&p.kind!=='street')||!p.pts.some(([x,y])=>Math.hypot(x-cx,y-cy)<R))continue;p.hw=1.7;p.kind='avenue';p.name=p.name||'the New Avenue';
+        for(let s2=0;s2<=p.len;s2+=1){const a=at(p,s2);if(Math.hypot(a.x-cx,a.y-cy)>R+4)continue;plotBins.near(a.x-3,a.y-3,a.x+3,a.y+3,pl=>{if(aliveO(pl)&&(inQuad(a.x,a.y,pl.pts)||edgeDist(a.x,a.y,pl.pts)<2.1))pl.died=Y;});}p.rerast=true;}}
     else if(k==='palace'){const pl=plots.find(q=>q.id===+ref&&aliveO(q));if(!pl)continue;
       if(o==='museum'||o==='offices'){pl.died=Y;const [cx,cy]=centre(pl.pts);addLandmark(o==='museum'?'museum':'ministry',cx,cy,0,{pull:1,reach:12,name:nm,parts:[{abs:true,poly:grow(pl.pts,-.3)},{abs:true,poly:grow(pl.pts,-1.6),tone:'court'}]});}
       else if(o==='flats'){setState(pl,{b:'house',style:STYLE_BY_YEAR(Y),dv:.85,built:Y,gap:0,plan:1});}}}
@@ -784,7 +795,14 @@ function paving(year,live){if(typeof document==='undefined')return null;const ke
     for(let px=0;px<cw;px++){const fx=px/S-.5,i=Math.max(0,Math.min(RW-2,Math.floor(fx))),tx=Math.max(0,Math.min(1,fx-i)),k=j*RW+i;
       const v=(f(k)*(1-tx)+f(k+1)*tx)*(1-ty)+(f(k+RW)*(1-tx)+f(k+RW+1)*tx)*ty;if(v<=0)continue;const o=(py*cw+px)*4;d[o]=pc[0];d[o+1]=pc[1];d[o+2]=pc[2];d[o+3]=v>.35?255:Math.round(v/.35*255);}}
   gg.putImageData(img,0,0);pave=c;return c;}
-function drawWorld(ctx,year,part='all'){g=ctx;const saveY=Y;Y=year;g.lineJoin='round';g.lineCap='round';
+// Streets coloured by a field (the traffic lens): the paving, tinted cell by cell, under the houses.
+let tintC=null,tintK='';
+function tinted(tint,pv){const key=tint.key+'|'+paveKey;if(tintC&&tintK===key)return tintC;tintK=key;
+  const sm=document.createElement('canvas');sm.width=RW;sm.height=RH;const sg=sm.getContext('2d'),img=sg.createImageData(RW,RH),d=img.data;
+  for(let j=0;j<RH;j++)for(let i=0;i<RW;i++){const c=tint.at((i+.5)*RC,(j+.5)*RC);if(!c)continue;const o=(j*RW+i)*4;d[o]=c[0];d[o+1]=c[1];d[o+2]=c[2];d[o+3]=c[3];}
+  sg.putImageData(img,0,0);const c=document.createElement('canvas');c.width=pv.width;c.height=pv.height;const cg=c.getContext('2d');cg.imageSmoothingEnabled=true;cg.drawImage(sm,0,0,c.width,c.height);
+  cg.globalCompositeOperation='destination-in';cg.drawImage(pv,0,0);return tintC=c;}
+function drawWorld(ctx,year,part='all',opts=null){g=ctx;const saveY=Y;Y=year;g.lineJoin='round';g.lineCap='round';
   if(part!=='features'){if(!ground)ground=paintGround();if(ground){g.imageSmoothingEnabled=true;g.drawImage(ground,0,0,WW,WH);}if(part==='ground'){Y=saveY;return;}}
   const live=plots.filter(p=>p.born<=year&&(p.died==null||p.died>year));
   // Woods outside the town.
@@ -797,7 +815,7 @@ function drawWorld(ctx,year,part='all'){g=ctx;const saveY=Y;Y=year;g.lineJoin='r
     if(p.kind==='rail'){line(p.pts,.9,'#3b2f27');g.setLineDash([.6,.6]);line(p.pts,.45,'#efe6cf');g.setLineDash([]);continue;}
     const w=p.hw*2;line(p.pts,w+.32,'rgba(92,74,52,.55)');line(p.pts,w,PAPER);}
   // The paving: inside the town the streets are one surface, edged by the blocks.
-  {const pv=paving(year,live);if(pv){g.imageSmoothingEnabled=true;g.drawImage(pv,0,0,RW*RC,RH*RC);}}
+  {const pv=paving(year,live);if(pv){g.imageSmoothingEnabled=true;g.drawImage(pv,0,0,RW*RC,RH*RC);if(opts?.tint)g.drawImage(tinted(opts.tint,pv),0,0,RW*RC,RH*RC);}}
   for(const p of paths)if(aliveP(p)&&p.kind==='canal'){line(p.pts,1.3,'#8fb0ad');line(p.pts,.5,'#a9c6c4');}
   // Gardens and crofts behind the houses.
   for(const pl of live){poly(pl.pts);g.fillStyle=GARDEN;g.fill();g.lineWidth=.1;g.strokeStyle=GARDEN_EDGE;g.stroke();}
@@ -835,7 +853,7 @@ return {
       const m=addLandmark('market',C0[0],C0[1],0,{pull:1.25,reach:16,name:null,clear:marketPlace(C0,paths.filter(p=>p.kind==='road'&&Math.hypot(at(p,nearestS(p,C0)).x-C0[0],at(p,nearestS(p,C0)).y-C0[1])<4),4.2),placeKind:'market'});
       const mp=places.at(-1).poly,ep=addPath([...mp,mp[0]],'edge',{hw:.05});const z0=zoneAt(C0[0],C0[1]-6)||fed.implicit;if(z0)for(const sd of [1,-1])layRow(ep,sd,.5,ep.len-.5,z0,{width:()=>1.7+rnd()*.7,depth:6,noGaps:true});}
     const end=city.year,t0=(typeof performance!=='undefined'?performance:Date).now();while(Y<end){yearStep(city);Y++;if((typeof performance!=='undefined'?performance:Date).now()-t0>ms)break;}if(Y>=end)applyHeritage(city);return Y>=end;},
-  draw(ctx,year,part){drawWorld(ctx,year,part);},
+  draw(ctx,year,part,opts){drawWorld(ctx,year,part,opts);},
   // Sites the player may decide on (world units), and a version that changes when a decision lands.
   sites(){return mapSites();},
   get version(){return ver;},

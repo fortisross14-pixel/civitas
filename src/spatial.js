@@ -100,17 +100,25 @@ function computeSpatial(city,effects,policies){
   for(const b of city.buildings)if(WELL_OFF.has(b.form)){const x=Math.floor(b.x),y=Math.floor(b.y);if(within(x,y))value[key(x,y)]+=.6;}
   // v3.4 traffic: workers who cannot walk to a job drive (from 1900), and the streets carry them.
   // Narrow old streets carry little; main roads, rings and boulevards carry much.
-  let cars=carShare(year);for(const b of city.buildings)if(TRANSIT[b.special])cars-=TRANSIT[b.special];cars=Math.max(0,cars);
+  const cars=carShare(year);
+  // Stations and transit hubs: homes within reach take the train or tram instead.
+  const transitF=new Float32Array(CELLS);for(const b of city.buildings)if(TRANSIT[b.special]&&!b.vacant)stamp(transitF,Math.floor(b.x),Math.floor(b.y),b.special==='transit_hub'?12:9,1.4);
+  // The old town (its walls, or the first streets): closed to cars, or cut through by avenues.
+  const ot=city.oldtown||((city.walls||[])[0]?{cx:city.walls[0].cx,cy:city.walls[0].cy,r:city.walls[0].r}:city.center?{cx:city.center.x+.5,cy:city.center.y+.5,r:9}:null);
+  const inCore=(x,y)=>ot&&Math.hypot(x+.5-ot.cx,y+.5-ot.cy)<=ot.r,mode=city.oldtown?.mode;
   const traffic=new Float32Array(CELLS);let trips=0;
   if(cars>0)for(const b of city.buildings){if(b.type!=='res'||b.vacant)continue;const x=Math.floor(b.x),y=Math.floor(b.y);if(!within(x,y))continue;const k=key(x,y),workers=(b.capacity||8*POP_SCALE)/POP_SCALE*.44;
-    const walk=Math.min(1,jobsF[k]/Math.max(1,homesF[k]*.44));const t=workers*(1-walk*.85)*cars;trips+=t;traffic[k]+=t*.2;}
+    const walk=Math.min(1,jobsF[k]/Math.max(1,homesF[k]*.44));const t=workers*(1-walk*.85)*cars*(1-.65*Math.min(1,transitF[k]))*(mode==='pedestrian'&&inCore(x,y)?.15:1);trips+=t;traffic[k]+=t*.2;}
   if(cars>0)traffic.set(boxSum(traffic,3));
   // Trips also crowd the streets where the jobs are.
   if(trips>0){let J=0;for(let k=0;k<CELLS;k++)J+=jobsF[k];if(J>0)for(let k=0;k<CELLS;k++)traffic[k]+=jobsF[k]/J*trips*6;}
   const cap=new Float32Array(CELLS);let capacity=0;
-  for(const r of city.roads||[]){if(!Number.isFinite(r.x))continue;const c=r.cls==='main'||r.cls==='ring'||r.pattern==='boulevard'?4:r.cls==='bridge'?3:(r.born||1300)<1700?.5:1.2;cap[key(r.x,r.y)]+=c;capacity+=c;}
+  for(const r of city.roads||[]){if(!Number.isFinite(r.x))continue;const old=(r.born||1300)<1700,c=r.cls==='ringroad'?6:r.cls==='main'||r.cls==='ring'||r.pattern==='boulevard'?4:r.cls==='bridge'?3:old&&(mode==='avenues'||mode==='rebuild')&&inCore(r.x,r.y)?3:old?.5:1.2;cap[key(r.x,r.y)]+=c;capacity+=c;}
   const capF=boxSum(cap,3);
   for(let k=0;k<CELLS;k++)traffic[k]=traffic[k]/Math.max(1.5,capF[k]*1.6);
+  // Car-free streets stay calm; how jammed the old town is (it raises the old-town question).
+  let coreSum=0,coreN=0;for(let k=0;k<CELLS;k++){const x=k%W,y=Math.floor(k/W);if(!inCore(x,y))continue;if(mode==='pedestrian')traffic[k]*=.25;if(cap[k]){coreSum+=traffic[k];coreN++;}}
+  const coreJam=coreN?coreSum/coreN:0;
   const congestion=capacity?Math.min(2,trips/(capacity*1.1)):0;
   // Summary: shares of homes and jobs inside each field.
   const homeShield=policies.garden_city?.5:1;
@@ -121,7 +129,7 @@ function computeSpatial(city,effects,policies){
     else if(b.type==='trade'||b.type==='hotel'){const j=b.jobs||0;tradeJobs+=j;if(trade[k]>=.35)tradeServed+=j;}
     else if(b.type==='craft'){const j=b.jobs||0;craftJobs+=j;if(nearWater(water,Math.floor(b.x),Math.floor(b.y)))riverCraft+=j;}
   }
-  return {green,pollution,prestige,service,trade,homePull,shopPull,homeShield,value,traffic,carShare:cars,congestion,unaffordable:homes?unaffordable/homes:0,jammedShare:homes?jammed/homes:0,
+  return {green,pollution,prestige,service,trade,homePull,shopPull,homeShield,value,traffic,carShare:cars,congestion,coreJam,unaffordable:homes?unaffordable/homes:0,jammedShare:homes?jammed/homes:0,
     pollutedShare:homes?polluted/homes:0,coverage:homes?covered/homes:1,prestigeShare:homes?prestigious/homes:0,
     tradeAccess:tradeJobs?tradeServed/tradeJobs:0,riverIndustry:craftJobs?riverCraft/craftJobs:0};
 }

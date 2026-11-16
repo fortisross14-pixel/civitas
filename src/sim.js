@@ -1,5 +1,5 @@
-import {heritageEffects} from './heritage.js';
-import {FORMS,resolveZone,formOf,formCap,formJobs} from './zoning.js';
+import {heritageEffects,decideHeritage} from './heritage.js';
+import {FORMS,resolveZone,formOf,formCap,formJobs,successor} from './zoning.js';
 import {FIGURES,FIGURE_INDEX} from './legacy.js';
 import {INITIAL_DEVELOPMENT,developmentOf,applyPulse,advanceDevelopment,accumulateDevelopment,productivityGrowth,developmentCapacity} from './development.js';
 import {BASIC_INDEX,BASIC_BUILDINGS,BUILDING_EFFECTS,SPECIAL_BUILDINGS,basicsForYear,TOWN_CENTER_LEVELS,TOWN_CENTER_MAX,townCenterLevel,basicLimit,CITYWIDE_COPIES} from './construction.js';
@@ -308,6 +308,11 @@ function rememberLoss(city,b,year,reason){
   city.sites.push({id:b.id,type:b.type,style:b.style||styleAt(b.born),born:b.born,ended:year,x:b.x,y:b.y,reason,protected:!!b.protected});
 }
 // Plot identity survives renovation; replacement creates a NEW building identity.
+// v3.5 a new Age: zones whose form belongs to the old one take its successor (zoning.js).
+// Where the successor builds something else (terraces to towers) the change comes over decades.
+function migrateZones(city,year){const moved={};
+  city.zones=city.zones.map(z=>{if(z.type==='clear')return z;const n=successor(z,year);if(!n)return z;const was=formOf(z);moved[`${FORMS[was].label} → ${FORMS[n].label}`]=(moved[`${FORMS[was].label} → ${FORMS[n].label}`]||0)+1;return {...z,type:FORMS[n].type,form:n,formHist:[...(z.formHist||[[Number(z.year)||FIRST_YEAR,was]]),[year,n]]};});
+  const lines=Object.entries(moved);if(lines.length)city.events.push({year,type:'rezoning',text:`A new Age for the town's quarters: ${lines.map(([k,n])=>`${k}${n>1?` (${n})`:''}`).join('; ')}.`});}
 // v3.4 rezoning: land repainted for another use (or another form) changes over the years.
 // Each year about one in twenty mismatched buildings comes down; growth then builds the new
 // use there. Protected buildings and landmarks stay. Homes lost while the city is full
@@ -598,7 +603,7 @@ function settleVacancy(city,year,s){
 function yearTick(city,prevYear){
   const year=city.year;
   // v2.5: a new Age. The UI greets it (city.ageWelcome); buildings, cards and streets change with it.
-  for(const a of AGES)if(a.from>prevYear&&a.from<=year&&a.from>FIRST_YEAR){city.events.push({year:a.from,type:'age',age:a.id,text:`Welcome to ${a.title}. ${a.tagline}`});city.ageWelcome={id:a.id,year:a.from};}
+  for(const a of AGES)if(a.from>prevYear&&a.from<=year&&a.from>FIRST_YEAR){city.events.push({year:a.from,type:'age',age:a.id,text:`Welcome to ${a.title}. ${a.tagline}`});city.ageWelcome={id:a.id,year:a.from};migrateZones(city,a.from);}
   let s=stats(city);
   const enriched=accumulateDevelopment(city,1,s.unemployment);
   city.productivityStock=enriched.productivityStock;
@@ -639,6 +644,7 @@ function yearTick(city,prevYear){
   if(year<END_YEAR&&shopDue(city)){const r=restockShop(city,stats(city),0,{need:needCard(city)});city.deck=r.deck;city.events.push({year,type:'shop',text:'The Market Hall has new cards for sale.'});}
   // v3.4: walls come down only when the player decides (Works: boulevard, park or canal).
   convertRezoned(city,year,rand(hash(city.seed,year,777)));
+  if(year>=1900)city.coreJam=Math.round((cityFields(city).coreJam||0)*100)/100;
   if(year%5!==0&&year!==END_YEAR)return;
   localEvent(city,year);
   redevelopment(city,year,rand(hash(city.seed,year,12345)));
@@ -1028,12 +1034,15 @@ export const PUBLIC_WORKS={
   canal:{name:'Canal Ring',from:1580,to:2030,water:true,description:'Replaces the innermost wall with a canal and quay street: trade, transport and heritage.'},
   boulevard:{name:'Boulevard Ring',from:1750,to:2030,description:'Replaces the innermost wall with a ring boulevard: transport and prosperity.'},
   park:{name:'Linear Park',from:1800,to:2030,description:'Replaces the innermost wall with a park along its line: prosperity and heritage.'},
-  bridge:{name:'Bridge',from:1300,to:2030,water:true,description:'Click a riverbank or the water. Streets can then grow on the far bank.'}
+  bridge:{name:'Bridge',from:1300,to:2030,water:true,description:'Click a riverbank or the water. Streets can then grow on the far bank.'},
+  // v3.5 traffic: a ring road round the edge of the town carries cars past the centre.
+  ring_road:{name:'Ring Road',from:1950,to:2030,description:'A wide road round the edge of the town: much more traffic capacity; homes in its path come down.'}
 };
 const eraCost=year=>year<1500?1:year<1750?1.5:year<1850?2.4:year<1950?4:6;
 export function wallTarget(city){return fitWall(city,cityOrigin(city));}
 export function publicWorkCost(city,kind,span=0){
   if(kind==='wall'){const w=wallTarget(city);return Math.round(wallLength(w)*4*eraCost(city.year));}
+  if(kind==='ring_road')return Math.round(ringRoadPath(city).length*9*eraCost(city.year));
   const inner=innermostWall(city);
   if(kind==='canal'||kind==='boulevard'||kind==='park')return inner?Math.round(wallLength(inner)*(kind==='canal'?6:kind==='park'?5:7)*eraCost(city.year)):Infinity;
   if(kind==='bridge')return Math.round((80+Math.max(1,span)*14)*eraCost(city.year));
@@ -1066,9 +1075,34 @@ export function publicWorkIssue(city,kind){
   if(kind==='wall'&&(city.walls||[]).filter(w=>w.state==='wall').length>=2)return 'At most two standing walls';
   if(kind==='wall'&&city.buildings.filter(b=>b.type!=='farm').length<15)return 'The town is too small to wall';
   if((kind==='canal'||kind==='boulevard'||kind==='park')&&!innermostWall(city))return 'Needs a standing city wall to replace';
+  if(kind==='ring_road'&&(city.roads||[]).some(r=>r.cls==='ringroad'))return 'The town already has a ring road';
+  if(kind==='ring_road'&&ringRoadPath(city).length<20)return 'No room for a ring road round this town';
   if(kind!=='bridge'&&city.funds<publicWorkCost(city,kind))return `Needs ${publicWorkCost(city,kind).toLocaleString('en-US')} treasury`;
   return null;
 }
+// The ring road: round the town, just beyond its built edge, over dry land.
+export function ringRoadPath(city){const o=cityOrigin(city),home=homeLand(city.type,o),pts=[];
+  // Just beyond the built edge of the town (most of its buildings inside), on the town's own bank.
+  const d=city.buildings.filter(b=>b.type!=='farm').map(b=>Math.hypot(b.x-o.x,b.y-o.y)).sort((a,b)=>a-b),R=(d[Math.floor(d.length*.85)]||8)+2;
+  for(let i=0;i<40;i++){const a=i/40*Math.PI*2;let x=Math.round(o.x+Math.cos(a)*R),y=Math.round(o.y+Math.sin(a)*R*.9);x=clamp(x,2,W-3);y=clamp(y,2,H-3);if(terrain(city.type,x,y)==='land'&&home[key(x,y)])pts.push(key(x,y));}
+  const path=[];for(let i=0;i<pts.length;i++){const a=pts[i],b=pts[(i+1)%pts.length];const seg=routeBetween(city.type,city.seed+i*31,{x:kx(a),y:ky(a)},{x:kx(b),y:ky(b)});if(seg&&seg.length<30)path.push(...seg);}
+  return path;}
+export function buildRingRoad(city){const issue=publicWorkIssue(city,'ring_road');if(issue)return {city,error:issue};
+  const cost=publicWorkCost(city,'ring_road'),path=ringRoadPath(city),cells=new Set(path),next={...city,funds:city.funds-cost,roads:[...city.roads],routes:[...(city.routes||[])],buildings:[...city.buildings],sites:[...(city.sites||[])],events:[...city.events]};
+  let lost=0;next.buildings=next.buildings.filter(b=>{const k=key(Math.floor(b.x),Math.floor(b.y));if(cells.has(k)&&!b.special){rememberLoss(next,b,city.year,'ring road');lost++;return false;}return true;});
+  addRoute(next,path,city.year,'ringroad');
+  next.events.push({year:city.year,type:'works',text:`A ring road now circles the town${lost?`; ${lost} building${lost===1?'':'s'} came down in its path`:''}.`});
+  return {city:next,error:null};}
+// v3.5 the old town: preserve it, cut avenues through it, or rebuild it. Its extent: the innermost wall, or the first streets.
+export function oldTownArea(city){const w=(city.walls||[])[0],o=cityOrigin(city);return w?{cx:w.cx,cy:w.cy,r:w.r}:{cx:o.x,cy:o.y,r:9};}
+export const inOldTown=(a,x,y)=>Math.hypot(x+.5-a.cx,y+.5-a.cy)<=a.r;
+// Decide an old-city site (heritage.js), with the old town's own consequences.
+export function decideSite(city,site,option){
+  const r=decideHeritage(city,site,option);if(r.error||site.kind!=='oldtown')return r;
+  const a=oldTownArea(city),next={...r.city,oldtown:{mode:option,...a,year:city.year},buildings:[...r.city.buildings],sites:[...(r.city.sites||[])]};
+  if(option==='avenues'||option==='rebuild'){const rr=rand(hash(city.seed,city.year,4242));next.buildings=next.buildings.filter(b=>{if(b.special||b.protected||!inOldTown(a,Math.floor(b.x),Math.floor(b.y))||rr()>.12)return true;rememberLoss(next,b,city.year,'avenues');return false;});}
+  if(option==='rebuild')next.zones=next.zones.map(z=>{if(z.type!=='res'||!inOldTown(a,z.x+z.w/2,z.y+z.h/2))return z;const was=formOf(z);return {...z,form:'dense',formHist:[...(z.formHist||[[Number(z.year)||FIRST_YEAR,was]]),[city.year,'dense']]};});
+  return {...r,city:next};}
 function nextWorkId(city){return `w${1+(city.walls||[]).length+(city.bridges||[]).length}-${city.year}`;}
 export function buildWall(city){
   const issue=publicWorkIssue(city,'wall');if(issue)return {city,undo:null,error:issue};

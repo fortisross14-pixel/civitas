@@ -51,6 +51,11 @@ export const HERITAGE={
       {id:'keep',label:'Restore it',detail:'It stays a church',cost:220,effects:{faith:.04,heritage:.03}},
       {id:'culture',label:'Make it a cultural centre',detail:'Concerts and a library under the old vaults',cost:400,effects:{arts:.08,faith:-.05},name:'the Arts Centre'},
       {id:'sell',label:'Sell it for flats',detail:'Coins and homes; the parish is angry',cost:-300,effects:{housing:.03,faith:-.08,heritage:-.03},unrest:4}]},
+  oldtown:{title:'The old town and the car',from:1920,needs:'ripe',lead:'Its streets were laid for carts and feet. Now they are jammed.',
+    options:y=>[
+      {id:'pedestrian',label:'Close it to cars',detail:'Streets for walking: visitors and value rise; shops lose drivers',cost:600,effects:{tourismIncome:.08,heritage:.08,trade:-.03},name:'Old Town (no cars)'},
+      {id:'avenues',label:'Cut wide avenues through it',detail:'Traffic flows; some old houses come down',cost:1500,effects:{transport:.08,heritage:-.08},unrest:3},
+      {id:'rebuild',label:'Rebuild it: towers and offices',detail:'Avenues and dense housing over decades; the old town is lost',cost:2500,effects:{trade:.08,housing:.06,heritage:-.18},unrest:8}]},
   port:{title:'The old port',from:1950,lead:'Ships are too big for the old quays.',
     options:y=>[
       {id:'keep',label:'Keep it working',detail:'Trade stays where it is',cost:0,effects:{trade:.02}},
@@ -64,6 +69,8 @@ export function gameSites(city){
   for(const b of city.bridges||[])if(b.cells?.length){const m=b.cells[Math.floor(b.cells.length/2)];out.push({id:`bridge:${b.id}`,kind:'bridge',x:m[0]+.5,y:m[1]+.5,born:b.built||1300});}
   for(const b of city.buildings||[]){if(!b.special)continue;const kind=b.special==='university'?'university':CHURCH.has(b.special)&&b.special!=='cathedral'?'church':b.special==='port'?'port':null;
     if(kind)out.push({id:`b:${b.id}`,kind,x:b.x+1,y:b.y+1,born:b.born||1300,bid:b.id,name:b.label||null});}
+  // The old town, once its streets are jammed (sim sets city.coreJam each year).
+  if(city.center)out.push({id:'oldtown',kind:'oldtown',x:city.center.x+.5,y:city.center.y+.5,born:1300,ripe:(city.coreJam||0)>=.8});
   return out;
 }
 export const heritageOf=city=>city.heritage||{};

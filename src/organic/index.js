@@ -1,7 +1,7 @@
 // CIVITAS v3.1 — the organic map for a game city: one engine per city, grown in
 // the background a few milliseconds per frame until it reaches the city's year.
 import {createOrganic} from './engine.js';
-import {W,H,terrain,cityOrigin} from '../sim.js';
+import {W,H,terrain,cityOrigin,cityFields} from '../sim.js';
 
 export const K=4.2; // world units per grid cell
 const engines=new Map();
@@ -17,7 +17,11 @@ export function organicFor(city){
 // Grow toward the city's year (within a time budget). Returns true when caught up.
 export function organicSync(city,ms=14){if(!city.center)return true;return organicFor(city).sync(city,ms);}
 // Draw in grid-cell coordinates (the caller's transform): the engine works in world units.
-export function organicDraw(ctx,city,year=city.year,part='all'){const e=organicFor(city);ctx.save();ctx.scale(1/K,1/K);e.draw(ctx,Math.min(year,e.year),part);ctx.restore();}
+export function organicDraw(ctx,city,year=city.year,part='all',opts=null){const e=organicFor(city);ctx.save();ctx.scale(1/K,1/K);e.draw(ctx,Math.min(year,e.year),part,opts?.traffic?{tint:trafficTint(city)}:null);ctx.restore();}
+// v3.5 busy streets: the game's traffic field as a colour for the paving (pale, amber, orange, red).
+function trafficTint(city){const f=cityFields(city).traffic,key=`${city.year}|${city.buildings.length}|${city.roads.length}`;
+  return {key,at:(x,y)=>{const cx=Math.floor(x/K),cy=Math.floor(y/K);if(cx<0||cy<0||cx>=W||cy>=H)return null;const v=f?.[cy*W+cx]||0;if(v<.2)return [232,224,198,200];
+    const t=Math.min(1,(v-.2)/1.1),c=t<.45?[236,206,110]:t<.8?[228,146,58]:[196,58,40];return [...c,Math.round(150+t*90)];}};}
 export const organicVersion=city=>{const e=engines.get(city.id)?.engine;return e?`${e.year}|${e.stats().houses}|${e.version}`:'0';};
 export function organicLens(ctx,city,kind){const e=organicFor(city);ctx.save();ctx.scale(1/K,1/K);e.lens(ctx,kind);ctx.restore();}
 // Place names (plazas, parks, museums) in grid-cell coordinates.

@@ -150,6 +150,7 @@ function WorksView({city,c,onClose}){
   if(city.year<=PUBLIC_WORKS.wall.to)rows.push(<WorkRow key="wall" icon={<Castle size={18}/>} name="City wall" detail="Rings the core: safety and a little prosperity" cost={publicWorkCost(city,'wall')} issue={publicWorkIssue(city,'wall')} onClick={c.onWall}/>);
   if((city.walls||[]).some(w=>w.state==='wall'))for(const kind of ['boulevard','park','canal']){const issue=publicWorkIssue(city,kind);if(issue&&/Available from|geography/.test(issue))continue;
     rows.push(<WorkRow key={kind} icon={kind==='canal'?<Waves size={18}/>:<Route size={18}/>} name={PUBLIC_WORKS[kind].name} detail={PUBLIC_WORKS[kind].description} cost={publicWorkCost(city,kind)} issue={issue} onClick={()=>c.onRing(kind)}/>);}
+  if(city.year>=PUBLIC_WORKS.ring_road.from){const issue=publicWorkIssue(city,'ring_road');rows.push(<WorkRow key="ring" icon={<Route size={18}/>} name={PUBLIC_WORKS.ring_road.name} detail={PUBLIC_WORKS.ring_road.description} cost={issue?null:publicWorkCost(city,'ring_road')} issue={issue} onClick={c.onRingRoad}/>);}
   if(['river','coast','estuary','lake'].includes(city.type))rows.push(<WorkRow key="bridge" icon={<Route size={18}/>} name="Bridge" detail="Tap a riverbank to cross" issue={publicWorkIssue(city,'bridge')} label="Place" onClick={()=>{c.setTool('place:bridge');onClose();}}/>);
   return <div className="g-list">{rows.length?rows:<p className="g-muted">No public works this Age.</p>}<p className="g-hint">Landmarks come from building cards (Hand and Market).</p></div>;
 }
