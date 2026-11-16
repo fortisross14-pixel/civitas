@@ -80,6 +80,9 @@ function simplify(pts,tol){if(pts.length<3)return pts;const keep=[pts[0]];let la
 function chaikin(pts,n){for(let k=0;k<n;k++){const o=[pts[0]];for(let i=0;i<pts.length-1;i++){const a=pts[i],b=pts[i+1];o.push([a[0]*.75+b[0]*.25,a[1]*.75+b[1]*.25],[a[0]*.25+b[0]*.75,a[1]*.25+b[1]*.75]);}o.push(pts.at(-1));pts=o;}return pts;}
 // ───────────── land value ─────────────
 // Old roads and the crossing; every landmark the player places weighs more.
+// Land value, remembered on a 2-unit grid for the rest of the year (it is asked thousands of times).
+let vMemo=new Map(),vMemoY=-1;
+function valueC(x,y){if(vMemoY!==Y){vMemo.clear();vMemoY=Y;}const k=Math.floor(x/2)*8192+Math.floor(y/2);let v=vMemo.get(k);if(v===undefined){v=value(Math.floor(x/2)*2+1,Math.floor(y/2)*2+1);vMemo.set(k,v);}return v;}
 function value(x,y){let v=0;for(const m of landmarks)if(aliveO(m))v+=m.pull*Math.exp(-Math.hypot(x-m.x,y-m.y)/m.reach);
   const np=nearPath(x,y,8);if(np.p&&(np.p.kind==='road'||np.p.kind==='street'||np.p.kind==='avenue'||np.p.kind==='boulevard'))v+=(np.p.high?.7:.25)*Math.exp(-Math.max(0,np.d)/(np.p.high?2.5:3));
   // A park or a plaza raises the value of the land that faces it.
@@ -90,7 +93,7 @@ function value(x,y){let v=0;for(const m of landmarks)if(aliveO(m))v+=m.pull*Math
 // ───────────── plots ─────────────
 // A plot is a four-sided strip: two front corners on the street edge, sides
 // along the street's normals, a back line. Neighbours share their side lines.
-function addPlot(pts,o){const pl={id:plots.length,pts,born:Y,died:null,ev:[],...o};const xs=pts.map(p=>p[0]),ys=pts.map(p=>p[1]);plotBins.add(pl,Math.min(...xs),Math.min(...ys),Math.max(...xs),Math.max(...ys));plots.push(pl);return pl;}
+function addPlot(pts,o){const pl={id:plots.length,pts,born:Y,died:null,ev:[],...o};const xs=pts.map(p=>p[0]),ys=pts.map(p=>p[1]);plotBins.add(pl,Math.min(...xs),Math.min(...ys),Math.max(...xs),Math.max(...ys));plots.push(pl);if(rasterOn)rasterPlot(pl);return pl;}
 function inQuad(x,y,q){let s=0;for(let i=0;i<q.length;i++){const a=q[i],b=q[(i+1)%q.length],c=(b[0]-a[0])*(y-a[1])-(b[1]-a[1])*(x-a[0]);if(c>0)s|=1;else if(c<0)s|=2;if(s===3)return false;}return true;}
 function edgeDist(x,y,q){let b=1e9;for(let i=0;i<q.length;i++){const a=q[i],c=q[(i+1)%q.length],vx=c[0]-a[0],vy=c[1]-a[1],t=clamp(((x-a[0])*vx+(y-a[1])*vy)/(vx*vx+vy*vy||1),0,1),dx=a[0]+vx*t-x,dy=a[1]+vy*t-y,d=dx*dx+dy*dy;if(d<b)b=d;}return Math.sqrt(b);}
 function inPlot(x,y,m=0){let hit=null;plotBins.near(x-1-m,y-1-m,x+1+m,y+1+m,o=>{if(!aliveO(o))return;if(inQuad(x,y,o.pts)||m>0&&edgeDist(x,y,o.pts)<m){hit=o;return false;}});return hit;}
@@ -158,7 +161,7 @@ function layRun(r,z){const len=r.s1-r.s0,cut=Math.min(len,14+rnd()*18),a=r.fromE
   const made=layRow(r.p,r.side,a,b,z,z.lay||{});
   if(made.length>=3&&!z.lay?.noBack){const D=made.reduce((m,pl)=>m+pl.d,0)/made.length;backLane(r.p,r.side,made[0].s0,made.at(-1).s1,D,z);}
   return made.length;}
-function zonePaths(z){z.pc=z.pc||new Map();for(const p of paths)if(!z.pc.has(p))z.pc.set(p,nearZone(p,z));return [...z.pc].filter(([p,ok])=>ok&&aliveP(p)).map(([p])=>p);}
+function zonePaths(z){z.pc=z.pc||new Map();if(z.pcN===paths.length&&z.pcY===Y)return z.pcL;for(const p of paths)if(!z.pc.has(p))z.pc.set(p,nearZone(p,z));z.pcN=paths.length;z.pcY=Y;return z.pcL=[...z.pc].filter(([p,ok])=>ok&&aliveP(p)).map(([p])=>p);}
 // ───────────── lanes ─────────────
 // A street that passes through or near a zone (within 6 units).
 function nearZone(p,z){for(let s=0;s<=p.len;s+=2){const a=at(p,s);if(inPoly(a.x,a.y,z.poly)||z.poly.some(q=>Math.hypot(q[0]-a.x,q[1]-a.y)<6))return true;}return false;}
@@ -301,7 +304,7 @@ function mergePalace(){const live=plots.filter(p=>aliveO(p)&&p.built&&p.next&&al
   for(let t=0;t<12;t++){const a=live[Math.floor(rnd()*live.length)];if(!a)return;const v=value(...centre(a.pts));if(v<.75)continue;
     const run=[a];while(run.length<3&&run.at(-1).next&&aliveO(run.at(-1).next)&&run.at(-1).next.built&&stateAt(run.at(-1).next,Y)?.b==='house')run.push(run.at(-1).next);
     const w=run.reduce((m,p)=>m+p.w,0);if(run.length<2||w<4.4)continue;
-    const A=run[0].A,B=run.at(-1).B,q=[A.f,B.f,B.b,A.b];for(const r of run)r.died=Y;
+    const A=run[0].A,B=run.at(-1).B;if(!A||!B)continue;const q=[A.f,B.f,B.b,A.b];for(const r of run)r.died=Y;
     const pl=addPlot(q,{p:a.p,side:a.side,s0:run[0].s0,s1:run.at(-1).s1,zone:a.zone,kind:'palace',w,d:(A.d+B.d)/2,A,B,prev:run[0].prev,next:run.at(-1).next,built:Y});
     if(pl.prev)pl.prev.next=pl;if(pl.next)pl.next.prev=pl;
     setState(pl,{b:'palace',style:'stone',dv:clamp(9/pl.d,.5,.95),gap:0,plan:0});return;}}
@@ -365,9 +368,138 @@ function publicGarden(cx,cy,w,h,ang,name){const c=Math.cos(ang),sn=Math.sin(ang)
   const pl=addPlace([Pt(-w/2,-h/2),Pt(w/2,-h/2),Pt(w/2,h/2),Pt(-w/2,h/2)],'garden',{name,formal:true});
   for(const o of plots)if(aliveO(o)&&inPoly(...centre(o.pts),pl.poly))o.died=Y;return pl;}
 
+// ───────────── streets as the space between buildings ─────────────
+// In the unplanned town there are no street lines: each new house is set beside,
+// across from or behind one that stands, and the streets are what is left open.
+// Two rules keep that open space a street network: every house keeps its front on
+// open ground that is connected to the centre, and two houses either share a wall
+// or stand a street apart (no slivers). Planned grids still lay their streets first.
+const RC=.8,RW=Math.ceil(WW/RC)+1,RH=Math.ceil(WH/RC)+1;
+// OCC: 0 open, -1 a wall, -4 water or steep ground (a road or bridge may cross it), -2 open but never built on (roads, squares, parks),
+// -3 a public building, >0 a plot (id+1). REACH: open and connected to the centre.
+const OCC=new Int32Array(RW*RH),REACH=new Uint8Array(RW*RH);
+var rasterOn=false;let reachDirty=true,rPaths=0,rPlaces=0,rLms=0,rPlots=0,rWalls=0;const rLive=[];
+const ri=(x,y)=>clamp(Math.floor(y/RC),0,RH-1)*RW+clamp(Math.floor(x/RC),0,RW-1);
+const openC=k=>OCC[k]===0||OCC[k]===-2;
+function cellsIn(poly,fn,quad=false){const xs=poly.map(p=>p[0]),ys=poly.map(p=>p[1]),i0=Math.max(0,Math.floor(Math.min(...xs)/RC)),i1=Math.min(RW-1,Math.floor(Math.max(...xs)/RC)),j0=Math.max(0,Math.floor(Math.min(...ys)/RC)),j1=Math.min(RH-1,Math.floor(Math.max(...ys)/RC));
+  for(let j=j0;j<=j1;j++)for(let i=i0;i<=i1;i++){const x=(i+.5)*RC,y=(j+.5)*RC;if(quad?inQuad(x,y,poly):inPoly(x,y,poly))fn(j*RW+i);}}
+function markDisc(x,y,r,val,list){const i0=Math.max(0,Math.floor((x-r)/RC)),i1=Math.min(RW-1,Math.floor((x+r)/RC)),j0=Math.max(0,Math.floor((y-r)/RC)),j1=Math.min(RH-1,Math.floor((y+r)/RC));
+  for(let j=j0;j<=j1;j++)for(let i=i0;i<=i1;i++){const k=j*RW+i;if(Math.hypot((i+.5)*RC-x,(j+.5)*RC-y)<=r&&(OCC[k]===0||val===-1&&OCC[k]===-2||val===-2&&OCC[k]===-4)){OCC[k]=val;list?.push(k);}}}
+function rasterPlot(pl){if(pl.cells)return;pl.cells=[];cellsIn(pl.pts,k=>{const o=OCC[k];if(o===0||o===-2||o>0&&!aliveO(plots[o-1])){OCC[k]=pl.id+1;pl.cells.push(k);}},true);rLive.push(pl);}
+function syncRaster(){
+  if(!rasterOn){rasterOn=true;for(let j=0;j<RH;j++)for(let i=0;i<RW;i++){const x=(i+.5)*RC,y=(j+.5)*RC;if(flood(x,y)||slopeAt(x,y)>STEEP*1.6)OCC[j*RW+i]=-4;}}
+  // What has gone: plots, places, public buildings, walls.
+  for(let i=rLive.length-1;i>=0;i--){const pl=rLive[i];if(aliveO(pl))continue;for(const k of pl.cells)if(OCC[k]===pl.id+1)OCC[k]=0;pl.cells=null;rLive.splice(i,1);reachDirty=true;}
+  for(const o of [...places,...landmarks,...walls])if(o.cells&&!aliveO(o)){const v=o.cv;for(const k of o.cells)if(OCC[k]===v)OCC[k]=0;o.cells=null;reachDirty=true;}
+  // What is new.
+  for(;rPaths<paths.length;rPaths++){const p=paths[rPaths];if(!aliveP(p)||p.kind==='edge')continue;const r=p.hw+.25,v=p.kind==='rail'?-1:-2;for(let s=0;s<=p.len;s+=.4){const a=at(p,s);markDisc(a.x,a.y,r,v);}reachDirty=true;}
+  for(;rPlaces<places.length;rPlaces++){const pl=places[rPlaces];if(!aliveO(pl))continue;pl.cells=[];pl.cv=-2;cellsIn(pl.poly,k=>{if(OCC[k]===0){OCC[k]=-2;pl.cells.push(k);}});}
+  for(;rLms<landmarks.length;rLms++){const m=landmarks[rLms];if(!aliveO(m))continue;m.cells=[];m.cv=-3;for(const part of m.parts)cellsIn(part.abs?part.poly:part.poly.map(([x,y])=>lmPoint(m,x,y)),k=>{if(OCC[k]===0||OCC[k]===-2){OCC[k]=-3;m.cells.push(k);}});reachDirty=true;}
+  for(;rWalls<walls.length;rWalls++){const w=walls[rWalls];if(!aliveO(w))continue;w.cells=[];w.cv=-1;const P=[...w.poly,w.poly[0]];
+    for(let i=1;i<P.length;i++){const a=P[i-1],b=P[i],l=dist(a,b);for(let t=0;t<=l;t+=.4){const x=a[0]+(b[0]-a[0])*t/l,y=a[1]+(b[1]-a[1])*t/l;if(!w.gates.some(g=>Math.hypot(g.x-x,g.y-y)<2.6))markDisc(x,y,.9,-1,w.cells);}}reachDirty=true;}
+  for(;rPlots<plots.length;rPlots++){const pl=plots[rPlots];if(aliveO(pl))rasterPlot(pl);}
+  if(reachDirty)computeReach();}
+function computeReach(){reachDirty=false;REACH.fill(0);let k0=ri(C0[0],C0[1]);
+  if(!openC(k0)){let best=-1,bd=1e9;const ci=k0%RW,cj=(k0/RW)|0;for(let j=Math.max(0,cj-30);j<Math.min(RH,cj+30);j++)for(let i=Math.max(0,ci-30);i<Math.min(RW,ci+30);i++){const k=j*RW+i,d=(i-ci)**2+(j-cj)**2;if(openC(k)&&d<bd){bd=d;best=k;}}if(best<0)return;k0=best;}
+  const Q=new Int32Array(RW*RH);let h=0,t=0;Q[t++]=k0;REACH[k0]=1;
+  while(h<t){const k=Q[h++],i=k%RW;for(const n of [i>0?k-1:-1,i<RW-1?k+1:-1,k-RW,k+RW]){if(n<0||n>=RW*RH||REACH[n]||!openC(n))continue;REACH[n]=1;Q[t++]=n;}}}
+// Streets by Age: the narrowest gap allowed between two houses that do not touch, and how wide a new street is.
+const STREET_GAP=y=>y<1500?1.2:y<1700?1.6:2.4;
+const STREET_W=y=>y<1500?1.9+rnd()*.9:y<1700?2.3+rnd()*1.1:y<1850?2.9+rnd()*1.2:3.4+rnd()*1.6;
+// Its front must face open ground connected to the centre (cells in `skip` no longer count).
+function frontOpen(q,skip){const [FL,FR,,RL]=q,dl=dist(FL,RL)||1,ox=(FL[0]-RL[0])/dl*.6,oy=(FL[1]-RL[1])/dl*.6;let n=0;
+  for(const t of [.15,.32,.5,.68,.85]){const k=ri(FL[0]+(FR[0]-FL[0])*t+ox,FL[1]+(FR[1]-FL[1])*t+oy);if(openC(k)&&REACH[k]&&!skip?.has(k))n++;}return n>=3;}
+// Can a plot go here? (zone, free land, the gap rule, its own front, neighbours' fronts, the network stays whole)
+function canPlace(q,z){const c=centre(q);if(zoneAt(c[0],c[1])!==z)return false;
+  for(const [x,y] of q){const zz=zoneAt(x,y);if(!zz||!accreting(zz)||onWall(x,y))return false;if(z.wall&&!wallOK(x,y,z.wall))return false;}
+  const F=[];let bad=false;cellsIn(q,k=>{if(OCC[k]!==0)bad=true;F.push(k);},true);if(bad||F.length<4)return false;
+  const FS=new Set(F);if(!frontOpen(q,FS))return false;
+  let i0=1e9,i1=-1,j0=1e9,j1=-1;for(const k of F){const i=k%RW,j=(k/RW)|0;i0=Math.min(i0,i);i1=Math.max(i1,i);j0=Math.min(j0,j);j1=Math.max(j1,j);}
+  // The gap rule: a house within the forbidden band must also touch.
+  const gd=Math.ceil(STREET_GAP(Y)/RC)+1,E=14,wi0=Math.max(0,i0-E),wi1=Math.min(RW-1,i1+E),wj0=Math.max(0,j0-E),wj1=Math.min(RH-1,j1+E),ww=wi1-wi0+1,wh=wj1-wj0+1;
+  const L=(k)=>((((k/RW)|0)-wj0)*ww+(k%RW-wi0)),D=new Uint8Array(ww*wh).fill(255),Qd=[];for(const k of F){D[L(k)]=0;Qd.push(k);}
+  const touch=new Set(),near=new Set();
+  for(let h=0;h<Qd.length;h++){const k=Qd[h],d=D[L(k)];if(d>=gd-1)continue;const i=k%RW,j=(k/RW)|0;
+    for(let dj=-1;dj<=1;dj++)for(let di=-1;di<=1;di++){const ni=i+di,nj=j+dj;if(ni<wi0||ni>wi1||nj<wj0||nj>wj1)continue;const n=nj*RW+ni,ln=L(n);if(D[ln]<=d+1)continue;D[ln]=d+1;
+      const o=OCC[n];if(o>0||o===-3){(d+1===1?touch:near).add(o);continue;}Qd.push(n);}}
+  for(const o of near)if(!touch.has(o))return false;
+  // Neighbours that touch keep a front on the street.
+  for(const o of touch)if(o>0){const b=plots[o-1];if(b&&aliveO(b)&&!frontOpen(b.pts,FS))return false;}
+  // The open ground round the plot must not be shut in: each piece of it either joins the others
+  // or runs out of the neighbourhood (toward the rest of the town). No pockets, no cut-off fronts.
+  const ring=[];for(const k of F){const i=k%RW;for(const n of [i>0?k-1:-1,i<RW-1?k+1:-1,k-RW,k+RW])if(n>=0&&n<RW*RH&&!FS.has(n)&&openC(n)&&REACH[n])ring.push(n);}
+  if(!ring.length)return false;const seen=new Uint8Array(ww*wh);
+  for(const r0 of ring){if(seen[L(r0)])continue;const Q=[r0];seen[L(r0)]=1;let out=false;
+    for(let h=0;h<Q.length&&!out;h++){const k=Q[h],i=k%RW,j=(k/RW)|0;for(const [ni,nj] of [[i-1,j],[i+1,j],[i,j-1],[i,j+1]]){if(ni<wi0||ni>wi1||nj<wj0||nj>wj1){out=true;break;}const n=nj*RW+ni,ln=L(n);if(seen[ln]||FS.has(n)||!openC(n))continue;seen[ln]=1;Q.push(n);}}
+    if(!out&&ring.some(k=>!seen[L(k)]))return false;if(!out&&Q.length<ring.length)return false;}
+  return true;}
+const nrm=v=>{const l=Math.hypot(v[0],v[1])||1;return [v[0]/l,v[1]/l];};
+const quadAt=(FL,u,v,w,d)=>[FL,[FL[0]+u[0]*w,FL[1]+u[1]*w],[FL[0]+u[0]*w+v[0]*d,FL[1]+u[1]*w+v[1]*d],[FL[0]+v[0]*d,FL[1]+v[1]*d]];
+// Plot sizes by land value and Age (front width, depth with the garden).
+function plotSize(x,y,z){const v=valueC(x,y);
+  // Planned quarters: terraces on narrow, shallow plots (a block is two rows back to back).
+  if(z?.regular)return Y>=1850?{w:3+rnd()*1.2,d:9+rnd()*1.2}:{w:1.7+rnd()*.5,d:5.6+rnd()*.6};
+  if(Y>=1950)return {w:5+rnd()*4,d:9+rnd()*4};if(Y>=1850)return {w:3.6+rnd()*2.6,d:7.5+rnd()*3.5};
+  return v>.95?{w:1.6+rnd()*.8,d:6.5+rnd()*2}:v>.5?{w:2+rnd()*1.2,d:8+rnd()*3}:{w:2.6+rnd()*1.6,d:9.5+rnd()*4};}
+// Where the next house in zone z could go: beside, across the street from, or behind a house that stands; or on a road.
+function accrete(z){const xs=z.poly.map(p=>p[0]),ys=z.poly.map(p=>p[1]),built=[];
+  // Any house near the zone can start the next one (a new quarter grows out of the old town).
+  // Houses of this zone first; houses just over its edge let a new quarter grow out of the old town.
+  let edge=[];if(z.acY!==Y){z.acY=Y;z.acB=[];z.acE=[];plotBins.near(Math.min(...xs)-8,Math.min(...ys)-8,Math.max(...xs)+8,Math.max(...ys)+8,o=>{if(!aliveO(o)||!o.built)return;if(o.zone===z||zoneAt(...centre(o.pts))===z)z.acB.push(o);else z.acE.push(o);});z.acB.sort((a,b)=>a.id-b.id);}
+  // Only houses with a side still free can start the next one.
+  for(const o of z.acB)if(o.mv!==0&&o.built&&aliveO(o))built.push(o);edge=z.acE.filter(o=>o.mv!==0&&aliveO(o));const roadShare=built.length<3?.7:.12;
+  const cand=[],regular=Y>=1800,quick=q=>{const c=centre(q),zc=zoneC(c[0],c[1]);if(!zc||!accreting(zc))return false;for(const [x,y] of [c,...grow(q,-.7)])if(OCC[ri(x,y)]!==0)return false;return true;};
+  for(let t=0;t<60&&cand.length<14;t++){
+    if((built.length||edge.length)&&rnd()>roadShare){const P=!built.length||edge.length&&rnd()<.15?edge[Math.floor(rnd()*edge.length)]:rnd()<.6?built[Math.max(0,built.length-1-Math.floor(rnd()*Math.min(80,built.length)))]:built[Math.floor(rnd()*built.length)];
+      const [FL,FR,RR,RL]=P.pts,u=nrm([FR[0]-FL[0],FR[1]-FL[1]]),v=nrm([RL[0]-FL[0],RL[1]-FL[1]]),{w,d}=plotSize(...centre(P.pts),P.zone?.regular?P.zone:z);
+      // Sides still free: 1 right, 2 left, 4 across the street, 8 behind.
+      if(P.mv==null)P.mv=15;if(P.next&&aliveO(P.next))P.mv&=~1;if(P.prev&&aliveO(P.prev))P.mv&=~2;if(!P.mv)continue;
+      const opts=[[1,.34],[2,.34],[4,.2],[8,.12]].filter(([b])=>P.mv&b),tot=opts.reduce((a,[,w])=>a+w,0);let rr=rnd()*tot,bit=opts[0][0];for(const [b,w] of opts){rr-=w;if(rr<=0){bit=b;break;}}
+      const r=bit===1?.1:bit===2?.5:bit===4?.75:.95;
+      // Rows bend to follow the level of the land, a little; later Ages keep them straight.
+      const R=P.zone?.regular||z.regular;let u2=u;
+      if(R){let best=null,bd=-2;for(let k=0;k<4;k++){const an=R.ang+k*Math.PI/2,cu=[Math.cos(an),Math.sin(an)],dd=cu[0]*u[0]+cu[1]*u[1];if(dd>bd){bd=dd;best=cu;}}u2=best;}
+      else if(!regular){const [gx,gy]=grad(FR[0],FR[1]),sl=Math.hypot(gx,gy);if(sl>1e-6){let tx=-gy/sl,ty=gx/sl;if(tx*u[0]+ty*u[1]<0){tx=-tx;ty=-ty;}const k=clamp(sl/STEEP,0,1)*.3;u2=nrm([u[0]*(1-k)+tx*k,u[1]*(1-k)+ty*k]);}
+        const a=(rnd()-.5)*(Y<1500?.14:.06),c=Math.cos(a),sn=Math.sin(a);u2=[u2[0]*c-u2[1]*sn,u2[0]*sn+u2[1]*c];}
+      let v2=[-u2[1],u2[0]];if(v2[0]*v[0]+v2[1]*v[1]<0)v2=[-v2[0],-v2[1]];let c;
+      // A row is broken by a cross street: in a planned quarter every few houses, in the old town now and then.
+      const runLen=(o,k)=>{let n=0;while(o&&n<16){o=o[k];n++;}return n;};
+      const brk=m=>{const n=runLen(P,m==='right'?'prev':'next');return R?(n%R.block===R.block-1?R.S:0):(n>=3&&rnd()<.08?STREET_W(Y)*.8:0);};
+      if(r<.34){const g=brk('right');c={q:quadAt([FR[0]+u2[0]*g,FR[1]+u2[1]*g],u2,v2,w,d),P,m:g?'gapR':'right',w,d,bias:.45};}
+      else if(r<.68){const g=brk('left');c={q:quadAt([FL[0]-u2[0]*(w+g),FL[1]-u2[1]*(w+g)],u2,v2,w,d),P,m:g?'gapL':'left',w,d,bias:.45};}
+      else if(r<.88){const S=R?R.S:STREET_W(Y),fc=[(FL[0]+FR[0])/2-v[0]*S,(FL[1]+FR[1])/2-v[1]*S],uu=[-u[0],-u[1]],vv=[-v[0],-v[1]],sh=regular?0:(rnd()-.5)*w;
+        c={q:quadAt([fc[0]-uu[0]*(w/2+sh),fc[1]-uu[1]*(w/2+sh)],uu,vv,w,d),P,m:'across',w,d,bias:.2};}
+      else{const bc=[(RL[0]+RR[0])/2+v[0]*d,(RL[1]+RR[1])/2+v[1]*d],uu=[-u[0],-u[1]],vv=[-v[0],-v[1]];c={q:quadAt([bc[0]-uu[0]*w/2,bc[1]-uu[1]*w/2],uu,vv,w,d),P,m:'behind',w,d,bias:0};}
+      c.bit=bit;if(quick(c.q))cand.push(c);else P.mv&=~bit;}
+    else if(built.length<2&&rnd()<.6){
+      // A first house in an empty quarter: on open land in it, facing the nearest way in (a road, or the town).
+      const x=lerp(Math.min(...xs),Math.max(...xs),rnd()),y=lerp(Math.min(...ys),Math.max(...ys),rnd());if(zoneC(x,y)!==z||OCC[ri(x,y)]!==0)continue;
+      const np=nearPath(x,y,40,null,true),tx=np.p?np.x:C0[0],ty=np.p?np.y:C0[1],toward=nrm([tx-x,ty-y]),R=z.regular;let v=[-toward[0],-toward[1]];
+      if(R){let best=null,bd=-2;for(let k=0;k<4;k++){const an=R.ang+k*Math.PI/2,cu=[Math.cos(an),Math.sin(an)],dd=cu[0]*v[0]+cu[1]*v[1];if(dd>bd){bd=dd;best=cu;}}v=best;}
+      const u=[v[1],-v[0]],{w,d}=plotSize(x,y,z),c={q:quadAt([x-u[0]*w/2,y-u[1]*w/2],u,v,w,d),m:'seed',w,d,bias:-.2-(np.p?np.d*.02:1)};if(quick(c.q))cand.push(c);}
+    else{const ps=zonePaths(z).filter(p=>p.kind!=='edge'&&p.kind!=='rail'&&p.kind!=='canal');const p=ps[Math.floor(rnd()*ps.length)];if(!p||p.len<3)continue;
+      let s=1+rnd()*(p.len-2);for(let k=0;k<8;k++){const t=at(p,s);if(zoneC(t.x,t.y)===z)break;s=1+rnd()*(p.len-2);}
+      const side=rnd()<.5?1:-1,a0=at(p,s),R=z.regular,sq=R?(()=>{let best=null,bd=-2;for(let k=0;k<4;k++){const an=R.ang+k*Math.PI/2,cu=[Math.cos(an),Math.sin(an)],dd=cu[0]*a0.tx*side+cu[1]*a0.ty*side;if(dd>bd){bd=dd;best=cu;}}return best;})():null,
+        a=sq?{...a0,tx:sq[0]*side,ty:sq[1]*side}:a0,n=[-a.ty*side,a.tx*side],u=[a.tx*side,a.ty*side],f=[a.x+n[0]*(p.hw+.3),a.y+n[1]*(p.hw+.3)],{w,d}=plotSize(f[0],f[1],z);
+      const c={q:quadAt([f[0]-u[0]*w/2,f[1]-u[1]*w/2],u,n,w,d),road:p,m:'road',w,d,bias:.1};if(quick(c.q))cand.push(c);}}
+  // Households choose as before: dear land, the living they can afford, neighbours.
+  for(const c of cand){const [cx,cy]=centre(c.q),S=solAt(cx,cy),V=valAt(cx,cy);let nb=0;plotBins.near(cx-6,cy-6,cx+6,cy+6,o=>{if(aliveO(o)&&o.built)nb++;});
+    // Households like neighbours: the town stays compact and rows fill before new ones start.
+    c.sc=1.3*valueC(cx,cy)+(HH==='wealthy'?S/22+V/35:S/26-V/70)+c.bias+Math.min(nb,8)*.3-slopeAt(cx,cy)/STEEP*.4+rnd()*.6;}
+  cand.sort((a,b)=>b.sc-a.sc);
+  for(const c of cand.slice(0,7)){const zc=zoneAt(...centre(c.q));if(!zc||!canPlace(c.q,zc)){if(c.P&&c.bit&&rnd()<.5)c.P.mv&=~c.bit;continue;}const [FL,FR,RR,RL]=c.q;
+    let road=c.road||null;if(!road){const np=nearPath((FL[0]+FR[0])/2,(FL[1]+FR[1])/2,2.5,null,true);if(np.p&&np.d<1.2)road=np.p;}
+    const pl=addPlot(c.q,{p:road,side:1,zone:zc,kind:'croft',w:c.w,d:c.d,A:{f:FL,b:RL,d:c.d},B:{f:FR,b:RR,d:c.d},acc:true});
+    if(c.m==='right'&&!c.P.next){c.P.next=pl;pl.prev=c.P;}else if(c.m==='left'&&!c.P.prev){c.P.prev=pl;pl.next=c.P;}
+    rasterPlot(pl);if(zc.acY===Y)zc.acB.push(pl);return pl;}
+  return null;}
+let zMemo=new Map(),zMemoV=-1;
+function zoneC(x,y){const v=zones.length+(zones.polyVer||0)+Y*1e5;if(zMemoV!==v){zMemo.clear();zMemoV=v;}const k=Math.floor(x)*8192+Math.floor(y);let z=zMemo.get(k);if(z===undefined){z=zoneAt(Math.floor(x)+.5,Math.floor(y)+.5);zMemo.set(k,z);}return z;}
+const accreting=z=>(z.kind==='town'||z.kind==='suburb')&&!z.grid;
 // A home for one household in zone z: the best empty plot, unless new plots on
 // dearer frontage (or a new lane into dear land) would beat it.
 function findHome(z){
+  if(accreting(z)){const pl=nextPlot(z);if(pl&&rnd()<.7)return pl;for(let k=0;k<3;k++){const a=accrete(z);if(a)return a;}return pl;}
   for(let k=0;k<6;k++){const pl=nextPlot(z),pv=pl?value(...centre(pl.pts)):-1;
     const runs=frontageRuns(z).sort((a,b)=>b.v-a.v),fr=runs[0];
     if(pl&&(!fr||pv>=fr.v*.8))return pl;
@@ -397,6 +529,11 @@ const cellPoly=(z)=>{const x0=z.x*K,y0=z.y*K,x1=(z.x+z.w)*K,y1=(z.y+z.h)*K,pts=[
   // A painted rectangle, softened at the corners so quarters are not boxes.
   const r=Math.min(6,(x1-x0)/4,(y1-y0)/4);for(const [cx,cy,a0] of [[x1-r,y0+r,-Math.PI/2],[x1-r,y1-r,0],[x0+r,y1-r,Math.PI/2],[x0+r,y0+r,Math.PI]])for(let k=0;k<=3;k++){const a=a0+k/3*Math.PI/2;pts.push([cx+Math.cos(a)*r,cy+Math.sin(a)*r]);}return pts;};
 const isChurch=k=>['chapel','monastery','shrine','cathedral','church'].includes(k),isHall=k=>['town_hall','guildhall','guild_hall','civic_center'].includes(k);
+// A planned quarter: the same house-by-house growth, but every house squared to one
+// direction (the nearest road's) and a cross street left every few houses: the grid
+// comes out of the buildings, not the other way round.
+function regularZone(z,poly){const [cx,cy]=centre(poly),road=nearPath(cx,cy,80,null,true),a=road.p?at(road.p,nearestS(road.p,[cx,cy])):{tx:1,ty:0};
+  const big=Y>=1850,o=addZone(poly,'town',null,{rate:big?2.2:1.8,use:z.type});o.regular={ang:Math.atan2(a.ty,a.tx),block:big?7:10,S:big?3.8:3.1};o.uniform=big?'brick':'classical';return o;}
 function gridZone(z,poly){const [cx,cy]=centre(poly),road=nearPath(cx,cy,80,null,true),a=road.p?at(road.p,nearestS(road.p,[cx,cy])):{tx:1,ty:0};
   const big=Y>=1850,bw=big?26:20,bh=big?22:13,ang=Math.atan2(a.ty,a.tx),xs=poly.map(p=>p[0]),ys=poly.map(p=>p[1]),w=Math.max(...xs)-Math.min(...xs),h=Math.max(...ys)-Math.min(...ys);
   const nx=Math.max(1,Math.round(w/bw)),ny=Math.max(1,Math.round(h/bh)),c=Math.cos(ang),s=Math.sin(ang);
@@ -409,7 +546,7 @@ function feed(city){
   (city.zones||[]).forEach((z,i)=>{const born=Number(z.year)||Y0;if(born>Y||fed.zones.has(i))return;fed.zones.set(i,null);
     if(z.type==='clear'){const x0=z.x*K,y0=z.y*K,x1=(z.x+z.w)*K,y1=(z.y+z.h)*K;for(const o of zones)if(aliveO(o)&&o.cx>=x0&&o.cx<=x1&&o.cy>=y0&&o.cy<=y1)o.died=Y;return;}
     const poly=cellPoly(z);let o;
-    if(z.type!=='farm'&&Y>=1700&&z.w*z.h>=30)o=gridZone(z,poly);
+    if(z.type!=='farm'&&Y>=1700&&z.w*z.h>=30)o=regularZone(z,poly);
     else o=addZone(poly,z.type==='farm'?'village':'town',null,{use:z.type,rate:z.type==='farm'?.4:1,lay:z.type==='farm'?{width:()=>3.6+rnd()*2.4,depth:11,gapEvery:22}:z.type==='craft'?{width:()=>3+rnd()*2,depth:8}:{}});
     if(o.kind==='town')town.push(o);const w=walls.find(w=>aliveO(w));if(w&&o.kind==='town'&&inPoly(o.cx,o.cy,w.poly))o.wall={poly:w.poly,inside:true};fed.zones.set(i,o);});
   // Before anyone zones, the town grows around its centre (as the game's informal growth does).
@@ -450,7 +587,7 @@ function infill(){const inside=walls.filter(w=>aliveO(w)&&w.kind!=='bastion');if
     const st=stateAt(pl,Y);if(!st||st.b==='palace'||st.b==='works')continue;
     if(st.dv<.78&&rnd()<.6){setState(pl,{dv:clamp(st.dv+.07,.3,.82),plan:st.plan===3?1:st.plan,gap:0});continue;}
     if(pl.w>3.1&&value(cx,cy)>.7&&rnd()<.5){const [FL,FR,RR,RL]=pl.pts,mf=[(FL[0]+FR[0])/2,(FL[1]+FR[1])/2],mb=[(RL[0]+RR[0])/2,(RL[1]+RR[1])/2];pl.died=Y;
-      for(const q of [[FL,mf,mb,RL],[mf,FR,RR,mb]]){const np=addPlot(q,{p:pl.p,side:pl.side,zone:pl.zone,kind:'croft',w:pl.w/2,d:pl.d,built:Y});setState(np,{...st,gap:0,plan:Math.floor(hsh(np.id,3)*6)});}}}}
+      for(const q of [[FL,mf,mb,RL],[mf,FR,RR,mb]]){const np=addPlot(q,{p:pl.p,side:pl.side,zone:pl.zone,kind:'croft',w:pl.w/2,d:pl.d,built:Y,A:{f:q[0],b:q[3],d:pl.d},B:{f:q[1],b:q[2],d:pl.d}});setState(np,{...st,gap:0,plan:Math.floor(hsh(np.id,3)*6)});}}}}
 
 // ───────────── land value and standard of living ─────────────
 // Two fields on a 4-unit grid, refreshed every five years. Value: what a plot is worth
@@ -554,13 +691,17 @@ function yearStep(city){
   evolve();
   infill();
   if(Y>=1500){rebuildWave();if(Y>=1520&&rnd()<.35)mergePalace();}
+  syncRaster();
+  if(Y%10===0)for(const pl of rLive)pl.mv=null;
   const built=plots.filter(p=>aliveO(p)&&p.built).length;carry=Math.min(60,Math.max(0,tgt-built));
   const live=zones.filter(z=>aliveO(z));
   while(carry>=1){carry-=1;HH=Y>=1500&&rnd()<.22?'wealthy':'ordinary';
     const open=live.filter(o=>!(o.full>Y)),osum=open.reduce((a,o)=>a+o.rate,0);if(!open.length){FAILS++;break;}
     let t=rnd()*osum,z=open[0];for(const o of open){t-=o.rate;if(t<=0){z=o;break;}}
-    let pl=findHome(z);if(!pl)z.full=Y+4;
-    for(const o of open.slice().sort(()=>rnd()-.5)){if(pl)break;if(o!==z&&!(o.full>Y)){pl=findHome(o);if(!pl)o.full=Y+4;}}
+    // A town zone that grows house by house can miss a few times before it counts as full.
+    const miss=o=>{if(accreting(o)){o.miss=(o.miss||0)+1;if(o.miss>=5){o.full=Y+3;o.miss=0;}}else o.full=Y+4;};
+    let pl=findHome(z);if(!pl)miss(z);else z.miss=0;
+    for(const o of open.slice().sort(()=>rnd()-.5)){if(pl)break;if(o!==z&&!(o.full>Y)){pl=findHome(o);if(!pl)miss(o);else o.miss=0;}}
     if(pl)buildOn(pl);else{FAILS++;break;}}
   census.push({y:Y,houses:plots.filter(p=>aliveO(p)&&p.built).length});}
 // ───────────── drawing (world units; the caller sets the transform) ─────────────
