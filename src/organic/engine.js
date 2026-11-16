@@ -440,7 +440,9 @@ function plotSize(x,y,z){const v=valueC(x,y);
   // Planned quarters: terraces on narrow, shallow plots (a block is two rows back to back).
   if(z?.regular)return Y>=1850?{w:3+rnd()*1.2,d:9+rnd()*1.2}:{w:1.7+rnd()*.5,d:5.6+rnd()*.6};
   if(Y>=1950)return {w:5+rnd()*4,d:9+rnd()*4};if(Y>=1850)return {w:3.6+rnd()*2.6,d:7.5+rnd()*3.5};
-  return v>.95?{w:1.6+rnd()*.8,d:6.5+rnd()*2}:v>.5?{w:2+rnd()*1.2,d:8+rnd()*3}:{w:2.6+rnd()*1.6,d:9.5+rnd()*4};}
+  // A house and a small yard: 5–10 m of frontage, 14–28 m deep in all (not the long medieval strip croft).
+  if(Y>=1850)return {w:3.6+rnd()*2.4,d:6+rnd()*2.5};
+  return v>.95?{w:1.5+rnd()*.8,d:3.4+rnd()*1.2}:v>.5?{w:1.9+rnd()*1.1,d:3.8+rnd()*1.6}:{w:2.3+rnd()*1.5,d:4.2+rnd()*2.4};}
 // Where the next house in zone z could go: beside, across the street from, or behind a house that stands; or on a road.
 function accrete(z){const xs=z.poly.map(p=>p[0]),ys=z.poly.map(p=>p[1]),built=[];
   // Any house near the zone can start the next one (a new quarter grows out of the old town).
@@ -459,7 +461,7 @@ function accrete(z){const xs=z.poly.map(p=>p[0]),ys=z.poly.map(p=>p[1]),built=[]
       // Rows bend to follow the level of the land, a little; later Ages keep them straight.
       const R=P.zone?.regular||z.regular;let u2=u;
       if(R){let best=null,bd=-2;for(let k=0;k<4;k++){const an=R.ang+k*Math.PI/2,cu=[Math.cos(an),Math.sin(an)],dd=cu[0]*u[0]+cu[1]*u[1];if(dd>bd){bd=dd;best=cu;}}u2=best;}
-      else if(!regular){const [gx,gy]=grad(FR[0],FR[1]),sl=Math.hypot(gx,gy);if(sl>1e-6){let tx=-gy/sl,ty=gx/sl;if(tx*u[0]+ty*u[1]<0){tx=-tx;ty=-ty;}const k=clamp(sl/STEEP,0,1)*.3;u2=nrm([u[0]*(1-k)+tx*k,u[1]*(1-k)+ty*k]);}
+      else if(!regular){const [gx,gy]=grad(FR[0],FR[1]),sl=Math.hypot(gx,gy);if(sl>1e-6){let tx=-gy/sl,ty=gx/sl;if(tx*u[0]+ty*u[1]<0){tx=-tx;ty=-ty;}const k=clamp(sl/(STEEP*.45),0,1)*.65;u2=nrm([u[0]*(1-k)+tx*k,u[1]*(1-k)+ty*k]);}
         const a=(rnd()-.5)*(Y<1500?.14:.06),c=Math.cos(a),sn=Math.sin(a);u2=[u2[0]*c-u2[1]*sn,u2[0]*sn+u2[1]*c];}
       let v2=[-u2[1],u2[0]];if(v2[0]*v[0]+v2[1]*v[1]<0)v2=[-v2[0],-v2[1]];let c;
       // A row is broken by a cross street: in a planned quarter every few houses, in the old town now and then.
@@ -476,6 +478,7 @@ function accrete(z){const xs=z.poly.map(p=>p[0]),ys=z.poly.map(p=>p[1]),built=[]
       const x=lerp(Math.min(...xs),Math.max(...xs),rnd()),y=lerp(Math.min(...ys),Math.max(...ys),rnd());if(zoneC(x,y)!==z||OCC[ri(x,y)]!==0)continue;
       const np=nearPath(x,y,40,null,true),tx=np.p?np.x:C0[0],ty=np.p?np.y:C0[1],toward=nrm([tx-x,ty-y]),R=z.regular;let v=[-toward[0],-toward[1]];
       if(R){let best=null,bd=-2;for(let k=0;k<4;k++){const an=R.ang+k*Math.PI/2,cu=[Math.cos(an),Math.sin(an)],dd=cu[0]*v[0]+cu[1]*v[1];if(dd>bd){bd=dd;best=cu;}}v=best;}
+      if(!R){const [gx,gy]=grad(x,y),sl=Math.hypot(gx,gy);if(sl>STEEP*.3){let nv=[gx/sl,gy/sl];if(nv[0]*v[0]+nv[1]*v[1]<0)nv=[-nv[0],-nv[1]];v=nv;}}
       const u=[v[1],-v[0]],{w,d}=plotSize(x,y,z),c={q:quadAt([x-u[0]*w/2,y-u[1]*w/2],u,v,w,d),m:'seed',w,d,bias:-.2-(np.p?np.d*.02:1)};if(quick(c.q))cand.push(c);}
     else{const ps=zonePaths(z).filter(p=>p.kind!=='edge'&&p.kind!=='rail'&&p.kind!=='canal');const p=ps[Math.floor(rnd()*ps.length)];if(!p||p.len<3)continue;
       let s=1+rnd()*(p.len-2);for(let k=0;k<8;k++){const t=at(p,s);if(zoneC(t.x,t.y)===z)break;s=1+rnd()*(p.len-2);}
@@ -485,7 +488,8 @@ function accrete(z){const xs=z.poly.map(p=>p[0]),ys=z.poly.map(p=>p[1]),built=[]
   // Households choose as before: dear land, the living they can afford, neighbours.
   for(const c of cand){const [cx,cy]=centre(c.q),S=solAt(cx,cy),V=valAt(cx,cy);let nb=0;plotBins.near(cx-6,cy-6,cx+6,cy+6,o=>{if(aliveO(o)&&o.built)nb++;});
     // Households like neighbours: the town stays compact and rows fill before new ones start.
-    c.sc=1.3*valueC(cx,cy)+(HH==='wealthy'?S/22+V/35:S/26-V/70)+c.bias+Math.min(nb,8)*.3-slopeAt(cx,cy)/STEEP*.4+rnd()*.6;}
+    let lev=0;if(!(zoneC(cx,cy)?.regular)){const [gx,gy]=grad(cx,cy),sl=Math.hypot(gx,gy);if(sl>1e-6){const [FL,FR]=c.q,ux=FR[0]-FL[0],uy=FR[1]-FL[1],ul=Math.hypot(ux,uy)||1;lev=(1-Math.abs((ux*gx+uy*gy)/(ul*sl)))*clamp(sl/(STEEP*.5),0,1)-.5*clamp(sl/(STEEP*.5),0,1);}}
+    c.sc=1.3*valueC(cx,cy)+(HH==='wealthy'?S/22+V/35:S/26-V/70)+c.bias+Math.min(nb,8)*.3+lev*1.2-slopeAt(cx,cy)/STEEP*.4+rnd()*.6;}
   cand.sort((a,b)=>b.sc-a.sc);
   for(const c of cand.slice(0,7)){const zc=zoneAt(...centre(c.q));if(!zc||!canPlace(c.q,zc)){if(c.P&&c.bit&&rnd()<.5)c.P.mv&=~c.bit;continue;}const [FL,FR,RR,RL]=c.q;
     let road=c.road||null;if(!road){const np=nearPath((FL[0]+FR[0])/2,(FL[1]+FR[1])/2,2.5,null,true);if(np.p&&np.d<1.2)road=np.p;}
@@ -511,14 +515,15 @@ const ROOF={brick:['#9a5f48','#a3664c','#8d5642'],modernist:['#8e918c','#9a9c96'
 function Qf(pl){if(pl.Q)return pl.Q;const [FL,FR,RR,RL]=pl.pts;return pl.Q=(u,v)=>{const ax=FL[0]+(FR[0]-FL[0])*u,ay=FL[1]+(FR[1]-FL[1])*u,bx=RL[0]+(RR[0]-RL[0])*u,by=RL[1]+(RR[1]-RL[1])*u;return [ax+(bx-ax)*v,ay+(by-ay)*v];};}
 // A house plan inside its plot (u along the front, v from front to back). dv: share of the plot it covers.
 function housePlan(pl,st){if(st.b==='works'){const dv=st.dv;return [{uv:[[.05,0],[.95,0],[.95,dv],[.05,dv]],ridge:[[.5,.03],[.5,dv*.97]]},{uv:[[.2,dv],[.5,dv],[.5,dv*1.12],[.2,dv*1.12]],col:'#5e5850'}];}
+  if(st.b==='palace'&&pl.d<7)return [{uv:[[0,0],[1,0],[1,.92],[0,.92]],ridge:[[.04,.46],[.96,.46]]}];
   if(st.b==='palace'){const dv=Math.min(st.dv,10/Math.max(1,pl.d)),c0=.28,c1=.72;return [{uv:[[0,0],[1,0],[1,dv],[c1,dv],[c1,dv*.32],[c0,dv*.32],[c0,dv],[0,dv]],ridge:[[.04,dv*.16],[.96,dv*.16]]},{uv:[[c0,dv*.32],[c1,dv*.32],[c1,dv],[c0,dv]],col:'#ddd0b0'}];}
   // A house keeps to the front of its plot: at most ~8 units (32 m) deep, whatever the plot.
   const k=st.plan,dv=Math.min(st.dv,8/Math.max(1,pl.d)),g0=st.gap,a=.38+hsh(pl.id,4)*.25,mir=hsh(pl.id,5)<.5,M=uv=>mir?uv.map(([u,v])=>[1-u,v]).reverse():uv;
   const u0=g0,u1=1-g0,F=dv*.62,uv=(u,v)=>[u0+(u1-u0)*u,v];
   if(st.b==='farm')return [{uv:M([[0,0],[.62,0],[.62,dv*.6],[0,dv*.6]].map(([u,v])=>uv(u,v))),ridge:[uv(.04,dv*.3),uv(.58,dv*.3)]},{uv:M([[.7,.1],[1,.1],[1,dv*1.25],[.7,dv*1.25]].map(([u,v])=>uv(u,v))),ridge:[uv(.85,.14),uv(.85,dv*1.2)],col:'#75684f'}];
   const box=[{uv:[[0,0],[1,0],[1,dv],[0,dv]].map(([u,v])=>uv(u,v)),ridge:[uv(.5,.04),uv(.5,dv*.96)]}];
-  if(k===0||pl.w<2.1)return [{uv:[[0,0],[1,0],[1,dv],[0,dv]].map(([u,v])=>uv(u,v)),ridge:pl.w>dv*pl.d?[uv(.02,dv/2),uv(.98,dv/2)]:[uv(.5,.03),uv(.5,dv*.97)]}];
-  if(k===1)return [{uv:M([[0,0],[1,0],[1,F],[a,F],[a,dv*1.35],[0,dv*1.35]].map(([u,v])=>uv(u,v))),ridge:[uv(.03,F/2),uv(.97,F/2)]}];       // rear wing
+  if(k===0||pl.w<2.1||pl.d<7&&k>=3)return [{uv:[[0,0],[1,0],[1,dv],[0,dv]].map(([u,v])=>uv(u,v)),ridge:pl.w>dv*pl.d?[uv(.02,dv/2),uv(.98,dv/2)]:[uv(.5,.03),uv(.5,dv*.97)]}];
+  if(k===1)return [{uv:M([[0,0],[1,0],[1,F],[a,F],[a,Math.min(.97,dv*1.35)],[0,Math.min(.97,dv*1.35)]].map(([u,v])=>uv(u,v))),ridge:[uv(.03,F/2),uv(.97,F/2)]}];       // rear wing
   if(k===2)return [{uv:M([[0,0],[1,0],[1,dv*.8],[a,dv*.8],[a,dv],[0,dv]].map(([u,v])=>uv(u,v))),ridge:[uv(.03,dv*.4),uv(.97,dv*.4)]}];   // stepped back
   if(k===3)return [...box,{uv:M([[.15,dv*1.25],[.6,dv*1.25],[.6,dv*1.6],[.15,dv*1.6]].map(([u,v])=>uv(u,v))),col:'#7a6a52'}];           // outhouse
   return [{uv:[[0,0],[1,0],[1,dv],[0,dv]].map(([u,v])=>uv(u,v)),ridge:[uv(.5,.04),uv(.5,dv*.96)]}];}
