@@ -38,7 +38,7 @@ export const FORMS={
   grid:{type:'res',label:'Grid extension',short:'Grid',icon:'▦',from:1850,to:2030,
     note:'Large square blocks with chamfered corners and wide streets',cap:1.3,jobs:1,prosperity:.006,
     lot:{w:[3,4.2],d:[9,10.2]},b:'house',regular:{block:7,S:3.8}},
-  linear:{type:'res',label:'Linear city',short:'Linear',icon:'═',from:1850,to:2030,
+  linear:{plan:'linear',type:'res',label:'Linear city',short:'Linear',icon:'═',from:1850,to:2030,
     note:'Rows of houses either side of a tram avenue',cap:1,jobs:1,transport:.02,
     lot:{w:[2.6,3.4],d:[6.5,8]},b:'house',regular:{block:9,S:3.2},spine:true},
   garden:{type:'res',label:'Garden city',short:'Garden',icon:'❀',from:1880,to:2030,
@@ -47,7 +47,7 @@ export const FORMS={
   workers:{type:'res',label:'Workers’ housing',short:'Terraces',icon:'▤',from:1850,to:1949,
     note:'Tight back-to-back terraces near the works: many people, poor living',cap:1.6,jobs:1,prosperity:-.01,
     lot:{w:[1.6,2],d:[4.4,5]},b:'house',regular:{block:14,S:2.6}},
-  heavy:{type:'craft',label:'Heavy industry',short:'Industry',icon:'🏭',from:1850,to:2030,
+  heavy:{plan:'estate',type:'craft',label:'Heavy industry',short:'Industry',icon:'🏭',from:1850,to:2030,
     note:'Steel, chemicals and engineering sheds: many jobs, much smoke',cap:1,jobs:2.2,pollution:2,
     lot:{w:[8,14],d:[10,16]},b:'shed',regular:{block:3,S:4}},
   mine:{type:'craft',label:'Mines & quarries',short:'Mines',icon:'⛏',from:1850,to:2030,
@@ -59,14 +59,17 @@ export const FORMS={
   // The old town as it stands, from the Modern Age on: small streets and little room for cars.
   oldtown:{type:'res',label:'Historic quarter',short:'Historic',icon:'♖',from:1850,to:2030,
     note:'The old town as it stands: narrow streets, little room for cars',cap:1,jobs:1,prosperity:.004,b:'house'},
+  // High-density grid from the 1880s: long narrow blocks between avenues, walls of apartments.
+  highgrid:{plan:'ues',type:'res',label:'High-density grid',short:'Blocks',icon:'▤',from:1880,to:2030,
+    note:'Long narrow blocks between avenues, tall apartment walls (Upper East Side)',cap:2.2,jobs:1,prosperity:.002,b:'block'},
   // ── Contemporary (1950–) ──
-  dense:{type:'res',label:'Dense housing',short:'Dense',icon:'▥',from:1950,to:2030,
-    note:'Apartment slabs and towers: many people in little land',cap:2,jobs:1,prosperity:-.004,
+  dense:{plan:'pudong',type:'res',label:'High-density free',short:'Towers',icon:'▥',from:1950,to:2030,
+    note:'Towers and slabs on lawns between wide roads (Pudong)',cap:2,jobs:1,prosperity:-.004,
     lot:{w:[6,10],d:[10,13]},b:'tower',regular:{block:4,S:5},dv:[.55,.7]},
-  suburb:{type:'res',label:'Suburbs',short:'Suburbs',icon:'⌂',from:1950,to:2030,
+  suburb:{plan:'suburb',type:'res',label:'Suburbs',short:'Suburbs',icon:'⌂',from:1950,to:2030,
     note:'Detached houses on curving streets: few people, long drives',cap:.45,jobs:1,prosperity:.008,transport:-.01,
     lot:{w:[3.6,4.6],d:[7,9]},b:'house',detached:1.8,curve:true,dv:[.3,.45]},
-  offices:{type:'trade',label:'Offices',short:'Offices',icon:'▮',from:1950,to:2030,
+  offices:{plan:'cbd',type:'trade',label:'Offices',short:'Offices',icon:'▮',from:1950,to:2030,
     note:'Office towers: many jobs, empty at night',cap:1,jobs:2.4,
     lot:{w:[6,10],d:[8,12]},b:'tower',regular:{block:3,S:5}},
   retail:{type:'trade',label:'Retail park',short:'Retail',icon:'🛒',from:1970,to:2030,
@@ -81,7 +84,7 @@ export const defaultForm=(type,year)=>DEFAULT[type]?.(year)||null;
 // The form a zone is built in: its own, or the default for its use in the year it was zoned.
 export function formOf(z){if(z?.form&&FORMS[z.form])return z.form;return defaultForm(z?.type,Number(z?.year)||1300);}
 // Tools for an Age, in a fixed order: homes first, then work, then land.
-const ORDER=['houses','oldtown','fine','newtown','workers','grid','linear','garden','dense','suburb','market','commerce','offices','retail','guild','manufactory','heavy','mine','farm','civic','hotel'];
+const ORDER=['houses','oldtown','fine','newtown','workers','grid','highgrid','linear','garden','dense','suburb','market','commerce','offices','retail','guild','manufactory','heavy','mine','farm','civic','hotel'];
 export function formsAt(year,{tourism=false}={}){return ORDER.filter(id=>{const f=FORMS[id];return year>=f.from&&year<=f.to&&(f.needs!=='tourism'||tourism);});}
 // A tool id may be a form or a plain use; both resolve to {type, form}.
 export function resolveZone(tool,year){if(FORMS[tool])return {type:FORMS[tool].type,form:tool};const f=defaultForm(tool,year);return f?{type:tool,form:f}:null;}

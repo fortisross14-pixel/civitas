@@ -12,7 +12,7 @@ test('each Age has its own tools, a handful at a time',()=>{
   for(const id of ['grid','linear','garden','heavy','mine'])assert.ok(mod.includes(id),id);
   for(const id of ['dense','suburb','offices','retail'])assert.ok(now.includes(id),id);
   assert.ok(!med.includes('dense')&&!now.includes('guild'));
-  for(const y of [1350,1600,1750,1880,1990])assert.ok(formsAt(y).length<=14,`${y}: ${formsAt(y).length}`);
+  for(const y of [1350,1600,1750,1880,1990])assert.ok(formsAt(y).length<=15,`${y}: ${formsAt(y).length}`);
 });
 test('old uses still work as tools and old zones get the Age default',()=>{
   assert.deepEqual(resolveZone('res',1350),{type:'res',form:'houses'});assert.deepEqual(resolveZone('garden',1900),{type:'res',form:'garden'});
