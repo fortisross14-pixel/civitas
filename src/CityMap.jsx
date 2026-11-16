@@ -1,5 +1,5 @@
 import {FORMS} from './zoning.js';
-import {organicPick} from './organic/index.js';
+import {organicPick,organicYear} from './organic/index.js';
 import React,{useEffect,useMemo,useRef,useState} from 'react';
 import {Maximize2} from 'lucide-react';
 import {W,H,ZONES,terrain,zoneCell,STYLE_NAMES,styleAt,cityOrigin,tourismUnlocked,bridgeAt,publicWorkCost,constructionSite,urbanPlan} from './sim';
@@ -16,6 +16,7 @@ const SELECTION_STYLE={erase:['#7a7464','#7a746426'],demolish:['#a2513f','#b8604
 export const CAPTION_MS=7000;
 
 export function CityMap({pick=null,city,tool,layer,onZone,onPlace,onInspect,onMarker=null,score=null,selectedId=null,readOnly=false,previewRing=null,describeSelection=null,captions=[],animate=false,population=0,archiveYear=null,minimal=false,lens=null,pendingRect=null,pendingPoint=null}){
+  const catchUp=useRef(false),catchFrames=useRef(0),drawingYear=useRef(null),[drawing,setDrawing]=useState(null);
   const canvas=useRef(null),drag=useRef(null),view=useRef({zoom:1,dx:0,dy:0});
   const [dimensions,setDimensions]=useState({width:600,height:500}),[frame,setFrame]=useState(0),[selection,setSelection]=useState(null),[hover,setHover]=useState(null),[tick,setTick]=useState(0);
   const [showLegend,setShowLegend]=useState(()=>typeof window==='undefined'||window.innerWidth>760);
@@ -52,7 +53,10 @@ export function CityMap({pick=null,city,tool,layer,onZone,onPlace,onInspect,onMa
     const now=performance.now();
     const caps=liveCaptions.map(cap=>{const age=now-cap.t0;return {...cap,alpha:age<600?age/600:age>CAPTION_MS-1500?(CAPTION_MS-age)/1500:1};});
     // v3.1: the organic map grows toward the city's year a few milliseconds per frame.
-    const organic=minimal&&!!city.center,behind=organic&&!organicSync(city,12);
+    // Catching up (a first open with no saved map): grow in bigger steps and redraw only now and then.
+    const catching=catchUp.current,organic=minimal&&!!city.center,behind=organic&&!organicSync(city,catching?40:12);catchUp.current=behind;
+    {const y=behind&&catching?Math.floor(organicYear(city)/10)*10:null;if(y!==drawingYear.current){drawingYear.current=y;setDrawing(y);}}
+    if(behind&&catching&&(catchFrames.current++%10)!==0){const id=requestAnimationFrame(redraw);return()=>cancelAnimationFrame(id);}
     const [line,fill]=SELECTION_STYLE[tool]||['#3c6d57','#3c895231'];
     drawCity(ctx,city,width,height,{organic,pick:organic&&pick?{x:pick.fx,y:pick.fy}:null,lens:organic?lens:null,view:view.current,maxStaleMs:animate?350:0,layer,selectedId,previewRing:readOnly?null:previewRing,bridgePreview,urbanPreview,
       cartouche:!minimal&&(!!archiveYear||window.innerWidth<=760),selection:selection?{...selection,line,fill}:pendingRect?{...pendingRect,line,fill}:null,hover:aim,placing:tool.startsWith('place:')&&!readOnly,placingCenter:tool==='place:center'&&!readOnly,site,captions:caps,now,population,archiveYear,score:archiveYear?null:score});
@@ -100,6 +104,7 @@ export function CityMap({pick=null,city,tool,layer,onZone,onPlace,onInspect,onMa
       :layer==='geography'?<><b>ROADS & LAND</b><span><i className="legend-main"/>Main road</span><span><i className="legend-road"/>Street</span><span><i className="legend-wall"/>City wall</span><span><i className="legend-water"/>Water</span><span><i style={{background:'#cfd3a6'}}/>Fields</span><span><i style={{background:'#d4cab2'}}/>Built land</span></>
       :<><b>BUILDINGS</b><span><i className="legend-landmark"/>Landmark (from a card)</span>{[['res','Homes'],['trade','Shops'],['craft','Workshops'],['civic','Civic halls'],['farm','Farms']].map(([t,label])=><span key={t}><i style={{background:roofTone(t,styleAt(city.year),0)}}/>{label}</span>)}<span><i className="legend-vacant"/>Vacant</span></>}</div>}
     {!minimal&&<div className="mapzoom"><button aria-label={showLegend?'Hide map key':'Show map key'} aria-pressed={showLegend} className={showLegend?'keyToggle on':'keyToggle'} onClick={()=>setShowLegend(v=>!v)}>Key</button><button aria-label="Zoom in" onClick={()=>zoom(1.3)}>+</button><button aria-label="Zoom out" onClick={()=>zoom(1/1.3)}>−</button><button aria-label="Reset map view" onClick={()=>{view.current={zoom:1,dx:0,dy:0};redraw();}}><Maximize2 size={14}/></button></div>}
+    {minimal&&drawing&&city.year-drawing>15&&<div className="g-drawing" role="status">Drawing the town… {Math.floor(drawing/10)*10}</div>}
     {minimal?selectionText&&<div className="g-coord">{selectionText}</div>:hoverText&&<div className="coord">{hoverText}</div>}
   </div>;
 }

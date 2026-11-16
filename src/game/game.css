@@ -267,3 +267,4 @@
 .g-spot{display:flex;flex-wrap:wrap;gap:4px 10px;margin-top:3px;font-size:12px;color:var(--ink2,#6b5e4e)}.g-spot i{font-style:normal}.g-spot b{color:var(--ink)}
 .g-peek .g-tag{margin-left:6px;font-size:10px;font-style:normal;vertical-align:middle}
 .g-finished~.g-peek,.g3:has(.g-finished) .g-peek{bottom:calc(env(safe-area-inset-bottom) + 160px)}
+.g-drawing{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);padding:10px 16px;border-radius:14px;background:rgba(250,245,232,.94);box-shadow:0 4px 18px rgba(48,43,34,.18);font:italic 15px Georgia,serif;color:#4a3828;pointer-events:none}

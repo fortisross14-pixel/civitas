@@ -120,9 +120,9 @@ function layRow(p,side,s0,s1,z,o={}){
   while(s<s1-1.5){
     // Every so often the row leaves an opening: a lane will go in there.
     while(p.gaps[gk]<s-2)p.gaps[gk]+=every();
-    {const st=stubs.find(t=>t.p===p&&t.side===side&&t.s>s-1.3&&t.s<s+(o.width?3.5:3.8)+1.2);if(st){s=st.s+1.45;prevB=null;continue;}}
+    {const st=stubs.find(t=>t.p===p&&t.side===side&&t.s>s-1.3&&t.s<s+(o.width||o.widthR?3.5:3.8)+1.2);if(st){s=st.s+1.45;prevB=null;continue;}}
     if(s>=p.gaps[gk]&&s<p.len-6&&!o.noGaps){const a=at(p,s+1.1),nx=-a.ty*side,ny=a.tx*side;stubs.push({p,s:s+1.1,side,x:a.x,y:a.y,hx:nx,hy:ny,z,born:Y});s+=2.4;prevB=null;p.gaps[gk]=s+every();continue;}
-    const w=o.width?o.width():dear?1.6+rnd()*.8:mid?2+rnd()*1.2:2.6+rnd()*1.6,sA=s,sB=Math.min(s1,s+w);if(sB-sA<1.4)break;
+    const w=o.widthR?o.widthR[0]+rnd()*(o.widthR[1]-o.widthR[0]):o.width?o.width():dear?1.6+rnd()*.8:mid?2+rnd()*1.2:2.6+rnd()*1.6,sA=s,sB=Math.min(s1,s+w);if(sB-sA<1.4)break;
     const A=prevB&&Math.abs(prevB.s-sA)<1e-6?prevB:corner(p,sA,side,back,z,o.wall),B=corner(p,sB,side,back,z,o.wall);
     if(!A||!B){deadAt(z,p,side,s);prevB=null;s+=.8;continue;}
     // On the outside of a bend the sides splay: shorten the plot so its back is at most 1.7× its front.
@@ -356,7 +356,7 @@ function bastions(){const old=walls[0],zs=zones.filter(z=>aliveO(z)&&(z.kind==='
 function surveyGrid(ox,oy,ang,nx,ny,bw,bh,name,o={}){const c=Math.cos(ang),sn=Math.sin(ang),Pt=(u,v)=>[ox+u*c-v*sn,oy+u*sn+v*c];
   const W=nx*bw,Hh_=ny*bh,dir=o.dir??-1;// dir -1: the grid extends to the left of the road (away from the river)
   const corners=[Pt(0,0),Pt(W,0),Pt(W,dir*Hh_),Pt(0,dir*Hh_)];
-  const z=addZone(corners,'grid',name,{rate:o.rate??3,lay:{width:()=>o.plotW??1.7,depth:bh/2-.9,noGaps:true,noBack:true}});z.uniform=o.style||'classical';z.grid={Pt,bw,bh,nx,ny,dir};
+  const z=addZone(corners,'grid',name,{rate:o.rate??3,lay:{widthR:[o.plotW??1.7,o.plotW??1.7],depth:bh/2-.9,noGaps:true,noBack:true}});z.uniform=o.style||'classical';z.grid={Pt,bw,bh,nx,ny,dir};
   const okLine=pts=>{const seg=[],out=[];for(const p of pts){if(water(...p)||slopeAt(...p)>STEEP*2.2||inPlace(...p)){if(seg.length>2)out.push(seg.slice());seg.length=0;continue;}seg.push(p);}if(seg.length>2)out.push(seg);return out;};
   const streets=[];
   for(let j=0;j<=ny;j++){const pts=[];for(let u=0;u<=W;u+=1.5)pts.push(Pt(u,dir*j*bh));for(const sg of okLine(pts))streets.push(addPath(sg,'street',{hw:o.hw??.7}));}
@@ -577,7 +577,7 @@ function feed(city){
   (city.zones||[]).forEach((z,i)=>{const born=Number(z.year)||Y0;if(born>Y||fed.zones.has(i))return;fed.zones.set(i,null);
     if(z.type==='clear'){const x0=z.x*K,y0=z.y*K,x1=(z.x+z.w)*K,y1=(z.y+z.h)*K;for(const o of zones)if(aliveO(o)&&o.cx>=x0&&o.cx<=x1&&o.cy>=y0&&o.cy<=y1)o.died=Y;return;}
     const poly=cellPoly(z),fid=formAtYear(z,Y),F=FORMS[fid]||{};let o;
-    if(z.type==='farm')o=addZone(poly,'village',null,{use:z.type,rate:.4,lay:{width:()=>3.6+rnd()*2.4,depth:11,gapEvery:22}});
+    if(z.type==='farm')o=addZone(poly,'village',null,{use:z.type,rate:.4,lay:{widthR:[3.6,6],depth:11,gapEvery:22}});
     else if(F.regular)o=regularZone(z,poly,F);
     else o=addZone(poly,'town',null,{use:z.type,rate:1});
     formZone(o,fid,F);markRezoned(o);
@@ -871,6 +871,23 @@ return {
       const mp=places.at(-1).poly,ep=addPath([...mp,mp[0]],'edge',{hw:.05});const z0=zoneAt(C0[0],C0[1]-6)||fed.implicit;if(z0)for(const sd of [1,-1])layRow(ep,sd,.5,ep.len-.5,z0,{width:()=>1.7+rnd()*.7,depth:6,noGaps:true});}
     const end=city.year,t0=(typeof performance!=='undefined'?performance:Date).now();while(Y<end){yearStep(city);Y++;if((typeof performance!=='undefined'?performance:Date).now()-t0>ms)break;}if(Y>=end)applyHeritage(city);return Y>=end;},
   draw(ctx,year,part,opts){drawWorld(ctx,year,part,opts);},
+  // v3.6 fast open: the whole grown map as one object graph (IndexedDB keeps the references
+  // between plots, zones and paths), and back. Functions, canvases and spatial indexes are left
+  // out and rebuilt.
+  snapshot(){for(const pl of plots)delete pl.Q;
+    return {v:1,Y,rs,placeSeq,C0,carry,FAILS,rasterOn,reachDirty,rPaths,rPlaces,rLms,rPlots,rWalls,HH,ver,plazaN,started,
+      stubs,paths,plots,places,landmarks,zones,walls,labels,town,census,rLive,applied,OCC,REACH,FV,FS,fieldYear,
+      fed:{zones:fed.zones,lms:fed.lms,walls:fed.walls,bridges:fed.bridges,routes:fed.routes,implicit:fed.implicit}};},
+  restore(S){if(!S||S.v!==1)return false;
+    Y=S.Y;rs=S.rs;placeSeq=S.placeSeq;C0=S.C0;carry=S.carry;FAILS=S.FAILS;rasterOn=S.rasterOn;reachDirty=S.reachDirty;rPaths=S.rPaths;rPlaces=S.rPlaces;rLms=S.rLms;rPlots=S.rPlots;rWalls=S.rWalls;HH=S.HH;ver=S.ver;plazaN=S.plazaN;started=S.started;
+    for(const [arr,src] of [[stubs,S.stubs],[paths,S.paths],[plots,S.plots],[places,S.places],[landmarks,S.landmarks],[zones,S.zones],[walls,S.walls],[labels,S.labels],[town,S.town],[census,S.census],[rLive,S.rLive]]){arr.length=0;for(const o of src)arr.push(o);}
+    applied.clear();for(const k of S.applied)applied.add(k);OCC.set(S.OCC);REACH.set(S.REACH);FV=S.FV;FS=S.FS;
+    fed.zones=S.fed.zones;fed.lms=S.fed.lms;fed.walls=S.fed.walls;fed.bridges=S.fed.bridges;fed.routes=S.fed.routes;fed.implicit=S.fed.implicit;
+    // Spatial indexes, from the objects.
+    pathBins.m.clear();for(const p of paths)for(let i=1;i<p.pts.length;i++){const a=p.pts[i-1],b=p.pts[i],m=p.hw+.5;pathBins.add({p,a,b},Math.min(a[0],b[0])-m,Math.min(a[1],b[1])-m,Math.max(a[0],b[0])+m,Math.max(a[1],b[1])+m);}
+    plotBins.m.clear();for(const pl of plots){const xs=pl.pts.map(q=>q[0]),ys=pl.pts.map(q=>q[1]);plotBins.add(pl,Math.min(...xs),Math.min(...ys),Math.max(...xs),Math.max(...ys));}
+    placeBins.m.clear();for(const pl of places){const xs=pl.poly.map(q=>q[0]),ys=pl.poly.map(q=>q[1]);placeBins.add(pl,Math.min(...xs),Math.min(...ys),Math.max(...xs),Math.max(...ys));}
+    zoneVer=-1;zgKey='';ZG=null;fieldYear=S.fieldYear;TG=null;vMemoY=-1;zMemoV=-1;ground=null;pave=null;paveKey='';tintC=null;tintK='';return true;},
   // Outline what is drawn at a point (the selection on the map).
   outline(ctx,x,y,year,lw){const sy=Y;Y=Math.min(year,Y);let P=null;
     for(const m of landmarks){if(!aliveO(m)||!m.parts.length)continue;for(const part of m.parts){const Q=part.abs?part.poly:part.poly.map(([px,py])=>lmPoint(m,px,py));if(inPoly(x,y,Q)){P=Q;break;}}if(P)break;}

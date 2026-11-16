@@ -53,3 +53,15 @@ export async function writeLegacy(legacy){
     tx.onabort=()=>reject(tx.error||new Error('Legacy transaction aborted'));
   });}finally{db.close();}
 }
+// v3.6 fast open: each city's grown map, kept beside the city library (one record per city).
+const mapKey=id=>`map:${id}`;
+export async function readMap(id){
+  const db=await openDatabase();
+  try{return await new Promise((resolve,reject)=>{const tx=db.transaction(STORE,'readonly');const req=tx.objectStore(STORE).get(mapKey(id));
+    req.onsuccess=()=>resolve(req.result===undefined?null:req.result);req.onerror=()=>reject(req.error||new Error('Cannot read the map'));});}finally{db.close();}
+}
+export async function writeMap(id,data){
+  const db=await openDatabase();
+  try{return await new Promise((resolve,reject)=>{const tx=db.transaction(STORE,'readwrite');data==null?tx.objectStore(STORE).delete(mapKey(id)):tx.objectStore(STORE).put(data,mapKey(id));
+    tx.oncomplete=()=>resolve(true);tx.onerror=()=>reject(tx.error||new Error('Cannot save the map'));});}finally{db.close();}
+}
