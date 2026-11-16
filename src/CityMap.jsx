@@ -3,6 +3,7 @@ import {Maximize2} from 'lucide-react';
 import {W,H,ZONES,terrain,zoneCell,STYLE_NAMES,styleAt,cityOrigin,tourismUnlocked,bridgeAt,publicWorkCost,constructionSite,urbanPlan} from './sim';
 import {deckOf} from './cards.js';
 import {footprint} from './geo.js';
+import {organicSync} from './organic/index.js';
 import {drawCity,mapTransform,DISTRICT_COLORS,roofTone,markerPositions,mapWarp,MARKER_RADIUS} from './render.js';
 export {DISTRICT_COLORS};
 
@@ -48,9 +49,12 @@ export function CityMap({city,tool,layer,onZone,onPlace,onInspect,onMarker=null,
     const ctx=c.getContext('2d');if(!ctx)return;ctx.setTransform(dpr,0,0,dpr,0,0);
     const now=performance.now();
     const caps=liveCaptions.map(cap=>{const age=now-cap.t0;return {...cap,alpha:age<600?age/600:age>CAPTION_MS-1500?(CAPTION_MS-age)/1500:1};});
+    // v3.1: the organic map grows toward the city's year a few milliseconds per frame.
+    const organic=minimal&&!!city.center,behind=organic&&!organicSync(city,12);
     const [line,fill]=SELECTION_STYLE[tool]||['#3c6d57','#3c895231'];
-    drawCity(ctx,city,width,height,{view:view.current,maxStaleMs:animate?350:0,layer,selectedId,previewRing:readOnly?null:previewRing,bridgePreview,urbanPreview,
+    drawCity(ctx,city,width,height,{organic,view:view.current,maxStaleMs:animate?350:0,layer,selectedId,previewRing:readOnly?null:previewRing,bridgePreview,urbanPreview,
       cartouche:!minimal&&(!!archiveYear||window.innerWidth<=760),selection:selection?{...selection,line,fill}:pendingRect?{...pendingRect,line,fill}:null,hover:aim,placing:tool.startsWith('place:')&&!readOnly,placingCenter:tool==='place:center'&&!readOnly,site,captions:caps,now,population,archiveYear,score:archiveYear?null:score});
+    if(behind){const id=requestAnimationFrame(redraw);return()=>cancelAnimationFrame(id);}
   },[city,layer,selection,pendingRect,pendingPoint,dimensions,frame,hover,tool,readOnly,previewRing,bridgePreview,site,selectedId,tick,captions,population,archiveYear]);
 
   const dragTool=DRAG_TOOLS.has(tool);

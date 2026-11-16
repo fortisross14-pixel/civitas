@@ -1,5 +1,18 @@
 # CIVITAS changelog
 
+## v3.1 — The organic map in the game
+
+The game map is now drawn by the organic engine from `prototypes/ages.html` (`src/organic/`). The economy still runs on the grid underneath; the new map is grown from what the player does and from the city's own record:
+- the ground has height (from the game's water, a valley and hills), contour lines and woods on the slopes;
+- the game's main roads are smoothed; lanes grow along the level lines, with back lanes and short connectors;
+- zones become strip plots laid out before houses go up, filled in step with the simulation's building count; shops and workshops have their own forms;
+- landmark cards place churches with churchyards, market places and civic buildings where the player taps them; a Town Hall from 1500 cuts a planned square;
+- a wall the player raises is thrown round the town that stands (bastioned from 1550); a converted wall becomes a ring boulevard;
+- zones painted from 1700 are laid out as surveyed grids (brick blocks from 1850);
+- stone rebuilding, gardens built over and courtyard palaces follow the Ages.
+A loaded city redraws its history in the background (a few milliseconds a frame). The Atlas and timelapse keep the old renderer.
+
+
 ## v3.0 — A new game screen
 
 The game is rebuilt around four verbs and a clear goal.

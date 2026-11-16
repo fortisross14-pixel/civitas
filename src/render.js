@@ -7,6 +7,7 @@
 import {W,H,ZONES,terrain,zoneCell,styleAt,cityOrigin,homeLand,cityFields,districtDetails,wallPolygon,wallSegments} from './sim.js';
 import {hash,rand,valueNoise,waterGrid,clamp} from './geo.js';
 import {ageAt} from './ages.js';
+import {organicDraw,organicVersion} from './organic/index.js';
 
 export const DISTRICT_COLORS=['#b5835a','#6f8f9c','#9b8a4e','#8a6f9b','#6f9a7a','#a8706c','#7d8bb0','#a59267','#5f8c8c','#9c7a8a','#87955f','#b08a7a'];
 const PAPER='#e9e0c6',LAND='#d9d3ad',FIELD_LINE='rgba(150,146,104,.45)',HEDGE='rgba(120,128,88,.55)';
@@ -457,7 +458,7 @@ function staticCache(ctx,city,width,height,opts,layer){
   const now=typeof performance!=='undefined'?performance.now():Date.now(),stale=opts.maxStaleMs||0;
   // Slow devices get a longer window: rebuilds stay under ~25% of the time.
   let hit=entry.frameKey===frameKey&&stale>0&&now-entry.builtAt<Math.max(stale,4*(entry.buildMs||0));
-  if(!hit){const contentKey=`${Math.floor((city.year||0)/5)}|${citySignature(city)}`;hit=entry.frameKey===frameKey&&entry.contentKey===contentKey;
+  if(!hit){const contentKey=`${Math.floor((city.year||0)/5)}|${citySignature(city)}|${opts.organic?organicVersion(city):''}`;hit=entry.frameKey===frameKey&&entry.contentKey===contentKey;
     if(!hit){entry.ctx.setTransform(1,0,0,1,0,0);entry.ctx.clearRect(0,0,canvas.width,canvas.height);entry.frameKey=frameKey;entry.contentKey=contentKey;entry.builtAt=now;entry.building=true;}}
   return {hit,ctx:entry.ctx,canvas:entry.canvas,get state(){return entry.state;},set state(v){entry.state=v;},built(){if(entry.building){entry.building=false;entry.buildMs=(typeof performance!=='undefined'?performance.now():Date.now())-now;}}};
 }
@@ -473,6 +474,11 @@ export function drawCity(ctx,city,width,height,opts={}){
   if(!cache.hit){const live=ctx;{const ctx=cache.ctx;ctx.save();if(!cache.direct)ctx.setTransform(live.getTransform());
     ctx.fillStyle=paperPattern(ctx);ctx.fillRect(0,0,width,height);
     ctx.save();ctx.translate(ox,oy);ctx.scale(scale,scale);
+    // v3.1: the organic map draws the land, streets, plots and houses; the grid stays underneath, unseen.
+    if(opts.organic){const yr=opts.archiveYear||city.year;organicDraw(ctx,city,yr,'ground');const water=waterLayer(city.type);if(water)ctx.drawImage(water,0,0,W,H);
+      if(layer==='zones')for(let y=0;y<H;y++)for(let x=0;x<W;x++){const type=zoneCell(city,x,y);if(type){ctx.fillStyle=ZONES[type].color+'55';ctx.fillRect(x,y,1,1);}}
+      organicDraw(ctx,city,yr,'features');}
+    else{
     const fields=fieldsLayer(city.type,city.seed,fieldEpoch(opts.archiveYear||city.year||1300));if(fields){ctx.imageSmoothingEnabled=true;ctx.drawImage(fields,0,0,W,H);}
     // Zoning: a wash on the zoning layer, a whisper on the urban map.
     if(layer==='zones'||layer==='urban')for(let y=0;y<H;y++)for(let x=0;x<W;x++){const type=zoneCell(city,x,y);if(type){ctx.fillStyle=ZONES[type].color+(layer==='zones'?'66':'18');ctx.fillRect(x,y,1,1);}}
@@ -600,16 +606,17 @@ export function drawCity(ctx,city,width,height,opts={}){
       for(const ring of walls)if(ring.state==='boulevard'){g.beginPath();for(const [a,b] of wallSegments(ring)){g.moveTo(a[0],a[1]);g.lineTo(b[0],b[1]);}g.lineWidth=1.1;g.stroke();}
       g.globalCompositeOperation='source-over';
       ctx.save();ctx.setTransform(1,0,0,1,0,0);ctx.globalAlpha=1;ctx.drawImage(g.canvas,0,0);ctx.restore();}
+  }
   cache.state=captureState(ctx);ctx.restore();ctx.restore();}cache.built();}
   if(!cache.direct){ctx.save();ctx.setTransform(1,0,0,1,0,0);ctx.globalAlpha=1;ctx.drawImage(cache.canvas,0,0);ctx.restore();}
   ctx.save();ctx.translate(ox,oy);ctx.scale(scale,scale);
   // The live part used to inherit drawing state from the static part; restore it.
   if(!cache.direct&&cache.state)applyState(ctx,cache.state);
   // Windmills on farms and, in the Dutch manner, on the bastions (before 1900).
-  if(city.year<1900){const turn=now/2600;
+  if(city.year<1900&&!opts.organic){const turn=now/2600;
     for(const b of city.buildings||[])if(b.type==='farm'&&!b.vacant&&(hash(Math.floor(b.x),Math.floor(b.y),5)&3)===0)windmill(ctx,b.x+.75,b.y+.75,turn+(b.x+b.y),1);}
   // Standing walls: masonry following the town, towers or bastions, gates.
-  for(const wall of walls)if(wall.state==='wall'){
+  for(const wall of opts.organic?[]:walls)if(wall.state==='wall'){
     const segs=wallSegments(wall),bastions=(wall.built||1300)>=1550;
     ctx.beginPath();for(const [a,b] of segs){ctx.moveTo(a[0],a[1]);ctx.lineTo(b[0],b[1]);}
     ctx.lineCap='round';ctx.lineJoin='round';ctx.strokeStyle='#5f4c3a';ctx.lineWidth=.5;ctx.stroke();ctx.strokeStyle='#9c8466';ctx.lineWidth=.2;ctx.stroke();
@@ -624,7 +631,7 @@ export function drawCity(ctx,city,width,height,opts={}){
       if(segs.some(([a,b])=>distToSeg(px,py,a,b)<.45)){ctx.fillStyle='#4d3d2f';ctx.fillRect(px-.42,py-.42,.84,.84);ctx.fillStyle='#e9dcc0';ctx.fillRect(px-.16,py-.16,.32,.32);break;}}
   }
   // Boulevard trees.
-  for(const ring of walls)if(ring.state==='boulevard'){ctx.fillStyle='#6f8a5f';for(const [a,b] of wallSegments(ring)){const len=Math.hypot(b[0]-a[0],b[1]-a[1]),n=Math.max(1,Math.floor(len/1.4)),nx=-(b[1]-a[1])/len,ny=(b[0]-a[0])/len;for(let i=0;i<n;i++){const t=(i+.5)/n;for(const s of [-.6,.6]){ctx.beginPath();ctx.arc(a[0]+(b[0]-a[0])*t+nx*s,a[1]+(b[1]-a[1])*t+ny*s,.18,0,Math.PI*2);ctx.fill();}}}}
+  for(const ring of opts.organic?[]:walls)if(ring.state==='boulevard'){ctx.fillStyle='#6f8a5f';for(const [a,b] of wallSegments(ring)){const len=Math.hypot(b[0]-a[0],b[1]-a[1]),n=Math.max(1,Math.floor(len/1.4)),nx=-(b[1]-a[1])/len,ny=(b[0]-a[0])/len;for(let i=0;i<n;i++){const t=(i+.5)/n;for(const s of [-.6,.6]){ctx.beginPath();ctx.arc(a[0]+(b[0]-a[0])*t+nx*s,a[1]+(b[1]-a[1])*t+ny*s,.18,0,Math.PI*2);ctx.fill();}}}}
   // Boats: more with trade; sail before 1850, steam after.
   if(city.type!=='plain'){const spots=boatSpots(city),trade=(city.buildings||[]).filter(b=>b.type==='trade').length+(city.buildings||[]).filter(b=>b.special==='port').length*12;
     const n=Math.min(spots.length,Math.min(18,2+Math.floor(trade/18)));
