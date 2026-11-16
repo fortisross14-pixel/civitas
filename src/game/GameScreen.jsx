@@ -26,6 +26,7 @@ import {RANK_CATEGORIES,worldTable,formatRankValue} from '../worldRankings.js';
 import {HistoricalChart} from '../chronicleUI.jsx';
 import {organicLiving,organicSites} from '../organic/index.js';
 import {HERITAGE,optionsFor,openSites} from '../heritage.js';
+import {FORMS,formsAt,resolveZone} from '../zoning.js';
 import {RARITY_LABEL} from '../cards.js';
 import './game.css';
 
@@ -305,11 +306,13 @@ export function GameScreen(c){
   const needsBadge=needsOf(city).some(n=>!n.served&&n.progress>=.5)||omensOf(city).some(o=>!Number.isInteger(o.choice));
   const buildBadge=deckOf(city).hand.length>0||c.shopFresh||(city.projects||[]).length>0;
   const placeName=placing?(tool==='place:center'?'Town Center':tool==='place:bridge'?'Bridge':tool.startsWith('place:urban:')?CARD_INDEX[deckOf(city).hand.find(h=>h.uid===Number(tool.slice(12)))?.cardId]?.name:(city.projects||[]).find(p=>`place:${p.id}`===tool)?.label||'Building'):null;
-  const zones=Object.entries(ZONES).filter(([k])=>k!=='hotel'||tourismUnlocked(city));
+  // v3.3 the Age's urban forms (zoning.js) are the zone tools.
+  const zones=formsAt(city.year,{tourism:tourismUnlocked(city)}).map(id=>[id,{...FORMS[id],color:ZONES[FORMS[id].type].color}]);
+  const zoneLabel=t=>FORMS[t]?.short||ZONE_SHORT[t]||t;
   const b=c.selectedBuilding;
   return <div className="g3">
     <div className="g-map"><CityMap minimal lens={zoning?null:lens} city={city} tool={ro?'inspect':tool} layer={zoning?'zones':sheet==='govern'&&tab('govern')==='needs'?'needs':'urban'} onZone={(rect,type)=>setPend({rect,type})} onPlace={(id,x,y)=>setPend({id,x,y})} pendingRect={pend?.rect||null} pendingPoint={pend&&!pend.rect?{x:pend.x,y:pend.y}:null} onInspect={c.onInspect} onMarker={m=>{if(m.type==='heritage'){setSheet(null);setSite(m.item);}else open('govern','needs');}} selectedId={b?.id} animate={c.simulating} captions={c.captions} population={s.population}
-      describeSelection={(r,t)=>{if(!ZONES[t])return t==='erase'?'Erase zoning':t==='demolish'?'Demolish':null;const {cells,cost}=zoningCost(city,r.x,r.y,r.w,r.h);return cells?`${cells} parcels · ${full(cost)}${cost>city.funds?' · not enough coins':''}`:'Rezoning is free';}}/></div>
+      describeSelection={(r,t)=>{if(!ZONES[t]&&!FORMS[t])return t==='erase'?'Erase zoning':t==='demolish'?'Demolish':null;const {cells,cost}=zoningCost(city,r.x,r.y,r.w,r.h);return cells?`${cells} parcels · ${full(cost)}${cost>city.funds?' · not enough coins':''}`:'Rezoning is free';}}/></div>
 
     <div className="g-top">
       <button className="g-round" aria-label="Home" onClick={c.goHome}><ChevronLeft size={20}/></button>
@@ -333,16 +336,16 @@ export function GameScreen(c){
       :<><span>Tap the map to choose the spot</span><button className="g-ghost" disabled={!c.undoCount} onClick={c.undo}><Undo2 size={16}/>Undo</button></>;})()}</div>}
 
     {zoning&&!ro?<div className="g-zoneBar">
-      <div className="g-zoneTop"><span>{pend?.rect?(()=>{const {cells,cost}=zoningCost(city,pend.rect.x,pend.rect.y,pend.rect.w,pend.rect.h);return ZONES[pend.type]?`${ZONE_SHORT[pend.type]} · ${cells?`${cells} parcels · ${full(cost)} coins`:'rezoning is free'}`:pend.type==='erase'?'Erase this zoning':'Demolish these buildings';})():`Drag on the map · two fingers to pan`}</span>
+      <div className="g-zoneTop"><span>{pend?.rect?(()=>{const {cells,cost}=zoningCost(city,pend.rect.x,pend.rect.y,pend.rect.w,pend.rect.h);return ZONES[pend.type]||FORMS[pend.type]?`${zoneLabel(pend.type)} · ${cells?`${cells} parcels · ${full(cost)} coins`:'rezoning is free'}`:pend.type==='erase'?'Erase this zoning':'Demolish these buildings';})():FORMS[zone]?`${FORMS[zone].label}: ${FORMS[zone].note.toLowerCase()}`:`Drag on the map · two fingers to pan`}</span>
         <button className="g-close" aria-label="Close the brush" onClick={()=>setZone(null)}><X size={18}/></button></div>
-      <div className="g-zoneTools">{zones.map(([k,v])=><button key={k} className={zone===k?'on':''} style={{'--z':v.color}} onClick={()=>{setZone(k);setPend(null);}}><i>{ZONE_ICON[k]}</i><span>{ZONE_SHORT[k]||v.label}</span></button>)}
+      <div className="g-zoneTools">{zones.map(([k,v])=><button key={k} className={zone===k?'on':''} style={{'--z':v.color}} title={v.note} onClick={()=>{setZone(k);setPend(null);}}><i>{v.icon}</i><span>{v.short}</span></button>)}
         <button className={zone==='erase'?'on':''} onClick={()=>{setZone('erase');setPend(null);}}><i><Eraser size={16}/></i><span>Erase</span></button>
         <button className={zone==='demolish'?'on':''} onClick={()=>{setZone('demolish');setPend(null);}}><i><Bomb size={16}/></i><span>Clear</span></button></div>
       <div className="g-zoneEnd"><button className="g-ghost" disabled={!c.undoCount} onClick={c.undo}><Undo2 size={16}/>Undo</button>
-        {pend?.rect?<><button className="g-ghost" onClick={()=>setPend(null)}><X size={16}/>Discard</button><button className="g-primary" disabled={ZONES[pend.type]&&zoningCost(city,pend.rect.x,pend.rect.y,pend.rect.w,pend.rect.h).cost>city.funds} onClick={confirm}><Check size={16}/>Confirm</button></>:null}</div>
+        {pend?.rect?<><button className="g-ghost" onClick={()=>setPend(null)}><X size={16}/>Discard</button><button className="g-primary" disabled={(ZONES[pend.type]||FORMS[pend.type])&&zoningCost(city,pend.rect.x,pend.rect.y,pend.rect.w,pend.rect.h).cost>city.funds} onClick={confirm}><Check size={16}/>Confirm</button></>:null}</div>
     </div>
     :!placing&&<nav className="g-dock" aria-label="Actions">
-      <button disabled={ro||city.awaitingCenter} onClick={()=>{setSheet(null);setZone('res');}}><LandPlot size={22}/><span>Zone</span></button>
+      <button disabled={ro||city.awaitingCenter} onClick={()=>{setSheet(null);setZone(formsAt(city.year)[0]);}}><LandPlot size={22}/><span>Zone</span></button>
       <button disabled={ro||city.awaitingCenter} onClick={()=>open('build')}><Hammer size={22}/><span>Build</span>{buildBadge&&<b className="g-dot"/>}</button>
       <button disabled={ro||city.awaitingCenter} onClick={()=>open('govern')}><Landmark size={22}/><span>Govern</span>{needsBadge&&<b className="g-dot red"/>}</button>
       <button onClick={()=>open('details')}><ScrollText size={22}/><span>Details</span></button>

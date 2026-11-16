@@ -1,3 +1,4 @@
+import {FORMS} from './zoning.js';
 import React,{useEffect,useMemo,useRef,useState} from 'react';
 import {Maximize2} from 'lucide-react';
 import {W,H,ZONES,terrain,zoneCell,STYLE_NAMES,styleAt,cityOrigin,tourismUnlocked,bridgeAt,publicWorkCost,constructionSite,urbanPlan} from './sim';
@@ -9,7 +10,7 @@ export {DISTRICT_COLORS};
 
 // CIVITAS v1.4 interactive map: drawing lives in render.js; this component
 // handles view (pan/zoom), pointer tools, hover text and animation.
-const DRAG_TOOLS=new Set([...Object.keys(ZONES),'erase','demolish']);
+const DRAG_TOOLS=new Set([...Object.keys(ZONES),...Object.keys(FORMS),'erase','demolish']);
 const SELECTION_STYLE={erase:['#7a7464','#7a746426'],demolish:['#a2513f','#b8604a2e']};
 export const CAPTION_MS=7000;
 

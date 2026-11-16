@@ -58,7 +58,7 @@
 /* Zoning bar */
 .g-zoneBar{position:absolute;left:8px;right:8px;bottom:calc(env(safe-area-inset-bottom) + 8px);max-width:620px;margin:0 auto;background:var(--paper);border-radius:22px;box-shadow:0 10px 30px #2b241a40;padding:10px;display:flex;flex-direction:column;gap:8px;animation:gUp 180ms ease-out}
 .g-zoneHint{font-size:13px;color:var(--soft);text-align:center}
-.g-zoneTools{display:grid;grid-auto-flow:column;grid-auto-columns:1fr;gap:5px}
+.g-zoneTools{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(58px,1fr);gap:5px;overflow-x:auto;scrollbar-width:none;padding-bottom:2px}.g-zoneTools::-webkit-scrollbar{display:none}
 .app .g3 .g-zoneTools button{display:flex;flex-direction:column;align-items:center;gap:3px;padding:7px 0;border-radius:14px;font-size:11px;font-weight:700;background:var(--paper2);min-width:0}
 .g-zoneTools i{width:30px;height:30px;border-radius:10px;display:grid;place-items:center;font-style:normal;font-size:16px;background:var(--z,var(--deep));color:#fff8ea}
 .app .g3 .g-zoneTools button.on{background:var(--ink);color:var(--paper)}

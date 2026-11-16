@@ -1,4 +1,5 @@
 import {heritageEffects} from './heritage.js';
+import {FORMS,resolveZone,formOf,formCap,formJobs} from './zoning.js';
 import {FIGURES,FIGURE_INDEX} from './legacy.js';
 import {INITIAL_DEVELOPMENT,developmentOf,applyPulse,advanceDevelopment,accumulateDevelopment,productivityGrowth,developmentCapacity} from './development.js';
 import {BASIC_INDEX,BASIC_BUILDINGS,BUILDING_EFFECTS,SPECIAL_BUILDINGS,basicsForYear,TOWN_CENTER_LEVELS,TOWN_CENTER_MAX,townCenterLevel,basicLimit,CITYWIDE_COPIES} from './construction.js';
@@ -59,14 +60,16 @@ function zonedGrid(city){
   if(cached&&cached.type===city.type)return cached;
   // `order` records which designation (by position) last touched each cell, so
   // new streets can head for the player's most recent zoning first.
-  const grid=new Array(W*H).fill(null),order=new Int16Array(W*H),counts=Object.fromEntries(Object.keys(ZONES).map(t=>[t,0]));
-  city.zones.forEach((z,i)=>{for(let y=Math.max(0,z.y);y<Math.min(H,z.y+z.h);y++)for(let x=Math.max(0,z.x);x<Math.min(W,z.x+z.w);x++){
-    if(terrain(city.type,x,y)==='land'){grid[key(x,y)]=z.type==='clear'?null:z.type;order[key(x,y)]=i+1;}
+  const grid=new Array(W*H).fill(null),forms=new Array(W*H).fill(null),order=new Int16Array(W*H),counts=Object.fromEntries(Object.keys(ZONES).map(t=>[t,0]));
+  city.zones.forEach((z,i)=>{const f=z.type==='clear'?null:formOf(z);for(let y=Math.max(0,z.y);y<Math.min(H,z.y+z.h);y++)for(let x=Math.max(0,z.x);x<Math.min(W,z.x+z.w);x++){
+    if(terrain(city.type,x,y)==='land'){grid[key(x,y)]=z.type==='clear'?null:z.type;forms[key(x,y)]=f;order[key(x,y)]=i+1;}
   }});
   for(const value of grid)if(value&&counts[value]!==undefined)counts[value]++;
-  const result={type:city.type,grid,order,counts};zoningCache.set(city.zones,result);return result;
+  const result={type:city.type,grid,forms,order,counts};zoningCache.set(city.zones,result);return result;
 }
 export function zoneCell(city,x,y){if(!within(x,y))return null;return zonedGrid(city).grid[key(x,y)];}
+// v3.3 the urban form of a zoned cell (zoning.js).
+export function zoneFormAt(city,x,y){if(!within(x,y))return null;return zonedGrid(city).forms[key(x,y)];}
 export function density(city){return {...zonedGrid(city).counts};}
 
 function occupiedMap(city){let taken=new Set();for(const b of city.buildings){const f=footprint(b);for(let y=f.y;y<f.y+f.h;y++)for(let x=f.x;x<f.x+f.w;x++)if(within(x,y))taken.add(key(x,y));}return taken;}
@@ -103,13 +106,14 @@ export function clearZone(city,x,y,w,h){
   if(!city.zones.some(z=>z.type!=='clear'&&z.x<rect.x+rect.w&&rect.x<z.x+z.w&&z.y<rect.y+rect.h&&rect.y<z.y+z.h))return city;
   return {...city,zones:[...city.zones.filter(z=>!insideRect(z,rect)),{...rect,type:'clear',year:city.year}]};
 }
-export function addZone(city,x,y,w,h,type){
-  if(!ZONES[type]||city.finished)return city;
+export function addZone(city,x,y,w,h,tool){
+  const rz=resolveZone(tool,city.year);if(!rz||!ZONES[rz.type]||city.finished)return city;const type=rz.type,form=rz.form,F=FORMS[form];
+  if(F&&(city.year<F.from||city.year>F.to))return city;
   if(type==='hotel'&&!tourismUnlocked(city))return city;
   const rect=zoneRect(city,x,y,w,h);if(!rect)return city;
   // Zoning designates land; streets grow toward it over the following months.
   // Earlier designations fully covered by this one are dropped (latest wins anyway).
-  return {...city,zones:[...city.zones.filter(z=>!insideRect(z,rect)),{...rect,type,year:city.year,pattern:patternFor(city.year)}]};
+  return {...city,zones:[...city.zones.filter(z=>!insideRect(z,rect)),{...rect,type,form,year:city.year,pattern:patternFor(city.year)}]};
 }
 const ageCapacity=year=>(year<1750?8:year<1850?14:year<1950?27:year<2000?45:58)*K;
 const ageJobs=(year,type)=>K*ageJobsBase(year,type);
@@ -168,7 +172,8 @@ export function stats(city){
   // Where things are: pollution near homes, service coverage, prestige, trade access.
   const sp=spatial(city,m,activePolicies(city)),place=spatialEffects(sp,city.year);
   const tourismAppeal=Math.round(clamp((10+culturalPrestige*.45+religiousInfluence*.30+monumentCount*2)*place.tourism*yearTourismFactor*(1+(m.pilgrimage||0)*sacredCount*.12+(m.tourismPerMonument||0)*monumentCount),0,1000));
-  const pollution=Math.round(clamp(industry*.4*(city.year>=1800?1.4:.4)*(1+(m.pollution||0)),0,1000));
+  const formSmoke=city.buildings.reduce((a,b)=>a+(b.form&&FORMS[b.form]?.pollution?FORMS[b.form].pollution:0),0);
+  const pollution=Math.round(clamp((industry*.4*(city.year>=1800?1.4:.4)+formSmoke*.5)*(1+(m.pollution||0)),0,1000));
   const industryFactor=(1+softStack(Math.max(-.8,(m.industry||0))*(1+(m.industrialMultiplier||0)))+(m.industryPerThousand||0)*industrialJobs/(1000*K))*place.craftProductivity;
   const tradeFactor=(1+softStack(Math.max(-.8,m.trade||0)))*place.tradeProductivity;
   const innovationFactor=1+Math.max(0,m.innovation||0);
@@ -241,10 +246,11 @@ function createBuilding(city,type,p,year,r,context=null){
   // Varied but parcel-contained footprints make neighborhoods read as places,
   // while collision and capacity logic continue to use the same parcel.
   const w=.48+r()*.42,h=.48+r()*.42;
+  const form=zoneFormAt(city,Math.floor(p.x),Math.floor(p.y));
   const id=`b${city.nextBuildingId++}`;
   // Informal (unzoned) growth is smaller and humbler than planned districts.
   const informal=!!p.informal,shrink=informal?.75:1;
-  return {id,x:p.x+.08,y:p.y+.08,w,h,born:year,type,capacity:Math.round(capacity*shrink),jobs:Math.round(jobs*shrink),level:1,style:styleAt(year),protected:false,renovations:[],...(informal?{informal:true}:{})};
+  return {id,x:p.x+.08,y:p.y+.08,w,h,born:year,type,...(form?{form}:{}),capacity:Math.round(capacity*shrink*formCap(form)),jobs:Math.round(jobs*shrink*formJobs(form)),level:1,style:styleAt(year),protected:false,renovations:[],...(informal?{informal:true}:{})};
 }
 function densify(city,year,r){
   const houses=city.buildings.filter(b=>b.type==='res');if(!houses.length)return false;
@@ -288,6 +294,8 @@ export function cityEffects(city){
   }
   add('transport',Math.min(4,(city.bridges||[]).length)*.03);
   for(const [k,v] of Object.entries(townCenterLevel(city)?.effects||{}))add(k,v);
+  // v3.3 urban forms: each building adds its form's small effect (garden cities raise living, terraces lower it).
+  {const n={};for(const b of city.buildings||[])if(b.form)n[b.form]=(n[b.form]||0)+1;for(const [f,c] of Object.entries(n)){const F=FORMS[f];if(!F)continue;const k=Math.min(c,60);if(F.prosperity)add('prosperity',F.prosperity*k*4);if(F.transport)add('transport',F.transport*Math.min(1,k/20));}}
   // v3.2 decisions on the old city (heritage.js).
   for(const [k,v] of Object.entries(heritageEffects(city)))add(k,v);
   // v1.8 doctrine tiers.
