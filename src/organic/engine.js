@@ -724,21 +724,49 @@ function paintGround(){if(typeof document==='undefined')return null;const GR=3,c
 // solid blue, gardens green, streets and squares the bare paper between them.
 const INK={house:'#3b2f27',timber:'#3d3029',stone:'#433730',classical:'#463b34',brick:'#4a3029',modernist:'#43403d',contemporary:'#3f4446',works:'#2e2a28',shop:'#47362a',palace:'#3a2c25',farm:'#5a4c3b'};
 const PUBLIC='#3e5a78',GARDEN='#c3c99a',GARDEN_EDGE='rgba(110,118,78,.35)',PAPER='#efe6cf',SQUARE='#f3ecda';
+// ───────────── the paving: streets and squares as one surface ─────────────
+// The built-up ground is one shape: every gap between houses narrower than two
+// streets is filled, and its edge runs along the outer faces of the blocks (a
+// morphological closing of the houses, squares and public buildings on the
+// occupancy grid). Drawn once, under the houses, so streets merge into each other.
+let pave=null,paveKey='';
+function chamfer(D){for(let j=0;j<RH;j++)for(let i=0;i<RW;i++){const k=j*RW+i;let v=D[k];if(i>0)v=Math.min(v,D[k-1]+1);if(j>0){v=Math.min(v,D[k-RW]+1);if(i>0)v=Math.min(v,D[k-RW-1]+1.414);if(i<RW-1)v=Math.min(v,D[k-RW+1]+1.414);}D[k]=v;}
+  for(let j=RH-1;j>=0;j--)for(let i=RW-1;i>=0;i--){const k=j*RW+i;let v=D[k];if(i<RW-1)v=Math.min(v,D[k+1]+1);if(j<RH-1){v=Math.min(v,D[k+RW]+1);if(i<RW-1)v=Math.min(v,D[k+RW+1]+1.414);if(i>0)v=Math.min(v,D[k+RW-1]+1.414);}D[k]=v;}}
+let WATERC=null;
+function paving(year,live){if(typeof document==='undefined')return null;const key=year+'|'+live.length;if(pave&&paveKey===key)return pave;paveKey=key;
+  if(!WATERC){WATERC=new Uint8Array(RW*RH);for(let j=0;j<RH;j++)for(let i=0;i<RW;i++)if(flood((i+.5)*RC,(j+.5)*RC))WATERC[j*RW+i]=1;}
+  const N=RW*RH,D=new Float32Array(N).fill(1e6);
+  for(const pl of live)cellsIn(pl.pts,k=>{D[k]=0;},true);
+  for(const pl of places)if(pl.born<=year&&(pl.died==null||pl.died>year)&&pl.kind!=='chase'&&pl.kind!=='park')cellsIn(pl.poly,k=>{D[k]=0;});
+  for(const m of landmarks)if(m.born<=year&&(m.died==null||m.died>year))for(const part of m.parts)cellsIn(part.abs?part.poly:part.poly.map(([x,y])=>lmPoint(m,x,y)),k=>{D[k]=0;});
+  chamfer(D);const R=3.5/RC,D2=new Float32Array(N);for(let k=0;k<N;k++)D2[k]=D[k]<=R?1e6:0;chamfer(D2);
+  // Small open patches shut in by the town (a yard, a wide crossing) are paved too.
+  {const lab=new Int32Array(N),Q=new Int32Array(N);let id=0;for(let k0=0;k0<N;k0++){if(lab[k0]||D2[k0]>=R||WATERC[k0])continue;id++;let h=0,t=0,edge=false;Q[t++]=k0;lab[k0]=id;
+    while(h<t){const k=Q[h++],i=k%RW,j=(k/RW)|0;if(i===0||j===0||i===RW-1||j===RH-1)edge=true;for(const n of [i>0?k-1:-1,i<RW-1?k+1:-1,j>0?k-RW:-1,j<RH-1?k+RW:-1]){if(n<0||lab[n]||D2[n]>=R||WATERC[n])continue;lab[n]=id;Q[t++]=n;}}
+    if(!edge&&t<700)for(let q=0;q<t;q++)D2[Q[q]]=R+1;}}
+  // f > 0 inside the paving; bilinear up-sampling of f, then a hard edge, gives a smooth outline.
+  const S=3,cw=RW*S,ch=RH*S,f=k=>WATERC[k]?-2:D2[k]-R;
+  const c=document.createElement('canvas');c.width=cw;c.height=ch;const gg=c.getContext('2d'),img=gg.createImageData(cw,ch),d=img.data;
+  const pc=[239,230,207];
+  for(let py=0;py<ch;py++){const fy=py/S-.5,j=Math.max(0,Math.min(RH-2,Math.floor(fy))),ty=Math.max(0,Math.min(1,fy-j));
+    for(let px=0;px<cw;px++){const fx=px/S-.5,i=Math.max(0,Math.min(RW-2,Math.floor(fx))),tx=Math.max(0,Math.min(1,fx-i)),k=j*RW+i;
+      const v=(f(k)*(1-tx)+f(k+1)*tx)*(1-ty)+(f(k+RW)*(1-tx)+f(k+RW+1)*tx)*ty;if(v<=0)continue;const o=(py*cw+px)*4;d[o]=pc[0];d[o+1]=pc[1];d[o+2]=pc[2];d[o+3]=v>.35?255:Math.round(v/.35*255);}}
+  gg.putImageData(img,0,0);pave=c;return c;}
 function drawWorld(ctx,year,part='all'){g=ctx;const saveY=Y;Y=year;g.lineJoin='round';g.lineCap='round';
   if(part!=='features'){if(!ground)ground=paintGround();if(ground){g.imageSmoothingEnabled=true;g.drawImage(ground,0,0,WW,WH);}if(part==='ground'){Y=saveY;return;}}
   const live=plots.filter(p=>p.born<=year&&(p.died==null||p.died>year));
-  // The built-up ground: the paper the streets and squares are left in.
-  g.fillStyle=PAPER;for(const pl of live){poly(grow(pl.pts,1.3));g.fill();}
-  for(const pl of places)if(aliveO(pl)){poly(grow(pl.poly,1));g.fill();}
   // Woods outside the town.
   g.fillStyle='rgba(98,122,80,.42)';for(const [x,y,r] of trees){if(inPlot(x,y,1.5)||inPlace(x,y,1))continue;g.beginPath();g.arc(x,y,r,0,7);g.fill();}
   // Country roads: two fine edges; inside the town the street is only the gap between blocks.
   for(const p of paths){if(!aliveP(p)||p.kind==='edge')continue;
     if(p.kind==='path'){g.setLineDash([1,.9]);line(p.pts,.28,'rgba(120,96,66,.7)');g.setLineDash([]);continue;}
-    if(p.kind==='canal'){line(p.pts,1.3,'#8fb0ad');line(p.pts,.5,'#a9c6c4');continue;}
+    if(p.kind==='canal')continue;
     if(p.kind==='walk'){line(p.pts,.6,'#ece4cc');continue;}
     if(p.kind==='rail'){line(p.pts,.9,'#3b2f27');g.setLineDash([.6,.6]);line(p.pts,.45,'#efe6cf');g.setLineDash([]);continue;}
     const w=p.hw*2;line(p.pts,w+.32,'rgba(92,74,52,.55)');line(p.pts,w,PAPER);}
+  // The paving: inside the town the streets are one surface, edged by the blocks.
+  {const pv=paving(year,live);if(pv){g.imageSmoothingEnabled=true;g.drawImage(pv,0,0,RW*RC,RH*RC);}}
+  for(const p of paths)if(aliveP(p)&&p.kind==='canal'){line(p.pts,1.3,'#8fb0ad');line(p.pts,.5,'#a9c6c4');}
   // Gardens and crofts behind the houses.
   for(const pl of live){poly(pl.pts);g.fillStyle=GARDEN;g.fill();g.lineWidth=.1;g.strokeStyle=GARDEN_EDGE;g.stroke();}
   // Squares, the market, churchyards, public gardens.
