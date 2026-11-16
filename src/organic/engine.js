@@ -80,7 +80,9 @@ function chaikin(pts,n){for(let k=0;k<n;k++){const o=[pts[0]];for(let i=0;i<pts.
 // ───────────── land value ─────────────
 // Old roads and the crossing; every landmark the player places weighs more.
 function value(x,y){let v=0;for(const m of landmarks)if(aliveO(m))v+=m.pull*Math.exp(-Math.hypot(x-m.x,y-m.y)/m.reach);
-  const np=nearPath(x,y,8);if(np.p&&(np.p.kind==='road'||np.p.kind==='street'||np.p.kind==='avenue'||np.p.kind==='boulevard'))v+=.25*Math.exp(-Math.max(0,np.d)/3);
+  const np=nearPath(x,y,8);if(np.p&&(np.p.kind==='road'||np.p.kind==='street'||np.p.kind==='avenue'||np.p.kind==='boulevard'))v+=(np.p.high?.7:.25)*Math.exp(-Math.max(0,np.d)/(np.p.high?2.5:3));
+  // Inside the walls land is dear: the town packs in before it spills out.
+  for(const w of walls)if(aliveO(w)&&w.kind!=='bastion'&&inPoly(x,y,w.poly)){v+=.5;break;}
   return v;}
 // ───────────── plots ─────────────
 // A plot is a four-sided strip: two front corners on the street edge, sides
@@ -251,7 +253,18 @@ function throwWall(cx,cy,zs,margin){
   let acc=0;for(let i=0;i<poly.length;i++){const a=poly[i],b=poly[(i+1)%poly.length];acc+=dist(a,b);if(acc>11&&!w.gates.some(g=>Math.hypot(g.x-a[0],g.y-a[1])<5)&&!flood(a[0],a[1])){w.towers.push(a);acc=0;}}
   // Houses in the wall's way come down.
   for(const pl of plots)if(aliveO(pl)&&pl.pts.some(([x,y])=>ringDist(x,y,poly)<1.2))pl.died=Y;
+  mainGate(w);
   return w;}
+// The main gate: the one on the longest road (the way to the wider world). Just inside it a gate
+// square opens where carts were checked and goods sold; the road from it to the market is the high street.
+function mainGate(w){if(!w.gates.length)return;const gt=w.gates.slice().sort((a,b)=>b.road.len-a.road.len)[0];w.main=gt;
+  const p=gt.road,s0=nearestS(p,[gt.x,gt.y]),[wx,wy]=centre(w.poly),f=at(p,Math.min(p.len,s0+4)),dir=Math.hypot(f.x-wx,f.y-wy)<Math.hypot(gt.x-wx,gt.y-wy)?1:-1;
+  const side=[],other=[];for(const [t,hw] of [[2,1.8],[5,3.6],[9,4.6],[13,3.2],[16,1.6]]){const a=at(p,clamp(s0+dir*t,0,p.len)),nx=-a.ty,ny=a.tx;side.push([a.x+nx*hw,a.y+ny*hw]);other.push([a.x-nx*hw,a.y-ny*hw]);}
+  const sq=[...side,...other.reverse()];
+  for(const pl of plots)if(aliveO(pl)&&(inPoly(...centre(pl.pts),sq)||pl.pts.some(([x,y])=>inPoly(x,y,sq))))pl.died=Y;
+  addPlace(sq,'market',{name:'Gate market'});const ep=addPath([...sq,sq[0]],'edge',{hw:.05});const z=zoneAt(...centre(sq));if(z)for(const sd of [1,-1])layRow(ep,sd,.5,ep.len-.5,z,{width:()=>1.6+rnd()*.6,depth:6,noGaps:true});
+  // The high street: that road, from the gate to the market, wider and dearer.
+  p.high=true;p.hw=1.05;}
 // ───────────── landmarks ─────────────
 // A landmark is a building plan (parts in its own frame) at x,y turned by `a`, with a pull on land value.
 function addLandmark(kind,x,y,a,o={}){const m={kind,x,y,a,born:Y,died:null,pull:o.pull??1,reach:o.reach??12,name:o.name||null,parts:o.parts||[],inWall:o.inWall??true};landmarks.push(m);
@@ -362,8 +375,9 @@ const ROOF={brick:['#9a5f48','#a3664c','#8d5642'],modernist:['#8e918c','#9a9c96'
 function Qf(pl){if(pl.Q)return pl.Q;const [FL,FR,RR,RL]=pl.pts;return pl.Q=(u,v)=>{const ax=FL[0]+(FR[0]-FL[0])*u,ay=FL[1]+(FR[1]-FL[1])*u,bx=RL[0]+(RR[0]-RL[0])*u,by=RL[1]+(RR[1]-RL[1])*u;return [ax+(bx-ax)*v,ay+(by-ay)*v];};}
 // A house plan inside its plot (u along the front, v from front to back). dv: share of the plot it covers.
 function housePlan(pl,st){if(st.b==='works'){const dv=st.dv;return [{uv:[[.05,0],[.95,0],[.95,dv],[.05,dv]],ridge:[[.5,.03],[.5,dv*.97]]},{uv:[[.2,dv],[.5,dv],[.5,dv*1.12],[.2,dv*1.12]],col:'#5e5850'}];}
-  if(st.b==='palace'){const dv=st.dv,c0=.28,c1=.72;return [{uv:[[0,0],[1,0],[1,dv],[c1,dv],[c1,dv*.32],[c0,dv*.32],[c0,dv],[0,dv]],ridge:[[.04,dv*.16],[.96,dv*.16]]},{uv:[[c0,dv*.32],[c1,dv*.32],[c1,dv],[c0,dv]],col:'#ddd0b0'}];}
-  const k=st.plan,dv=st.dv,g0=st.gap,a=.38+hsh(pl.id,4)*.25,mir=hsh(pl.id,5)<.5,M=uv=>mir?uv.map(([u,v])=>[1-u,v]).reverse():uv;
+  if(st.b==='palace'){const dv=Math.min(st.dv,10/Math.max(1,pl.d)),c0=.28,c1=.72;return [{uv:[[0,0],[1,0],[1,dv],[c1,dv],[c1,dv*.32],[c0,dv*.32],[c0,dv],[0,dv]],ridge:[[.04,dv*.16],[.96,dv*.16]]},{uv:[[c0,dv*.32],[c1,dv*.32],[c1,dv],[c0,dv]],col:'#ddd0b0'}];}
+  // A house keeps to the front of its plot: at most ~8 units (32 m) deep, whatever the plot.
+  const k=st.plan,dv=Math.min(st.dv,8/Math.max(1,pl.d)),g0=st.gap,a=.38+hsh(pl.id,4)*.25,mir=hsh(pl.id,5)<.5,M=uv=>mir?uv.map(([u,v])=>[1-u,v]).reverse():uv;
   const u0=g0,u1=1-g0,F=dv*.62,uv=(u,v)=>[u0+(u1-u0)*u,v];
   if(st.b==='farm')return [{uv:M([[0,0],[.62,0],[.62,dv*.6],[0,dv*.6]].map(([u,v])=>uv(u,v))),ridge:[uv(.04,dv*.3),uv(.58,dv*.3)]},{uv:M([[.7,.1],[1,.1],[1,dv*1.25],[.7,dv*1.25]].map(([u,v])=>uv(u,v))),ridge:[uv(.85,.14),uv(.85,dv*1.2)],col:'#75684f'}];
   const box=[{uv:[[0,0],[1,0],[1,dv],[0,dv]].map(([u,v])=>uv(u,v)),ridge:[uv(.5,.04),uv(.5,dv*.96)]}];
@@ -418,11 +432,24 @@ function feed(city){
   return tgt;}
 function conversionYear(city,w){const ev=(city.events||[]).find(e=>e.type==='works'&&/became|ring boulevard|linear park|canal ring/i.test(e.text||''));return ev?ev.year:city.year;}
 // How many houses the town should have in a year: the game's buildings then (from its yearly record), in plot terms.
-function target(city,y){const h=city.history||[];let n;if(y>=city.year||!h.length)n=(city.buildings||[]).filter(b=>b.type!=='farm'&&!b.special).length;
-  else{let a=null,b=null;for(const e of h){if(e.year<=y)a=e;if(e.year>=y&&!b)b=e;}const va=a?a.buildings:0,vb=b?b.buildings:va;n=a&&b&&b.year>a.year?va+(vb-va)*(y-a.year)/(b.year-a.year):va;}
-  return Math.round(Math.min(2600,n*1.25));}
+// How many houses the town should have in a year: its people (from the city's yearly record) over
+// the people a house holds in that Age. Later Ages build bigger houses, so the count stays drawable.
+const PER_HOUSE=y=>y<1500?5.5:y<1700?7:y<1850?10:y<1950?26:40;
+function target(city,y){const h=city.history||[];let pop;
+  if(!h.length||y>=h.at(-1).year)pop=Number(city.residents)||0;
+  else{let a=null,b=null;for(const e of h){if(e.year<=y)a=e;if(e.year>=y&&!b)b=e;}const va=a?a.population:0,vb=b?b.population:va;pop=a&&b&&b.year>a.year?va+(vb-va)*(y-a.year)/(b.year-a.year):va;}
+  return Math.round(Math.min(3400,pop/PER_HOUSE(y)));}
+// Inside the walls houses grow back over their gardens and wide plots are split.
+function infill(){const inside=walls.filter(w=>aliveO(w)&&w.kind!=='bastion');if(!inside.length)return;
+  const live=plots.filter(p=>aliveO(p)&&p.built);
+  for(let k=0;k<8;k++){const pl=live[Math.floor(rnd()*live.length)];if(!pl)return;const [cx,cy]=centre(pl.pts);if(!inside.some(w=>inPoly(cx,cy,w.poly)))continue;
+    const st=stateAt(pl,Y);if(!st||st.b==='palace'||st.b==='works')continue;
+    if(st.dv<.78&&rnd()<.6){setState(pl,{dv:clamp(st.dv+.07,.3,.82),plan:st.plan===3?1:st.plan,gap:0});continue;}
+    if(pl.w>3.1&&value(cx,cy)>.7&&rnd()<.5){const [FL,FR,RR,RL]=pl.pts,mf=[(FL[0]+FR[0])/2,(FL[1]+FR[1])/2],mb=[(RL[0]+RR[0])/2,(RL[1]+RR[1])/2];pl.died=Y;
+      for(const q of [[FL,mf,mb,RL],[mf,FR,RR,mb]]){const np=addPlot(q,{p:pl.p,side:pl.side,zone:pl.zone,kind:'croft',w:pl.w/2,d:pl.d,built:Y});setState(np,{...st,gap:0,plan:Math.floor(hsh(np.id,3)*6)});}}}}
 function yearStep(city){
   const tgt=feed(city);
+  infill();
   if(Y>=1500){rebuildWave();if(Y>=1520&&rnd()<.35)mergePalace();}
   const built=plots.filter(p=>aliveO(p)&&p.built).length;carry=Math.min(60,Math.max(0,tgt-built));
   const live=zones.filter(z=>aliveO(z));
@@ -445,47 +472,46 @@ function paintGround(){if(typeof document==='undefined')return null;const GR=3,c
     if(anyWater){const f=1-smooth((wdAt(x,y)-3)/6);if(f>0)col=col.map((v,i)=>v+([196,208,166][i]-v)*.55*f);}
     d[k]=col[0];d[k+1]=col[1];d[k+2]=col[2];d[k+3]=255;}
   gg.putImageData(img,0,0);gg.scale(GR,GR);
-  gg.lineWidth=.22;gg.strokeStyle='rgba(120,92,60,.42)';gg.beginPath();
+  gg.lineWidth=.18;gg.strokeStyle='rgba(120,92,60,.3)';gg.beginPath();
   for(let j=0;j<GH-1;j++)for(let i=0;i<GW-1;i++){const k=j*GW+i,v=[HG[k],HG[k+1],HG[k+GW+1],HG[k+GW]],lo=Math.min(...v),hi=Math.max(...v),cc=[[i*GS,j*GS],[i*GS+GS,j*GS],[i*GS+GS,j*GS+GS],[i*GS,j*GS+GS]];
     for(let lv=Math.ceil(lo/.02)*.02;lv<hi;lv+=.02){if(lv<.05)continue;const pts=[];for(let e=0;e<4;e++){const a=v[e],b=v[(e+1)%4];if((a<lv)!==(b<lv)){const t=(lv-a)/(b-a);pts.push([cc[e][0]+(cc[(e+1)%4][0]-cc[e][0])*t,cc[e][1]+(cc[(e+1)%4][1]-cc[e][1])*t]);}}if(pts.length>=2){gg.moveTo(...pts[0]);gg.lineTo(...pts[1]);}}}
   gg.stroke();return c;}
+// The plan style of an old town survey: buildings are solid ink, public buildings
+// solid blue, gardens green, streets and squares the bare paper between them.
+const INK={house:'#3b2f27',timber:'#3d3029',stone:'#433730',classical:'#463b34',brick:'#4a3029',modernist:'#43403d',contemporary:'#3f4446',works:'#2e2a28',shop:'#47362a',palace:'#3a2c25',farm:'#5a4c3b'};
+const PUBLIC='#3e5a78',GARDEN='#c3c99a',GARDEN_EDGE='rgba(110,118,78,.35)',PAPER='#efe6cf',SQUARE='#f3ecda';
 function drawWorld(ctx,year,part='all'){g=ctx;const saveY=Y;Y=year;g.lineJoin='round';g.lineCap='round';
   if(part!=='features'){if(!ground)ground=paintGround();if(ground){g.imageSmoothingEnabled=true;g.drawImage(ground,0,0,WW,WH);}if(part==='ground'){Y=saveY;return;}}
-  // woods
-  g.fillStyle='rgba(98,122,80,.5)';for(const [x,y,r] of trees){if(inPlot(x,y)||inPlace(x,y))continue;g.beginPath();g.arc(x,y,r,0,7);g.fill();}
-  // zones (the player's paint): dashed, faint once built up
-
-  // places: market, churchyard
-  for(const pl of places){if(!aliveO(pl))continue;poly(pl.poly);g.fillStyle=pl.kind==='garden'?'#b9c88f':pl.kind==='churchyard'?'#c9cf9e':pl.kind==='market'?'#e8dcc0':pl.kind==='square'?'#ece2c6':'#e2d7ba';g.fill();g.lineWidth=.3;g.strokeStyle='rgba(100,80,55,.55)';g.stroke();
-    if(pl.kind==='garden'){g.fillStyle='#b9c88f';poly(pl.poly);g.fill();const [cx,cy]=centre(pl.poly),[a,b,c2,d]=pl.poly;line([[(a[0]+b[0])/2,(a[1]+b[1])/2],[(c2[0]+d[0])/2,(c2[1]+d[1])/2]],.5,'#ece2c6');line([[(b[0]+c2[0])/2,(b[1]+c2[1])/2],[(d[0]+a[0])/2,(d[1]+a[1])/2]],.5,'#ece2c6');g.beginPath();g.arc(cx,cy,1,0,7);g.fillStyle='#a9c6c4';g.fill();
-      g.fillStyle='rgba(88,116,72,.7)';for(const [px,py] of pl.poly.map((q,i)=>{const r=pl.poly[(i+1)%pl.poly.length];return [q,r];}).flatMap(([q,r])=>{const n=Math.floor(dist(q,r)/2.2);return Array.from({length:n},(_,k)=>[q[0]+(r[0]-q[0])*(k+.5)/n,q[1]+(r[1]-q[1])*(k+.5)/n]);})){g.beginPath();g.arc(px+(cx-px)*.06,py+(cy-py)*.06,.55,0,7);g.fill();}}
-    if(pl.kind==='churchyard'){g.fillStyle='rgba(90,90,70,.5)';const [cx,cy]=centre(pl.poly);for(let i=0;i<26;i++){const x=cx+(hsh(i,pl.born,9)-.5)*14,y=cy+(hsh(i,pl.born,10)-.5)*10;if(inPoly(x,y,pl.poly))g.fillRect(x,y,.5,.3);}}}
-  // plots: gardens and crofts behind the houses
   const live=plots.filter(p=>p.born<=year&&(p.died==null||p.died>year));
-  for(const pl of live){poly(pl.pts);const st=stateAt(pl,year);g.fillStyle=st?'rgba(188,192,140,.42)':'rgba(206,198,150,.45)';g.fill();g.lineWidth=.12;g.strokeStyle='rgba(105,95,62,.55)';g.stroke();
-    if(!st){const Q=Qf(pl);g.lineWidth=.08;g.strokeStyle='rgba(120,110,70,.35)';g.beginPath();for(let u=.33;u<1;u+=.33){g.moveTo(...Q(u,.05));g.lineTo(...Q(u,.95));}g.stroke();}}
-  // streets
-  for(const pass of [0,1])for(const p of paths){if(!aliveP(p))continue;
-    if(p.kind==='edge')continue;
-    if(p.kind==='promenade'){if(pass){line(p.pts,1.6,'#ebe2c8');g.fillStyle='rgba(98,122,80,.75)';for(let s=0;s<p.len;s+=2.2){const a=at(p,s);for(const sd of [1,-1]){g.beginPath();g.arc(a.x-a.ty*sd*1.25,a.y+a.tx*sd*1.25,.55,0,7);g.fill();}}}continue;}
-    if(p.kind==='path'){if(pass){g.setLineDash([1,.8]);line(p.pts,.35,'#a98f68');g.setLineDash([]);}continue;}
-    line(p.pts,pass?p.hw*2-.2:p.hw*2+.3,pass?'#f3ebd6':'rgba(110,92,66,.7)');}
-  // walls
-  for(const w of walls){if(!aliveO(w))continue;if(w.kind==='bastion'){poly(w.poly);g.lineWidth=5.5;g.strokeStyle='rgba(150,170,120,.35)';g.stroke();g.lineWidth=1.6;g.strokeStyle='#5d4a38';g.stroke();g.lineWidth=.5;g.strokeStyle='#b8a17c';g.stroke();for(const gt of w.gates){g.save();g.translate(gt.x,gt.y);g.rotate(gt.a);g.fillStyle='#5d4a38';g.fillRect(-1.8,-2.4,3.6,1.4);g.fillRect(-1.8,1,3.6,1.4);g.restore();}continue;}g.beginPath();w.poly.forEach(([x,y],i)=>i?g.lineTo(x,y):g.moveTo(x,y));g.closePath();g.lineWidth=1.3;g.strokeStyle='#5d4a38';g.stroke();g.lineWidth=.5;g.strokeStyle='#a48c6a';g.stroke();
-    for(const [x,y] of w.towers){g.beginPath();g.arc(x,y,1.05,0,7);g.fillStyle='#6b5642';g.fill();}
-    for(const gt of w.gates){g.save();g.translate(gt.x,gt.y);g.rotate(gt.a);g.fillStyle='#5d4a38';g.fillRect(-1.6,-2.2,3.2,1.3);g.fillRect(-1.6,.9,3.2,1.3);g.restore();}}
-  // houses
-  for(const pl of live){const st=stateAt(pl,year);if(!st)continue;const Q=Qf(pl),cols=ROOF[st.b==='farm'?'farm':st.b==='palace'?'palace':st.b==='works'?'works':st.b==='shop'&&st.style==='timber'?'shop':st.style]||ROOF.timber,col=cols[Math.floor(hsh(pl.id,7)*cols.length)];
-    for(const part of housePlan(pl,st)){const pts=part.uv.map(([u,v])=>Q(u,v));
-      g.save();g.translate(.35,.45);poly(pts);g.fillStyle='rgba(58,44,32,.22)';g.fill();g.restore();
-      poly(pts);g.fillStyle=part.col||col;g.fill();g.lineWidth=.12;g.strokeStyle='rgba(50,36,26,.7)';g.stroke();
-      if(part.ridge){line([Q(...part.ridge[0]),Q(...part.ridge[1])],.08,'rgba(40,28,20,.55)');}}}
-  // landmarks
-  for(const m of landmarks){if(!aliveO(m))continue;for(const part of m.parts){const pts=part.poly.map(([x,y])=>lmPoint(m,x,y));
-    g.save();g.translate(.4,.5);poly(pts);g.fillStyle='rgba(58,44,32,.25)';g.fill();g.restore();
-    poly(pts);g.fillStyle=part.tone==='tower'?'#7d5a44':part.tone==='mill'?'#8a6f52':part.tone==='court'?'#e2d6b8':'#b9a27c';g.fill();g.lineWidth=.22;g.strokeStyle='#3e2e20';g.stroke();
-    if(part.ridge)line(part.ridge.map(([x,y])=>lmPoint(m,x,y)),.1,'rgba(40,28,20,.6)');}
-    if(m.kind==='mill'){const [x,y]=lmPoint(m,0,0);g.beginPath();g.arc(x+2.4,y+1.8,1.2,0,7);g.lineWidth=.25;g.strokeStyle='#3e2e20';g.stroke();}}
+  // The built-up ground: the paper the streets and squares are left in.
+  g.fillStyle=PAPER;for(const pl of live){poly(grow(pl.pts,1.3));g.fill();}
+  for(const pl of places)if(aliveO(pl)){poly(grow(pl.poly,1));g.fill();}
+  // Woods outside the town.
+  g.fillStyle='rgba(98,122,80,.42)';for(const [x,y,r] of trees){if(inPlot(x,y,1.5)||inPlace(x,y,1))continue;g.beginPath();g.arc(x,y,r,0,7);g.fill();}
+  // Country roads: two fine edges; inside the town the street is only the gap between blocks.
+  for(const p of paths){if(!aliveP(p)||p.kind==='edge')continue;
+    if(p.kind==='path'){g.setLineDash([1,.9]);line(p.pts,.28,'rgba(120,96,66,.7)');g.setLineDash([]);continue;}
+    if(p.kind==='rail'){line(p.pts,.9,'#3b2f27');g.setLineDash([.6,.6]);line(p.pts,.45,'#efe6cf');g.setLineDash([]);continue;}
+    const w=p.hw*2;line(p.pts,w+.32,'rgba(92,74,52,.55)');line(p.pts,w,PAPER);}
+  // Gardens and crofts behind the houses.
+  for(const pl of live){poly(pl.pts);g.fillStyle=GARDEN;g.fill();g.lineWidth=.1;g.strokeStyle=GARDEN_EDGE;g.stroke();}
+  // Squares, the market, churchyards, public gardens.
+  for(const pl of places){if(!aliveO(pl))continue;poly(pl.poly);
+    g.fillStyle=pl.kind==='garden'||pl.kind==='park'?'#b4c38a':pl.kind==='churchyard'?'#cdd2a8':SQUARE;g.fill();
+    if(pl.kind==='garden'){g.fillStyle='rgba(78,104,64,.75)';for(const [x,y] of pl.poly.map((q,i)=>{const r=pl.poly[(i+1)%pl.poly.length];return [(q[0]+r[0])/2,(q[1]+r[1])/2];})){g.beginPath();g.arc(x,y,.6,0,7);g.fill();}}}
+  // Promenades and boulevards: rows of trees.
+  for(const p of paths)if(aliveP(p)&&(p.kind==='promenade'||p.kind==='boulevard')){g.fillStyle='rgba(78,104,64,.8)';for(let s2=0;s2<p.len;s2+=2.2){const a=at(p,s2);for(const sd of [1,-1]){g.beginPath();g.arc(a.x-a.ty*sd*(p.hw-.3),a.y+a.tx*sd*(p.hw-.3),.5,0,7);g.fill();}}}
+  // Walls: a heavy ink line with towers; gates as breaks with two towers.
+  for(const w of walls){if(!aliveO(w))continue;poly(w.poly);
+    if(w.kind==='bastion'){g.lineWidth=5;g.strokeStyle='rgba(150,165,118,.35)';g.stroke();g.lineWidth=1.5;g.strokeStyle='#2f2620';g.stroke();}
+    else{g.lineWidth=1.25;g.strokeStyle='#2f2620';g.stroke();g.fillStyle='#2f2620';for(const [x,y] of w.towers){g.beginPath();g.arc(x,y,1.05,0,7);g.fill();}}
+    for(const gt of w.gates){const big=gt===w.main;g.save();g.translate(gt.x,gt.y);g.rotate(gt.a);g.fillStyle=PAPER;g.fillRect(-1.4,-1.5,2.8,3);g.fillStyle='#2f2620';
+      g.fillRect(-1.6,-(big?2.9:2.4),3.2,big?1.6:1.2);g.fillRect(-1.6,big?1.3:1.2,3.2,big?1.6:1.2);g.restore();}}
+  // Buildings: solid ink, no outline, so neighbours read as one block.
+  for(const pl of live){const st=stateAt(pl,year);if(!st)continue;const Q=Qf(pl);g.fillStyle=INK[st.b==='house'?st.style:st.b]||INK.house;
+    for(const part of housePlan(pl,st)){if(part.col&&st.b==='palace'){poly(part.uv.map(([u,v])=>Q(u,v)));g.fillStyle=SQUARE;g.fill();g.fillStyle=INK.palace;continue;}poly(part.uv.map(([u,v])=>Q(u,v)));g.fill();}}
+  // Public buildings and churches in blue.
+  for(const m of landmarks){if(!aliveO(m)||!m.parts.length)continue;for(const part of m.parts){poly(part.poly.map(([x,y])=>lmPoint(m,x,y)));g.fillStyle=part.tone==='court'?SQUARE:PUBLIC;g.fill();}}
   Y=saveY;}
 // ───────────── public ─────────────
 let started=false;
