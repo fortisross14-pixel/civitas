@@ -9,7 +9,7 @@ const town=(type='river',seed=42)=>seedTown(makeCity('Living',type,seed));
 function run(c,years){let n=0;const target=Math.min(2030,c.year+years);while(c.year<target&&n++<80){c=advance(c,target-c.year);if(c.turning?.pending)c=selectTurningPoint(c,c.turning.pending.options[0]);}return c;}
 
 test('the city changes month by month, not in five-year jumps',()=>{
-  let c=run(town('plain',5),250);
+  let c=run(addZone(town('plain',5),8,6,80,58,'res'),250);
   const seen=new Set();
   for(let i=0;i<24;i++){c=advanceMonths(c,1);if(c.turning?.pending)c=selectTurningPoint(c,c.turning.pending.options[0]);seen.add(`${c.buildings.length}|${Math.round(c.residents)}`);}
   assert.ok(seen.size>=8,`only ${seen.size} distinct monthly states in two years`);

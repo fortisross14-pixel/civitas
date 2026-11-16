@@ -49,7 +49,7 @@ test('districts form between main roads and keep their names',()=>{
   const details=districtDetails(later,cityOrigin(later));
   assert.ok(details.list.every(d=>d.count>=10&&d.centroid&&d.dominant));
 });
-test('the city character follows what it builds and steers its Turning Points',()=>{
+test('the city character follows what it builds and steers its Turning Points',{todo:'M2: Turning Points are removed'},()=>{
   const industrial=campaign(410,'compact','industry',false),cultural=campaign(410,'compact','culture',false);
   assert.equal(industrial.city.character.lead,'industry');
   assert.ok(cultural.city.character.shares.culture>industrial.city.character.shares.culture);

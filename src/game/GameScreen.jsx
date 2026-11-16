@@ -234,7 +234,7 @@ function DetailsSheet({city,s,tab,setTab,onClose,legacy,onGuide}){
     </div>;
   }else if(tab==='city'){
     const rev=annualRevenue(city,s,cityEffects(city)),cost=annualExpenses(city,s);
-    const liv=organicLiving(city);
+    const liv={sol:s.living,value:s.landValue};
     const rows=[['Population',full(s.population)],...(liv?[['Standard of living',`${liv.sol}/100`],['Land value',`${liv.value}/100`]]:[]),...(s.carShare?[['Commuters by car',`${s.carShare}%`],['Traffic',`${s.traffic}% of road capacity`]]:[]),['Homes priced out',`${s.unaffordable}%`],['Prosperity',`${s.prosperity}/100`],['Unemployment',`${s.unemployment}%`],['Homes full',`${s.housingPressure}%`],['Treasury',full(city.funds)],['Net per year',`${rev.total-cost.total>=0?'+':'−'}${full(Math.abs(rev.total-cost.total))}`],['Industry jobs',full(s.sectorJobs?.craft||0)],['Faith',full(s.religiousInfluence)],['Culture',full(s.culturalPrestige)],['Learning',full(s.educationIndex)],['Unrest',`${Math.round(city.unrest||0)}/${RUIN_AT}`],['Buildings',full(s.buildings)]];
     body=<div className="g-list"><div className="g-chart"><HistoricalChart city={city} metric="population" height={120}/></div><div className="g-stats">{rows.map(([k,v])=><div key={k}><span>{k}</span><b>{v}</b></div>)}</div></div>;
   }else{
@@ -333,7 +333,7 @@ export function GameScreen(c){
       <SpeedBubble running={c.simulating} speed={c.clockSpeed} disabled={ro||blocking||city.awaitingCenter} onPause={c.stopSimulation} onRun={c.runClock}/>
     </div>
     {!placing&&!zoning&&<button className={`g-lens ${lens?'on':''}`} onClick={()=>setLens(l=>LENSES[(LENSES.findIndex(x=>x[0]===l)+1)%LENSES.length][0])} aria-label="Change map lens"><span className="g-lensDot" data-l={lens||'plan'}/>{LENSES.find(x=>x[0]===lens)[1]}</button>}
-    {lens&&!placing&&!zoning&&<div className="g-lensKey">{lens==='traffic'?<><i style={{background:'rgba(220,150,40,.45)'}}/>busy<i style={{background:'rgba(190,40,30,.6)'}}/>jammed</>:lens==='value'?<><i style={{background:'rgba(170,100,60,.35)'}}/>cheap<i style={{background:'rgba(250,50,30,.65)'}}/>dear</>:<><i style={{background:'rgba(120,60,130,.55)'}}/>poor<i style={{background:'rgba(60,140,80,.6)'}}/>good</>}</div>}
+    {lens&&!placing&&!zoning&&<div className="g-lensKey">{lens==='traffic'?<><i style={{background:'rgba(220,150,40,.45)'}}/>busy<i style={{background:'rgba(190,40,30,.6)'}}/>jammed</>:lens==='value'?<><i style={{background:'rgb(226,214,186)'}}/>cheap<i style={{background:'rgb(192,64,36)'}}/>dear</>:<><i style={{background:'rgb(170,86,186)'}}/>poor<i style={{background:'rgb(104,192,100)'}}/>good</>}</div>}
     {!placing&&!zoning&&<div className="g-chips"><GoalChip city={city} s={s} onOpen={()=>open('details','mission')}/></div>}
 
     {toast&&!placing&&!blocking&&!sheet&&!zoning&&<div className="g-toast" role="status" onClick={()=>setToast(null)}>{toast}</div>}

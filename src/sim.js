@@ -1,4 +1,5 @@
 import {heritageEffects,decideHeritage} from './heritage.js';
+import {PEOPLE_PER_PARCEL,densityRatio} from './density.js';
 import {FORMS,resolveZone,formOf,formCap,formJobs,successor} from './zoning.js';
 import {FIGURES,FIGURE_INDEX} from './legacy.js';
 import {INITIAL_DEVELOPMENT,developmentOf,applyPulse,advanceDevelopment,accumulateDevelopment,productivityGrowth,developmentCapacity} from './development.js';
@@ -51,7 +52,7 @@ export function styleAt(year){return ageStyle(year);}
 export const HISTORICAL_INTERVAL=50;
 const ZONE_CODES=Object.keys(ZONES);
 
-export function makeCity(name='New Valdoria',type='river',seed=23451){return {schema:10,taxes:{...DEFAULT_TAXES},budget:{current:emptyBudget(FIRST_YEAR),last:null},growthCarry:0,roadNeed:0,walls:[],bridges:[],routes:[],month:0,development:{...INITIAL_DEVELOPMENT},productivityStock:720,culturalCapital:0,sacredCapital:0,knowledgeCapital:0,projects:[],nextProjectId:1,turning:{choices:[],pending:null,skipped:0,rerollsUsed:0},needs:[],omens:[],score:emptyScore(),figures:[],legacyBonuses:{},landmarks:[],id:`${Date.now()}-${(seed>>>0).toString(36)}`,name:String(name).trim().slice(0,40)||'Unnamed City',type:['river','plain','coast','estuary','lake'].includes(type)?type:'river',seed:seed|0,year:FIRST_YEAR,turns:0,zones:[],buildings:[],roads:[],history:[],events:[],sites:[],snapshots:[],nextBuildingId:1,policies:{},momentumUntil:0,momentum:0,funds:400,residents:120*K,finished:false};}
+export function makeCity(name='New Valdoria',type='river',seed=23451){return {schema:11,taxes:{...DEFAULT_TAXES},budget:{current:emptyBudget(FIRST_YEAR),last:null},growthCarry:0,roadNeed:0,walls:[],bridges:[],routes:[],month:0,development:{...INITIAL_DEVELOPMENT},productivityStock:720,culturalCapital:0,sacredCapital:0,knowledgeCapital:0,projects:[],nextProjectId:1,turning:{choices:[],pending:null,skipped:0,rerollsUsed:0},needs:[],omens:[],score:emptyScore(),figures:[],legacyBonuses:{},landmarks:[],id:`${Date.now()}-${(seed>>>0).toString(36)}`,name:String(name).trim().slice(0,40)||'Unnamed City',type:['river','plain','coast','estuary','lake'].includes(type)?type:'river',seed:seed|0,year:FIRST_YEAR,turns:0,zones:[],buildings:[],roads:[],history:[],events:[],sites:[],snapshots:[],nextBuildingId:1,policies:{},momentumUntil:0,momentum:0,funds:400,residents:120*K,finished:false};}
 // A zone plan is immutable between player edits: cache its raster and area counts.
 // Full campaigns previously rebuilt 7,200 tile lookups for every single stats call.
 const zoningCache=new WeakMap();
@@ -89,7 +90,8 @@ function zoneRect(city,x,y,w,h){
 export function zoningCost(city,x,y,w,h){
   const rect=zoneRect(city,x,y,w,h);if(!rect)return {cells:0,cost:0};
   let cells=0;for(let yy=rect.y;yy<rect.y+rect.h;yy++)for(let xx=rect.x;xx<rect.x+rect.w;xx++)if(terrain(city.type,xx,yy)==='land'&&zoneCell(city,xx,yy)==null)cells++;
-  return {cells,cost:Math.round(cells*zoningPrice(city.year))};
+  // v3.6: designating land is free (building needs zoned land); idle zoned land costs upkeep instead.
+  return {cells,cost:0};
 }
 // The player's zoning action: surveying new land costs treasury; rezoning is free.
 export function zoneLand(city,x,y,w,h,type){
@@ -115,8 +117,11 @@ export function addZone(city,x,y,w,h,tool){
   // Earlier designations fully covered by this one are dropped (latest wins anyway).
   return {...city,zones:[...city.zones.filter(z=>!insideRect(z,rect)),{...rect,type,form,year:city.year,pattern:patternFor(city.year)}]};
 }
-const ageCapacity=year=>(year<1750?8:year<1850?14:year<1950?27:year<2000?45:58)*K;
-const ageJobs=(year,type)=>K*ageJobsBase(year,type);
+// v3.6 real densities: people a parcel (≈17 m square) holds by Age, so land and people agree with
+// the map: about two medieval houses, a few storeys by 1700, tenements in the 1800s, towers later.
+export {PEOPLE_PER_PARCEL,densityRatio};
+const ageCapacity=year=>PEOPLE_PER_PARCEL(year);
+const ageJobs=(year,type)=>K*ageJobsBase(year,type)*densityRatio(year);
 const ageJobsBase=(year,type)=>type==='hotel'?(year<1900?15:year<1950?28:48):type==='farm'?6: type==='civic'?10:type==='trade'?year<1850?11:year<1950?22:38:year<1850?16:year<1950?32:52;
 export function stats(city){
   const m=cityEffects(city);
@@ -205,7 +210,7 @@ export function stats(city){
   const prosperity=Math.round(clamp(56+(m.prosperity||0)+place.prosperity+taxProsperity(city)-(m.crowding||0)-Math.min(15,shortfall*30)+Math.min(11,educationIndex*.025)+Math.min(7,culturalPrestige*.016)+Math.min(5,religiousInfluence*.015)-Math.min(22,pollution*.08)+Math.min(7,heritage*.035)+Math.min(12,civic*.65)+Math.min(9,commerce*.20)-unemployment*31-overcrowding*33-Math.min(16,sparseLand*8),5,98));
   // 0–100 local infrastructure efficiency incorporates footprint and land waste.
   const infrastructureEfficiency=Math.round(clamp(95-12*sprawlPressure-Math.min(18,overcrowding*22)+Math.min(5,(m.transport||0)*10),35,99));
-  return {development:momentum,productivityGrowthPct:Math.round(productivityGrowth(city.year,momentum,unemployment*100)*10000)/100,infrastructureEfficiency,population,buildings:city.buildings.length,capacity:housing,jobs,employment:Math.round(employment),unemployment:Math.round(unemployment*100),jobCoverage:Math.round(jobs/Math.max(1,workerPopulation)*100),prosperity,zoned:z,year:city.year,gdp,gdpPerCapita,housingPressure:Math.round(occupancy*100),overcrowding:Math.round(overcrowding*100),densityPerZone:Math.round(population/Math.max(1,residentialLand)),treasury:Math.round(city.funds??0),commerce,industry,farms,civic,developedHousing,heritage,protectedCount,oldestBuilding:Number.isFinite(oldest)?oldest:null,lostBuildings:(city.sites||[]).length,culturalPrestige,religiousInfluence,educationIndex,tourismAppeal,touristVisits,pollution,hotels,monuments:monumentCount,universities:universityCount,artWorkshops:artistCount,activeSynergies:activeSynergies(city).map(v=>v.name),cardsSelected:currentTurningIndex(city),sectorJobs,informal:city.buildings.filter(b=>b.informal).length,vacant,cycle:Math.round(cycle*1000)/1000,shortfall:Math.round(shortfall*100),pollutedHomes:Math.round(sp.pollutedShare*100),serviceCoverage:Math.round(sp.coverage*100),prestigeHomes:Math.round(sp.prestigeShare*100),tradeAccess:Math.round(sp.tradeAccess*100),riverIndustry:Math.round(sp.riverIndustry*100),placeProsperity:Math.round(place.prosperity*10)/10,traffic:Math.round((sp.congestion||0)*100),carShare:Math.round((sp.carShare||0)*100),unaffordable:Math.round((sp.unaffordable||0)*100),jammedHomes:Math.round((sp.jammedShare||0)*100)};
+  return {development:momentum,productivityGrowthPct:Math.round(productivityGrowth(city.year,momentum,unemployment*100)*10000)/100,infrastructureEfficiency,population,buildings:city.buildings.length,capacity:housing,jobs,employment:Math.round(employment),unemployment:Math.round(unemployment*100),jobCoverage:Math.round(jobs/Math.max(1,workerPopulation)*100),prosperity,zoned:z,year:city.year,gdp,gdpPerCapita,housingPressure:Math.round(occupancy*100),overcrowding:Math.round(overcrowding*100),densityPerZone:Math.round(population/Math.max(1,residentialLand)),treasury:Math.round(city.funds??0),commerce,industry,farms,civic,developedHousing,heritage,protectedCount,oldestBuilding:Number.isFinite(oldest)?oldest:null,lostBuildings:(city.sites||[]).length,culturalPrestige,religiousInfluence,educationIndex,tourismAppeal,touristVisits,pollution,hotels,monuments:monumentCount,universities:universityCount,artWorkshops:artistCount,activeSynergies:activeSynergies(city).map(v=>v.name),cardsSelected:currentTurningIndex(city),sectorJobs,informal:city.buildings.filter(b=>b.informal).length,vacant,cycle:Math.round(cycle*1000)/1000,shortfall:Math.round(shortfall*100),pollutedHomes:Math.round(sp.pollutedShare*100),serviceCoverage:Math.round(sp.coverage*100),prestigeHomes:Math.round(sp.prestigeShare*100),tradeAccess:Math.round(sp.tradeAccess*100),riverIndustry:Math.round(sp.riverIndustry*100),placeProsperity:Math.round(place.prosperity*10)/10,living:Math.round(sp.livingAvg??50),landValue:Math.round(sp.valueAvg||0),traffic:Math.round((sp.congestion||0)*100),carShare:Math.round((sp.carShare||0)*100),unaffordable:Math.round((sp.unaffordable||0)*100),jammedHomes:Math.round((sp.jammedShare||0)*100)};
 }
 export function demand(city){
   const s=stats(city);
@@ -241,7 +246,7 @@ function createBuilding(city,type,p,year,r,context=null){
   const densityFactor=type==='res'&&occupancyPressure>105?1.45:1;
   const perks=cityEffects(city);
   const eraCapacity=developmentCapacity(city);
-  const capacity=type==='res'?Math.max(4*K,Math.round(ageCapacity(year)*spaceFactor*densityFactor*eraCapacity*(1+(perks.newHousing||0))*(.8+r()*.4))):0;
+  const capacity=type==='res'?Math.max(4,Math.round(ageCapacity(year)*spaceFactor*densityFactor*eraCapacity*(1+(perks.newHousing||0))*(.8+r()*.4))):0;
   const jobs=type==='res'?0:Math.round(ageJobs(year,type)*(.65+eraCapacity*.35)*(.8+r()*.4));
   // Varied but parcel-contained footprints make neighborhoods read as places,
   // while collision and capacity logic continue to use the same parcel.
@@ -257,7 +262,7 @@ function densify(city,year,r){
   const eligible=houses.filter(b=>(b.level||1)<(year<1750?2:year<1850?3:year<1950?5:year<2000?9:12));
   if(!eligible.length)return false;
   const b=eligible[Math.floor(r()*eligible.length)];
-  const upgrade=Math.round((year<1850?5:year<1950?12:year<2000?24:35)*K*developmentCapacity(city));
+  const upgrade=Math.round((year<1850?5:year<1950?12:year<2000?24:35)*K*densityRatio(year)*developmentCapacity(city));
   const idx=city.buildings.indexOf(b);
   city.buildings[idx]={...b,level:(b.level||1)+1,capacity:(b.capacity||8*K)+upgrade,modified:year,
     renovations:[...(b.renovations||[]),{year,action:'Expanded residential floors'}]};
@@ -471,6 +476,7 @@ function monthTick(city){
 // Each entry: {level 0..1, free: unbuilt zoned parcels, short: true when demand is high and land is short, why}.
 export function demandOf(city){
   const s=stats(city),occ=new Set();for(const b of city.buildings){const f=footprint(b);for(let y=f.y;y<f.y+f.h;y++)for(let x=f.x;x<f.x+f.w;x++)occ.add(key(x,y));}
+  for(const r of city.roads||[])if(Number.isFinite(r.x))occ.add(key(r.x,r.y));
   const zg=zonedGrid(city).grid,free={res:0,trade:0,craft:0,farm:0,civic:0,hotel:0};for(let k=0;k<W*H;k++){const t=zg[k];if(t&&!occ.has(k)&&free[t]!==undefined)free[t]++;}
   const workers=s.population*.44,jobGap=clamp((workers*1.05-s.jobs)/Math.max(1,workers),0,1),craftShare=(s.sectorJobs?.craft||0)/Math.max(1,s.jobs);
   const press=s.population/Math.max(1,s.capacity);
@@ -488,7 +494,8 @@ function monthGrowth(city,year,r,perks){
   const supply=Object.values(s.zoned).reduce((a,b)=>a+b,0)+INFORMAL_LAND;
   const landPace=clamp(Math.sqrt(supply/450),.65,2.25);
   const perFive=eraPaceOf(year)*landPace*(.70+developmentOf(city).infrastructure/90)*Math.min(2.8,Math.pow(developmentCapacity(city),.32))*(1+(perks.development||0)+Math.min(.25,perks.transport||0));
-  city.growthCarry=(Number(city.growthCarry)||0)+perFive/60;
+  // Smaller buildings (v3.6), so more of them: the pace scales with the density ratio.
+  city.growthCarry=(Number(city.growthCarry)||0)+perFive/densityRatio(year)/60;
   const builds=Math.floor(city.growthCarry);city.growthCarry-=builds;
   // Streets first, so this month's buildings can use them. Unmet demand last
   // month (no reachable parcel) pushes more streets out this month.
@@ -1320,6 +1327,15 @@ export function normalizeCity(input){
     c.history=c.history.map(h=>({...h,...(Number.isFinite(h.population)?{population:h.population*K}:{}),...(Number.isFinite(h.gdp)?{gdp:h.gdp*K}:{}),...(Number.isFinite(h.densityPerZone)?{densityPerZone:h.densityPerZone*K}:{})}));
     c.snapshots=c.snapshots.map(v=>Number.isFinite(v.population)?{...v,population:v.population*K}:v);
   }
+  // v3.6: building happens only on zoned land. Older towns grew houses outside any zone; each
+  // cluster of them gets a zone of its own (its use: what most of its buildings are), so the map keeps them.
+  if((Number(input.schema)||0)<11){const seen=new Set(),out=[],cell=b=>key(Math.floor(b.x),Math.floor(b.y)),loose=new Map();
+    for(const b of c.buildings){if(b.special)continue;const x=Math.floor(b.x),y=Math.floor(b.y);if(within(x,y)&&zoneCell(c,x,y)==null)loose.set(cell(b),b);}
+    for(const [k0] of loose){if(seen.has(k0))continue;const q=[k0];seen.add(k0);let x0=1e9,y0=1e9,x1=-1,y1=-1;const types={};
+      for(let i=0;i<q.length;i++){const k=q[i],x=kx(k),y=ky(k);x0=Math.min(x0,x);y0=Math.min(y0,y);x1=Math.max(x1,x);y1=Math.max(y1,y);const t=loose.get(k).type;types[t]=(types[t]||0)+1;
+        for(let dy=-2;dy<=2;dy++)for(let dx=-2;dx<=2;dx++){const n=key(x+dx,y+dy);if(within(x+dx,y+dy)&&loose.has(n)&&!seen.has(n)){seen.add(n);q.push(n);}}}
+      const type=Object.entries(types).sort((a,b)=>b[1]-a[1])[0][0];out.push({x:x0,y:y0,w:x1-x0+1,h:y1-y0+1,type:ZONES[type]?type:'res',year:Math.min(...q.map(k=>loose.get(k).born||FIRST_YEAR)),pattern:'organic'});}
+    if(out.length)c.zones=[...out,...c.zones];c.schema=11;}
   // v1.4 historical events.
   c.eventsOn=!!input.eventsOn;
   c.seenEvents=Array.isArray(input.seenEvents)?input.seenEvents.filter(v=>typeof v==='string'):[];

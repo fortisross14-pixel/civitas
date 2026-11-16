@@ -4,6 +4,7 @@
 // revenue and suppress demand. Residential taxes also move prosperity and
 // migration. All amounts are game currency per YEAR.
 import {POP_SCALE} from './geo.js';
+import {densityRatio} from './density.js';
 import {policyCosts} from './policies.js';
 import {cardUpkeepShare} from './cards.js';
 export const TAX_LEVELS=['none','low','average','high'];
@@ -52,7 +53,8 @@ const BASIC_COST={market:130,chapel:160,granary:145,town_hall:290,school:240,gui
 export function annualExpenses(city,s){
   const parcels=city.buildings.length,streets=city.roads.length;
   const zoned=Object.values(s.zoned||{}).reduce((a,v)=>a+v,0),idle=Math.max(0,zoned-parcels-streets);
-  const maintenance=(parcels*.12+streets*.035+idle*(city.year>=1800?.006:.0015))/5;
+  // v3.6: buildings are smaller (real densities), so each costs less to keep.
+  const dr=Math.min(1,densityRatio(city.year)*1.6),maintenance=(parcels*.12*dr+streets*.035*Math.min(1,dr*2)+idle*(city.year>=1800?.006:.0015))/5;
   const walls=(city.walls||[]).reduce((a,w)=>a+w.r*(w.state==='wall'?.08:.05),0); // r = mean radius
   const policy=policyCosts(city);
   const services=s.population/POP_SCALE*.015*SERVICE_SHARE(city.year)*(1+policy.service);

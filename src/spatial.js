@@ -120,16 +120,22 @@ function computeSpatial(city,effects,policies){
   let coreSum=0,coreN=0;for(let k=0;k<CELLS;k++){const x=k%W,y=Math.floor(k/W);if(!inCore(x,y))continue;if(mode==='pedestrian')traffic[k]*=.25;if(cap[k]){coreSum+=traffic[k];coreN++;}}
   const coreJam=coreN?coreSum/coreN:0;
   const congestion=capacity?Math.min(2,trips/(capacity*1.1)):0;
+  // v3.6 living, 0–100 per parcel: green and services nearby, prestige; minus smoke, jammed streets
+  // and crowding. With land value (0–100) it is what the lenses show and what the city counts.
+  const living=new Float32Array(CELLS),valueN=new Float32Array(CELLS);
+  for(let k=0;k<CELLS;k++){const ppc=homesF[k]*POP_SCALE/169,crowd=Math.min(20,Math.max(0,ppc-60)/12);
+    living[k]=Math.max(0,Math.min(100,52+11*Math.min(2,green[k])+9*Math.min(1.5,service[k])+5*Math.min(1,prestige[k])-16*Math.min(2,pollution[k])-12*Math.max(0,traffic[k]-.5)-crowd));
+    valueN[k]=Math.max(0,Math.min(100,value[k]/2.6*100));}
   // Summary: shares of homes and jobs inside each field.
   const homeShield=policies.garden_city?.5:1;
-  let unaffordable=0,jammed=0,homes=0,polluted=0,covered=0,prestigious=0,tradeJobs=0,tradeServed=0,craftJobs=0,riverCraft=0;
+  let livSum=0,valSum=0,unaffordable=0,jammed=0,homes=0,polluted=0,covered=0,prestigious=0,tradeJobs=0,tradeServed=0,craftJobs=0,riverCraft=0;
   for(const b of city.buildings){
     if(b.vacant)continue;const k=key(Math.floor(b.x),Math.floor(b.y));
-    if(b.type==='res'){const c=b.capacity||8*POP_SCALE;homes+=c;if(pollution[k]*homeShield*(green[k]>=.3?.4:1)>=.8)polluted+=c;if(service[k]>=.35)covered+=c;if(prestige[k]>=.5)prestigious+=c;if(value[k]>=2.2&&!WELL_OFF.has(b.form))unaffordable+=c;if(traffic[k]>=1)jammed+=c;}
+    if(b.type==='res'){const c=b.capacity||8*POP_SCALE;homes+=c;if(pollution[k]*homeShield*(green[k]>=.3?.4:1)>=.8)polluted+=c;if(service[k]>=.35)covered+=c;if(prestige[k]>=.5)prestigious+=c;if(value[k]>=2.2&&!WELL_OFF.has(b.form))unaffordable+=c;livSum+=living[k]*c;valSum+=valueN[k]*c;if(traffic[k]>=1)jammed+=c;}
     else if(b.type==='trade'||b.type==='hotel'){const j=b.jobs||0;tradeJobs+=j;if(trade[k]>=.35)tradeServed+=j;}
     else if(b.type==='craft'){const j=b.jobs||0;craftJobs+=j;if(nearWater(water,Math.floor(b.x),Math.floor(b.y)))riverCraft+=j;}
   }
-  return {green,pollution,prestige,service,trade,homePull,shopPull,homeShield,value,traffic,carShare:cars,congestion,coreJam,unaffordable:homes?unaffordable/homes:0,jammedShare:homes?jammed/homes:0,
+  return {green,pollution,prestige,service,trade,homePull,shopPull,homeShield,value:valueN,valueRaw:value,living,livingAvg:homes?livSum/homes:50,valueAvg:homes?valSum/homes:0,traffic,carShare:cars,congestion,coreJam,unaffordable:homes?unaffordable/homes:0,jammedShare:homes?jammed/homes:0,
     pollutedShare:homes?polluted/homes:0,coverage:homes?covered/homes:1,prestigeShare:homes?prestigious/homes:0,
     tradeAccess:tradeJobs?tradeServed/tradeJobs:0,riverIndustry:craftJobs?riverCraft/craftJobs:0};
 }

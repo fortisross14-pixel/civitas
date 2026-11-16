@@ -457,7 +457,7 @@ function accrete(z){const xs=z.poly.map(p=>p[0]),ys=z.poly.map(p=>p[1]),built=[]
   let edge=[];if(z.acY!==Y){z.acY=Y;z.acB=[];z.acE=[];plotBins.near(Math.min(...xs)-8,Math.min(...ys)-8,Math.max(...xs)+8,Math.max(...ys)+8,o=>{if(!aliveO(o)||!o.built)return;if(o.zone===z||zoneAt(...centre(o.pts))===z)z.acB.push(o);else z.acE.push(o);});z.acB.sort((a,b)=>a.id-b.id);}
   // Only houses with a side still free can start the next one.
   for(const o of z.acB)if(o.mv!==0&&o.built&&aliveO(o))built.push(o);edge=z.acE.filter(o=>o.mv!==0&&aliveO(o));const roadShare=built.length<3?.7:.12;
-  const cand=[],regular=Y>=1800,quick=q=>{const c=centre(q),zc=zoneC(c[0],c[1]);if(!zc||!accreting(zc))return false;for(const [x,y] of [c,...grow(q,-.7)])if(OCC[ri(x,y)]!==0)return false;return true;};
+  const cand=[],regular=Y>=1800,quick=q=>{const c=centre(q),zc=zoneC(c[0],c[1]);if(zc!==z)return false;for(const [x,y] of [c,...grow(q,-.7)])if(OCC[ri(x,y)]!==0)return false;return true;};
   for(let t=0;t<60&&cand.length<14;t++){
     if((built.length||edge.length)&&rnd()>roadShare){const P=!built.length||edge.length&&rnd()<.15?edge[Math.floor(rnd()*edge.length)]:rnd()<.6?built[Math.max(0,built.length-1-Math.floor(rnd()*Math.min(80,built.length)))]:built[Math.floor(rnd()*built.length)];
       const [FL,FR,RR,RL]=P.pts,u=nrm([FR[0]-FL[0],FR[1]-FL[1]]),v=nrm([RL[0]-FL[0],RL[1]-FL[1]]),{w,d}=plotSize(...centre(P.pts),P.zone?.regular||P.zone?.lot?P.zone:z);
@@ -619,6 +619,22 @@ function target(city,y){const h=city.history||[];let pop;
   if(!h.length||y>=h.at(-1).year)pop=Number(city.residents)||0;
   else{let a=null,b=null;for(const e of h){if(e.year<=y)a=e;if(e.year>=y&&!b)b=e;}const va=a?a.population:0,vb=b?b.population:va;pop=a&&b&&b.year>a.year?va+(vb-va)*(y-a.year)/(b.year-a.year):va;}
   return Math.round(Math.min(3400,pop/PER_HOUSE(y)));}
+// ───────────── how many houses each zone should have ─────────────
+// The map follows the game's own buildings, zone by zone: every building the game has
+// standing in a zone in year Y asks for as many drawn houses as fit its parcel of land
+// in that zone's form (small medieval houses: about one per parcel; garden cities and
+// suburbs: fewer; terraces: more). So houses appear where the game builds, as many as it builds.
+const CELL_AREA=K*K;
+function perParcel(o){if(o.kind==='village')return .35;const lot=o.lot?((o.lot.w[0]+o.lot.w[1])/2)*((o.lot.d[0]+o.lot.d[1])/2):Y>=1850?4.8*7.2:2.4*4.6;
+  const street=o.detached?2.3:o.regular?1.7:1.6;return clamp(CELL_AREA/(lot*street),.2,3);}
+let zgKey='',ZG=null;
+function zoneGridAt(city){const zs=city.zones||[];let n=0;for(const z of zs)if((Number(z.year)||Y0)<=Y)n++;const key=n+'|'+zs.length;if(ZG&&zgKey===key)return ZG;zgKey=key;
+  const GWc=Math.ceil(WW/K),GHc=Math.ceil(WH/K);ZG=new Int32Array(GWc*GHc).fill(-1);ZG.w=GWc;
+  zs.forEach((z,i)=>{if((Number(z.year)||Y0)>Y)return;for(let y=Math.max(0,z.y);y<Math.min(GHc,z.y+z.h);y++)for(let x=Math.max(0,z.x);x<Math.min(GWc,z.x+z.w);x++)ZG[y*GWc+x]=z.type==='clear'?-1:i;});return ZG;}
+function zoneTargets(city){const G=zoneGridAt(city),T=new Map(),add=(b)=>{const x=Math.floor(b.x),y=Math.floor(b.y);if(x<0||y<0)return;const zi=G[y*G.w+x];const o=zi>=0?fed.zones.get(zi):fed.implicit;if(!o)return;T.set(o,(T.get(o)||0)+perParcel(o));};
+  for(const b of city.buildings||[])if((b.born||Y0)<=Y&&!b.special)add(b);
+  for(const st of city.sites||[])if((st.born||Y0)<=Y&&st.ended>Y)add(st);
+  return T;}
 // Inside the walls houses grow back over their gardens and wide plots are split.
 function infill(){const inside=walls.filter(w=>aliveO(w)&&w.kind!=='bastion');if(!inside.length)return;
   const live=plots.filter(p=>aliveO(p)&&p.built);
@@ -736,16 +752,17 @@ function yearStep(city){
   if(Y>=1500){rebuildWave();if(Y>=1520&&rnd()<.35)mergePalace();}
   rezoneStep();syncRaster();
   if(Y%10===0)for(const pl of rLive)pl.mv=null;
-  const built=plots.filter(p=>aliveO(p)&&p.built).length;carry=Math.min(60,Math.max(0,tgt-built));
-  const live=zones.filter(z=>aliveO(z));
-  while(carry>=1){carry-=1;HH=Y>=1500&&rnd()<.22?'wealthy':'ordinary';
-    const open=live.filter(o=>!(o.full>Y)),osum=open.reduce((a,o)=>a+o.rate,0);if(!open.length){FAILS++;break;}
-    let t=rnd()*osum,z=open[0];for(const o of open){t-=o.rate;if(t<=0){z=o;break;}}
-    // A town zone that grows house by house can miss a few times before it counts as full.
-    const miss=o=>{if(accreting(o)){o.miss=(o.miss||0)+1;if(o.miss>=5){o.full=Y+3;o.miss=0;}}else o.full=Y+4;};
-    let pl=findHome(z);if(!pl)miss(z);else z.miss=0;
-    for(const o of open.slice().sort(()=>rnd()-.5)){if(pl)break;if(o!==z&&!(o.full>Y)){pl=findHome(o);if(!pl)miss(o);else o.miss=0;}}
-    if(pl)buildOn(pl);else{FAILS++;break;}}
+  // Each zone grows toward the houses the game has standing in it (at most 80 a year in all).
+  const T=zoneTargets(city),have=new Map();for(const pl of rLive)if(pl.built&&aliveO(pl)){const [x,y]=centre(pl.pts),z=zoneC(x,y)||pl.zone;if(z)have.set(z,(have.get(z)||0)+1);}
+  const need=[];for(const [o,t] of T){if(!aliveO(o))continue;const d=Math.round(t)-(have.get(o)||0);if(d>0)need.push([o,d]);}
+  let budget=80;
+  while(budget>0&&need.length){
+    let tot=need.reduce((a,[,d])=>a+d,0),t=rnd()*tot,pick=0;for(let i=0;i<need.length;i++){t-=need[i][1];if(t<=0){pick=i;break;}}
+    const [z]=need[pick];if(z.full>Y){need.splice(pick,1);continue;}
+    HH=Y>=1500&&rnd()<.22?'wealthy':'ordinary';
+    const pl=findHome(z);
+    if(!pl){if(accreting(z)){z.miss=(z.miss||0)+1;if(z.miss>=5){z.full=Y+3;z.miss=0;}}else z.full=Y+4;if(z.full>Y){need.splice(pick,1);FAILS++;}budget--;continue;}
+    z.miss=0;buildOn(pl);budget--;if(--need[pick][1]<=0)need.splice(pick,1);}
   census.push({y:Y,houses:plots.filter(p=>aliveO(p)&&p.built).length});}
 // ───────────── drawing (world units; the caller sets the transform) ─────────────
 let g=null;
