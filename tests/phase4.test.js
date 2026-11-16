@@ -71,7 +71,7 @@ test('streets are drawn as smooth curves, medieval lanes most of all',()=>{
   assert.ok(bends.every(v=>v<.6),'no sharp corners');
 });
 test('the timelapse shows one map every fifty years plus the present, with captions',()=>{
-  const c=play(addZone(town('river',777),30,20,30,25,'res'),1720);
+  const t=town('river',777),own=t.zones,z=addZone(t,30,20,30,25,'res'),c=play({...z,zones:[z.zones.at(-1),...own]},1720);
   const frames=timelapseFrames(c);
   assert.deepEqual(frames.map(f=>f.year),[1300,1350,1400,1450,1500,1550,1600,1650,1700,1720]);
   assert.ok(frames.at(-1).present);

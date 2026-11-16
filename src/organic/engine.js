@@ -548,6 +548,11 @@ function regularZone(z,poly,F={}){const [cx,cy]=centre(poly),road=nearPath(cx,cy
   const big=Y>=1850,R=F.regular||{},o=addZone(poly,'town',null,{rate:big?2.2:1.8,use:z.type});o.regular={ang:Math.atan2(a.ty,a.tx),block:R.block??(big?7:10),S:R.S??(big?3.8:3.1)};
   if(!F.b||F.b==='house')o.uniform=STYLE_BY_YEAR(Y);return o;}
 // What a form asks of the map: plot sizes, what is built, a spine avenue, a green, pits.
+// Rezoning: houses of another use or form inside a newly painted zone change over the years
+// (one in twenty a year comes down; the new zone builds on the land).
+function markRezoned(o){const xs=o.poly.map(p=>p[0]),ys=o.poly.map(p=>p[1]);plotBins.near(Math.min(...xs),Math.min(...ys),Math.max(...xs),Math.max(...ys),pl=>{
+  if(!aliveO(pl)||pl.zone===o||!inPoly(...centre(pl.pts),o.poly))return;const z=pl.zone;if(z&&z.use===o.use&&(z.b||'house')===(o.b||'house'))return;if(!pl.built){pl.died=Y;return;}pl.conv=o;});}
+function rezoneStep(){for(const pl of rLive)if(pl.conv&&aliveO(pl)&&rnd()<.05)pl.died=Y;}
 function formZone(o,fid,F){o.form=fid;o.lot=F.lot||null;o.b=F.b||null;o.detached=F.detached||0;o.dvr=F.dv||null;o.curve=!!F.curve;
   const xs=o.poly.map(p=>p[0]),ys=o.poly.map(p=>p[1]),x0=Math.min(...xs),x1=Math.max(...xs),y0=Math.min(...ys),y1=Math.max(...ys),[cx,cy]=centre(o.poly);
   // A linear city: a tree-lined tram avenue down the zone's long axis, houses face it.
@@ -573,11 +578,12 @@ function feed(city){
     if(z.type==='farm')o=addZone(poly,'village',null,{use:z.type,rate:.4,lay:{width:()=>3.6+rnd()*2.4,depth:11,gapEvery:22}});
     else if(F.regular)o=regularZone(z,poly,F);
     else o=addZone(poly,'town',null,{use:z.type,rate:1});
-    formZone(o,fid,F);
+    formZone(o,fid,F);markRezoned(o);
     if(o.kind==='town')town.push(o);const w=walls.find(w=>aliveO(w));if(w&&o.kind==='town'&&inPoly(o.cx,o.cy,w.poly))o.wall={poly:w.poly,inside:true};fed.zones.set(i,o);});
   // Before anyone zones, the town grows around its centre (as the game's informal growth does).
   const tgt=target(city,Y);
-  if(!fed.implicit||Y%10===0){const r=clamp(10+Math.sqrt(tgt)*2.1,12,70),pp=blob(C0[0],C0[1]-2,r*1.15,r*.85,16,7);
+  // The founding hamlet round the centre; after that the town grows only on zoned land.
+  if(!fed.implicit){const r=14,pp=blob(C0[0],C0[1]-2,r*1.15,r*.85,16,7);
     if(!fed.implicit){fed.implicit=addZone(pp,'town',null,{rate:.9});town.push(fed.implicit);}
     else if(Math.abs((fed.implicit.r||0)-r)>2){fed.implicit.poly=pp;fed.implicit.pc=null;fed.implicit.fr=null;fed.implicit.full=0;zones.polyVer=(zones.polyVer||0)+1;}
     fed.implicit.r=r;const w=walls.find(w=>aliveO(w));if(w&&inPoly(C0[0],C0[1],w.poly))fed.implicit.wall={poly:w.poly,inside:true};}
@@ -717,7 +723,7 @@ function yearStep(city){
   evolve();
   infill();
   if(Y>=1500){rebuildWave();if(Y>=1520&&rnd()<.35)mergePalace();}
-  syncRaster();
+  rezoneStep();syncRaster();
   if(Y%10===0)for(const pl of rLive)pl.mv=null;
   const built=plots.filter(p=>aliveO(p)&&p.built).length;carry=Math.min(60,Math.max(0,tgt-built));
   const live=zones.filter(z=>aliveO(z));

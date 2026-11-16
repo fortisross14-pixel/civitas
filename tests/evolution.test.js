@@ -9,11 +9,11 @@ import {newCity,takeTurn} from './helpers/strategies.js';
 const until=(c,y)=>{let n=0;while(c.year<y&&n++<600){c=advance(c,Math.min(5,y-c.year));c=takeTurn('sensible',c);}return c;};
 const walled=(()=>{let c;return()=>{if(c)return c;c=until(newCity(7),1450);const r=buildWall({...c,funds:c.funds+5000});assert.equal(r.error,null);return c=r.city;};})();
 
-test('a town that has outgrown its walls tears them down into a ring boulevard',()=>{
+// v3.4: the walls are the player's decision; they stand until turned into a boulevard, park or canal.
+test('walls stand until the player turns them into something else',()=>{
   const c=until(walled(),1900),w=c.walls[0];
-  assert.equal(w.state,'boulevard');assert.ok(w.auto&&w.converted>=WALL_TEARDOWN_FROM,`converted ${w.converted}`);
-  assert.ok(c.roads.some(r=>r.cls==='ring'),'the ring is a street');
-  assert.ok(c.events.some(e=>/outgrown its walls/.test(e.text)));
+  assert.equal(w.state,'wall');assert.ok(!c.events.some(e=>/outgrown its walls/.test(e.text)));
+  const r=convertWall({...c,funds:c.funds+50000},'boulevard');assert.equal(r.error,null);assert.equal(r.city.walls[0].state,'boulevard');
 });
 test('the wall can become a linear park instead: open land, no street, prosperity',()=>{
   const c=until(walled(),1805);assert.equal(c.walls[0].state,'wall');

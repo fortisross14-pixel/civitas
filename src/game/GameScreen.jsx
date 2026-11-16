@@ -7,7 +7,7 @@
 import React,{useEffect,useMemo,useRef,useState} from 'react';
 import {ChevronLeft,LandPlot,Hammer,Landmark,ScrollText,Play,Pause,X,Users,Coins,Target,Undo2,Eraser,Store,Package,RefreshCw,Crown,Castle,Waves,Route,Check,Trophy,Star,ShieldCheck,ShieldOff,Bomb,Flame,Hourglass,ArrowRight,Sparkles} from 'lucide-react';
 import {CityMap} from '../CityMap.jsx';
-import {ZONES,stats,zoningCost,constructionSite,tourismUnlocked,publicWorkIssue,publicWorkCost,PUBLIC_WORKS,townCenterIssue,STYLE_NAMES,styleAt,getOpportunity,unrestLine,RUIN_AT} from '../sim.js';
+import {demandOf,rezonedOf,ZONES,stats,zoningCost,constructionSite,tourismUnlocked,publicWorkIssue,publicWorkCost,PUBLIC_WORKS,townCenterIssue,STYLE_NAMES,styleAt,getOpportunity,unrestLine,RUIN_AT} from '../sim.js';
 import {TOWN_CENTER_LEVELS,townCenterLevel} from '../construction.js';
 import {CARD_INDEX,RARITY_COLORS} from '../turningPoints.js';
 import {deckOf,handLimit,rerollPrice,PACK_SIZE,SELL_SHARE,RESTOCK_YEARS} from '../cards.js';
@@ -191,6 +191,12 @@ function GovernSheet({city,s,c,tab,setTab,onClose}){
   return <Sheet title="Govern" eyebrow={`Unrest ${Math.round(city.unrest||0)}/${RUIN_AT}`} tabs={tabs} tab={tab} onTab={setTab} onClose={onClose}>{body}</Sheet>;
 }
 
+// ───────────── What the city wants built ─────────────
+// Building happens only on zoned land: the bars say what is wanted, and a red one that land is short.
+const DEMAND=[['res','Homes'],['trade','Shops'],['craft','Work'],['farm','Farms']];
+function DemandRow({city}){const d=useMemo(()=>demandOf(city),[city.year,city.month,city.zones,city.buildings.length]);
+  return <div className="g-demand">{DEMAND.map(([t,l])=><span key={t} className={d[t].short?'short':''} title={d[t].why}><b>{l}</b><i><em style={{width:`${Math.round(d[t].level*100)}%`}}/></i>{d[t].short?<small>zone more</small>:null}</span>)}</div>;}
+
 // ───────────── The old city: one site, its choices ─────────────
 const sinceText=s=>s.born&&s.born>1300?`since ${s.born}`:'since the founding';
 function HeritageSheet({city,site,c,onClose}){
@@ -228,7 +234,7 @@ function DetailsSheet({city,s,tab,setTab,onClose,legacy,onGuide}){
   }else if(tab==='city'){
     const rev=annualRevenue(city,s,cityEffects(city)),cost=annualExpenses(city,s);
     const liv=organicLiving(city);
-    const rows=[['Population',full(s.population)],...(liv?[['Standard of living',`${liv.sol}/100`],['Land value',`${liv.value}/100`]]:[]),['Prosperity',`${s.prosperity}/100`],['Unemployment',`${s.unemployment}%`],['Homes full',`${s.housingPressure}%`],['Treasury',full(city.funds)],['Net per year',`${rev.total-cost.total>=0?'+':'−'}${full(Math.abs(rev.total-cost.total))}`],['Industry jobs',full(s.sectorJobs?.craft||0)],['Faith',full(s.religiousInfluence)],['Culture',full(s.culturalPrestige)],['Learning',full(s.educationIndex)],['Unrest',`${Math.round(city.unrest||0)}/${RUIN_AT}`],['Buildings',full(s.buildings)]];
+    const rows=[['Population',full(s.population)],...(liv?[['Standard of living',`${liv.sol}/100`],['Land value',`${liv.value}/100`]]:[]),...(s.carShare?[['Commuters by car',`${s.carShare}%`],['Traffic',`${s.traffic}% of road capacity`]]:[]),['Homes priced out',`${s.unaffordable}%`],['Prosperity',`${s.prosperity}/100`],['Unemployment',`${s.unemployment}%`],['Homes full',`${s.housingPressure}%`],['Treasury',full(city.funds)],['Net per year',`${rev.total-cost.total>=0?'+':'−'}${full(Math.abs(rev.total-cost.total))}`],['Industry jobs',full(s.sectorJobs?.craft||0)],['Faith',full(s.religiousInfluence)],['Culture',full(s.culturalPrestige)],['Learning',full(s.educationIndex)],['Unrest',`${Math.round(city.unrest||0)}/${RUIN_AT}`],['Buildings',full(s.buildings)]];
     body=<div className="g-list"><div className="g-chart"><HistoricalChart city={city} metric="population" height={120}/></div><div className="g-stats">{rows.map(([k,v])=><div key={k}><span>{k}</span><b>{v}</b></div>)}</div></div>;
   }else{
     const ev=[...city.events].filter(e=>e.text&&!['shop'].includes(e.type)).slice(-60).reverse();
@@ -291,7 +297,7 @@ export function GameScreen(c){
   const open=(k,t)=>{setSheet(k);if(t)setTabs(x=>({...x,[k]:t}));};
   const [site,setSite]=useState(null),sites=city.center&&!city.finished?openSites(city,organicSites(city)):[];
   const [toast,setToast]=useState(null),[guide,setGuide]=useState(false),[lens,setLens]=useState(null);
-  const LENSES=[[null,'Plan'],['value','Land value'],['sol','Living']];
+  const LENSES=[[null,'Plan'],['value','Land value'],['sol','Living'],...(city.year>=1900?[['traffic','Traffic']]:[])];
   useEffect(()=>{if(city.charter&&!city.scenario?.id&&!guideSeen())setGuide(true);},[!!city.charter]);
   useEffect(()=>{if(!c.message)return;setToast(c.message);const id=setTimeout(()=>setToast(null),4200);return()=>clearTimeout(id);},[c.message]);
   const tool=c.tool,placing=tool.startsWith('place:'),zoning=!!zone;
@@ -309,6 +315,7 @@ export function GameScreen(c){
   // v3.3 the Age's urban forms (zoning.js) are the zone tools.
   const zones=formsAt(city.year,{tourism:tourismUnlocked(city)}).map(id=>[id,{...FORMS[id],color:ZONES[FORMS[id].type].color}]);
   const zoneLabel=t=>FORMS[t]?.short||ZONE_SHORT[t]||t;
+  const zoneShort=useMemo(()=>{try{const d=demandOf(city);return Object.values(d).some(x=>x.short);}catch{return false;}},[city.year,city.zones,city.buildings.length]);
   const b=c.selectedBuilding;
   return <div className="g3">
     <div className="g-map"><CityMap minimal lens={zoning?null:lens} city={city} tool={ro?'inspect':tool} layer={zoning?'zones':sheet==='govern'&&tab('govern')==='needs'?'needs':'urban'} onZone={(rect,type)=>setPend({rect,type})} onPlace={(id,x,y)=>setPend({id,x,y})} pendingRect={pend?.rect||null} pendingPoint={pend&&!pend.rect?{x:pend.x,y:pend.y}:null} onInspect={c.onInspect} onMarker={m=>{if(m.type==='heritage'){setSheet(null);setSite(m.item);}else open('govern','needs');}} selectedId={b?.id} animate={c.simulating} captions={c.captions} population={s.population}
@@ -325,7 +332,7 @@ export function GameScreen(c){
       <SpeedBubble running={c.simulating} speed={c.clockSpeed} disabled={ro||blocking||city.awaitingCenter} onPause={c.stopSimulation} onRun={c.runClock}/>
     </div>
     {!placing&&!zoning&&<button className={`g-lens ${lens?'on':''}`} onClick={()=>setLens(l=>LENSES[(LENSES.findIndex(x=>x[0]===l)+1)%LENSES.length][0])} aria-label="Change map lens"><span className="g-lensDot" data-l={lens||'plan'}/>{LENSES.find(x=>x[0]===lens)[1]}</button>}
-    {lens&&!placing&&!zoning&&<div className="g-lensKey">{lens==='value'?<><i style={{background:'rgba(170,100,60,.35)'}}/>cheap<i style={{background:'rgba(250,50,30,.65)'}}/>dear</>:<><i style={{background:'rgba(120,60,130,.55)'}}/>poor<i style={{background:'rgba(60,140,80,.6)'}}/>good</>}</div>}
+    {lens&&!placing&&!zoning&&<div className="g-lensKey">{lens==='traffic'?<><i style={{background:'rgba(220,150,40,.45)'}}/>busy<i style={{background:'rgba(190,40,30,.6)'}}/>jammed</>:lens==='value'?<><i style={{background:'rgba(170,100,60,.35)'}}/>cheap<i style={{background:'rgba(250,50,30,.65)'}}/>dear</>:<><i style={{background:'rgba(120,60,130,.55)'}}/>poor<i style={{background:'rgba(60,140,80,.6)'}}/>good</>}</div>}
     {!placing&&!zoning&&<div className="g-chips"><GoalChip city={city} s={s} onOpen={()=>open('details','mission')}/></div>}
 
     {toast&&!placing&&!blocking&&!sheet&&!zoning&&<div className="g-toast" role="status" onClick={()=>setToast(null)}>{toast}</div>}
@@ -338,6 +345,7 @@ export function GameScreen(c){
     {zoning&&!ro?<div className="g-zoneBar">
       <div className="g-zoneTop"><span>{pend?.rect?(()=>{const {cells,cost}=zoningCost(city,pend.rect.x,pend.rect.y,pend.rect.w,pend.rect.h);return ZONES[pend.type]||FORMS[pend.type]?`${zoneLabel(pend.type)} · ${cells?`${cells} parcels · ${full(cost)} coins`:'rezoning is free'}`:pend.type==='erase'?'Erase this zoning':'Demolish these buildings';})():FORMS[zone]?`${FORMS[zone].label}: ${FORMS[zone].note.toLowerCase()}`:`Drag on the map · two fingers to pan`}</span>
         <button className="g-close" aria-label="Close the brush" onClick={()=>setZone(null)}><X size={18}/></button></div>
+      <DemandRow city={city}/>
       <div className="g-zoneTools">{zones.map(([k,v])=><button key={k} className={zone===k?'on':''} style={{'--z':v.color}} title={v.note} onClick={()=>{setZone(k);setPend(null);}}><i>{v.icon}</i><span>{v.short}</span></button>)}
         <button className={zone==='erase'?'on':''} onClick={()=>{setZone('erase');setPend(null);}}><i><Eraser size={16}/></i><span>Erase</span></button>
         <button className={zone==='demolish'?'on':''} onClick={()=>{setZone('demolish');setPend(null);}}><i><Bomb size={16}/></i><span>Clear</span></button></div>
@@ -345,7 +353,7 @@ export function GameScreen(c){
         {pend?.rect?<><button className="g-ghost" onClick={()=>setPend(null)}><X size={16}/>Discard</button><button className="g-primary" disabled={(ZONES[pend.type]||FORMS[pend.type])&&zoningCost(city,pend.rect.x,pend.rect.y,pend.rect.w,pend.rect.h).cost>city.funds} onClick={confirm}><Check size={16}/>Confirm</button></>:null}</div>
     </div>
     :!placing&&<nav className="g-dock" aria-label="Actions">
-      <button disabled={ro||city.awaitingCenter} onClick={()=>{setSheet(null);setZone(formsAt(city.year)[0]);}}><LandPlot size={22}/><span>Zone</span></button>
+      <button disabled={ro||city.awaitingCenter} onClick={()=>{setSheet(null);setZone(formsAt(city.year)[0]);}}><LandPlot size={22}/><span>Zone</span>{zoneShort&&<b className="g-dot red"/>}</button>
       <button disabled={ro||city.awaitingCenter} onClick={()=>open('build')}><Hammer size={22}/><span>Build</span>{buildBadge&&<b className="g-dot"/>}</button>
       <button disabled={ro||city.awaitingCenter} onClick={()=>open('govern')}><Landmark size={22}/><span>Govern</span>{needsBadge&&<b className="g-dot red"/>}</button>
       <button onClick={()=>open('details')}><ScrollText size={22}/><span>Details</span></button>

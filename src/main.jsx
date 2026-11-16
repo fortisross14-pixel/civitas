@@ -1,4 +1,5 @@
 import {FORMS} from './zoning.js';
+import {rezonedOf} from './sim.js';
 import {decideHeritage,HERITAGE} from './heritage.js';
 import {AXIS_LABELS,opportunityPulse,developmentOf} from './development.js';
 import React,{useCallback,useEffect,useMemo,useRef,useState} from 'react';
@@ -412,7 +413,7 @@ function App(){
  const onZone=(rect,type)=>{
    if(type==='demolish'){applyEdit(c=>demolishArea(c,rect.x,rect.y,rect.w,rect.h),`Demolished buildings and lanes in ${rect.w} × ${rect.h} parcels`);return;}
    if(type==='erase'){applyEdit(c=>{const next=clearZone(c,rect.x,rect.y,rect.w,rect.h);return next===c?{city:c,error:'there is no zoning there to clear'}:{city:next,undo:{kind:'zones',zones:c.zones}};},`Zoning cleared · ${rect.w} × ${rect.h} parcels. Existing buildings stay`);return;}
-   applyEdit(c=>{const out=zoneLand(c,rect.x,rect.y,rect.w,rect.h,type);return out.error?out:{...out,message:`${(FORMS[type]||ZONES[type]).label} designated · ${out.cells?`${out.cells} new parcels surveyed for ${compact(out.cost)}`:'rezoned at no cost'}. Streets will grow toward it.`};},'Zoned');
+   applyEdit(c=>{const out=zoneLand(c,rect.x,rect.y,rect.w,rect.h,type);if(out.error)return out;const turn=rezonedOf(out.city).length-rezonedOf(c).length;return {...out,message:`${(FORMS[type]||ZONES[type]).label} designated · ${out.cells?`${out.cells} new parcels surveyed for ${compact(out.cost)}`:'rezoned at no cost'}.${turn>0?` ${turn} building${turn===1?'':'s'} there will change over the next twenty years.`:' Streets will grow toward it.'}`};},'Zoned');
  };
  const onPlace=(id,x,y)=>{
    if(id==='center'){const r=applyEdit(c=>placeTownCenter(c,x,y),'Town Center placed',{founding:true,record:false});if(r){setTool('inspect');setTab('build');setMessage(`${r.city.name} is founded around its Town Center. Draw zones, or press a speed to begin.`);}return;}

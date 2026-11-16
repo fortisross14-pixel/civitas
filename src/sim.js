@@ -205,7 +205,7 @@ export function stats(city){
   const prosperity=Math.round(clamp(56+(m.prosperity||0)+place.prosperity+taxProsperity(city)-(m.crowding||0)-Math.min(15,shortfall*30)+Math.min(11,educationIndex*.025)+Math.min(7,culturalPrestige*.016)+Math.min(5,religiousInfluence*.015)-Math.min(22,pollution*.08)+Math.min(7,heritage*.035)+Math.min(12,civic*.65)+Math.min(9,commerce*.20)-unemployment*31-overcrowding*33-Math.min(16,sparseLand*8),5,98));
   // 0–100 local infrastructure efficiency incorporates footprint and land waste.
   const infrastructureEfficiency=Math.round(clamp(95-12*sprawlPressure-Math.min(18,overcrowding*22)+Math.min(5,(m.transport||0)*10),35,99));
-  return {development:momentum,productivityGrowthPct:Math.round(productivityGrowth(city.year,momentum,unemployment*100)*10000)/100,infrastructureEfficiency,population,buildings:city.buildings.length,capacity:housing,jobs,employment:Math.round(employment),unemployment:Math.round(unemployment*100),jobCoverage:Math.round(jobs/Math.max(1,workerPopulation)*100),prosperity,zoned:z,year:city.year,gdp,gdpPerCapita,housingPressure:Math.round(occupancy*100),overcrowding:Math.round(overcrowding*100),densityPerZone:Math.round(population/Math.max(1,residentialLand)),treasury:Math.round(city.funds??0),commerce,industry,farms,civic,developedHousing,heritage,protectedCount,oldestBuilding:Number.isFinite(oldest)?oldest:null,lostBuildings:(city.sites||[]).length,culturalPrestige,religiousInfluence,educationIndex,tourismAppeal,touristVisits,pollution,hotels,monuments:monumentCount,universities:universityCount,artWorkshops:artistCount,activeSynergies:activeSynergies(city).map(v=>v.name),cardsSelected:currentTurningIndex(city),sectorJobs,informal:city.buildings.filter(b=>b.informal).length,vacant,cycle:Math.round(cycle*1000)/1000,shortfall:Math.round(shortfall*100),pollutedHomes:Math.round(sp.pollutedShare*100),serviceCoverage:Math.round(sp.coverage*100),prestigeHomes:Math.round(sp.prestigeShare*100),tradeAccess:Math.round(sp.tradeAccess*100),riverIndustry:Math.round(sp.riverIndustry*100),placeProsperity:Math.round(place.prosperity*10)/10};
+  return {development:momentum,productivityGrowthPct:Math.round(productivityGrowth(city.year,momentum,unemployment*100)*10000)/100,infrastructureEfficiency,population,buildings:city.buildings.length,capacity:housing,jobs,employment:Math.round(employment),unemployment:Math.round(unemployment*100),jobCoverage:Math.round(jobs/Math.max(1,workerPopulation)*100),prosperity,zoned:z,year:city.year,gdp,gdpPerCapita,housingPressure:Math.round(occupancy*100),overcrowding:Math.round(overcrowding*100),densityPerZone:Math.round(population/Math.max(1,residentialLand)),treasury:Math.round(city.funds??0),commerce,industry,farms,civic,developedHousing,heritage,protectedCount,oldestBuilding:Number.isFinite(oldest)?oldest:null,lostBuildings:(city.sites||[]).length,culturalPrestige,religiousInfluence,educationIndex,tourismAppeal,touristVisits,pollution,hotels,monuments:monumentCount,universities:universityCount,artWorkshops:artistCount,activeSynergies:activeSynergies(city).map(v=>v.name),cardsSelected:currentTurningIndex(city),sectorJobs,informal:city.buildings.filter(b=>b.informal).length,vacant,cycle:Math.round(cycle*1000)/1000,shortfall:Math.round(shortfall*100),pollutedHomes:Math.round(sp.pollutedShare*100),serviceCoverage:Math.round(sp.coverage*100),prestigeHomes:Math.round(sp.prestigeShare*100),tradeAccess:Math.round(sp.tradeAccess*100),riverIndustry:Math.round(sp.riverIndustry*100),placeProsperity:Math.round(place.prosperity*10)/10,traffic:Math.round((sp.congestion||0)*100),carShare:Math.round((sp.carShare||0)*100),unaffordable:Math.round((sp.unaffordable||0)*100),jammedHomes:Math.round((sp.jammedShare||0)*100)};
 }
 export function demand(city){
   const s=stats(city);
@@ -308,6 +308,22 @@ function rememberLoss(city,b,year,reason){
   city.sites.push({id:b.id,type:b.type,style:b.style||styleAt(b.born),born:b.born,ended:year,x:b.x,y:b.y,reason,protected:!!b.protected});
 }
 // Plot identity survives renovation; replacement creates a NEW building identity.
+// v3.4 rezoning: land repainted for another use (or another form) changes over the years.
+// Each year about one in twenty mismatched buildings comes down; growth then builds the new
+// use there. Protected buildings and landmarks stay. Homes lost while the city is full
+// leave families without a roof: Unrest rises.
+export const REZONE_RATE=.05;
+export function rezonedOf(city){return city.buildings.filter(b=>{if(b.special||b.protected)return false;const x=Math.floor(b.x),y=Math.floor(b.y),t=zoneCell(city,x,y);if(!t)return false;
+  if(t!==b.type)return true;const f=zoneFormAt(city,x,y);return !!(f&&b.form&&f!==b.form&&FORMS[f]?.type===b.type&&(FORMS[f].b||'house')!==(FORMS[b.form].b||'house'));});}
+function convertRezoned(city,year,r){
+  const due=rezonedOf(city);if(!due.length)return;
+  const n=Math.max(1,Math.round(due.length*REZONE_RATE)),pick=new Set();while(pick.size<Math.min(n,due.length))pick.add(due[Math.floor(r()*due.length)].id);
+  let homes=0;for(const b of city.buildings)if(pick.has(b.id)){rememberLoss(city,b,year,'rezoned');if(b.type==='res')homes+=b.capacity||0;}
+  city.buildings=city.buildings.filter(b=>!pick.has(b.id));
+  if(homes>0){const s=stats(city),over=s.population-s.capacity;if(over>0){const displaced=Math.min(over,homes);if(city.needsOn)city.unrest=Math.min(100,(city.unrest||0)+displaced/Math.max(1,s.population)*60);
+    city.displaced=(city.displaced||0)+Math.round(displaced);}}
+  if(year%10===0)city.events.push({year,type:'rezoning',text:`Rezoning: ${pick.size} building${pick.size===1?'':'s'} came down for the new use; ${Math.max(0,due.length-pick.size)} still to change.`});
+}
 function redevelopment(city,year,r){
   if(year<1650||city.buildings.length<25)return;
   const s=stats(city);
@@ -403,7 +419,7 @@ const INFORMAL_LAND=220;
 function eraPaceOf(year){return year>=2000?12:year>=1950?10:year>=1850?7:year>=1750?5:year>=1500?4:3;}
 // How far from the founding point streets and informal building may wander.
 export function cityReach(city,population){return Math.round(9+Math.sqrt(Math.max(0,population)/K)*.32+(city.walls||[]).reduce((m,w)=>Math.max(m,w.r*.6),0)+(townCenterLevel(city)?.reach||0));}
-function growthOptions(city,s){return {origin:cityOrigin(city),reach:cityReach(city,s.population),pattern:patternFor(city.year),year:city.year,walls:(city.walls||[]).filter(w=>w.state==='wall'),allowInformal:true,fields:spatial(city,cityEffects(city),activePolicies(city)),informalCivic:city.year<1850,informalCraft:(city.character?.shares?.industry||0)>=.3};}
+function growthOptions(city,s){return {origin:cityOrigin(city),reach:cityReach(city,s.population),pattern:patternFor(city.year),year:city.year,walls:(city.walls||[]).filter(w=>w.state==='wall'),allowInformal:false,fields:spatial(city,cityEffects(city),activePolicies(city)),informalCivic:city.year<1850,informalCraft:(city.character?.shares?.industry||0)>=.3};}
 // True when laying streets would open plots for `type`: zoned land of that type
 // without street access, or (for informal types) unzoned land within reach.
 function streetsCouldServe(g,zg,type,o){
@@ -445,6 +461,20 @@ function monthTick(city){
 // v1.6: land the player zoned for workshops or shops gets built on even when
 // the city has enough jobs, until about a sixth of it is in use. Player
 // cities only (needsOn), so engine and balance runs keep the v1.5 economy.
+// v3.4 demand: what the city wants built, by use, and whether zoned land is left for it.
+// Building happens only on zoned land, so this tells the player what to zone next.
+// Each entry: {level 0..1, free: unbuilt zoned parcels, short: true when demand is high and land is short, why}.
+export function demandOf(city){
+  const s=stats(city),occ=new Set();for(const b of city.buildings){const f=footprint(b);for(let y=f.y;y<f.y+f.h;y++)for(let x=f.x;x<f.x+f.w;x++)occ.add(key(x,y));}
+  const zg=zonedGrid(city).grid,free={res:0,trade:0,craft:0,farm:0,civic:0,hotel:0};for(let k=0;k<W*H;k++){const t=zg[k];if(t&&!occ.has(k)&&free[t]!==undefined)free[t]++;}
+  const workers=s.population*.44,jobGap=clamp((workers*1.05-s.jobs)/Math.max(1,workers),0,1),craftShare=(s.sectorJobs?.craft||0)/Math.max(1,s.jobs);
+  const press=s.population/Math.max(1,s.capacity);
+  const level={res:clamp((press-.78)/.3,0,1),trade:clamp(jobGap*2.2*(craftShare>.45?1.3:.8),0,1),craft:clamp(jobGap*2.2*(craftShare>.45?.7:1.2),0,1),
+    farm:s.farms<Math.max(2,Math.floor(s.population/(900*K)))?.7:0,civic:s.civic<Math.max(1,Math.floor(s.population/(1800*K)))?.6:0};
+  const out={};for(const t of ['res','trade','craft','farm','civic']){const need=t==='res'?6:4;out[t]={level:Math.round(level[t]*100)/100,free:free[t],short:level[t]>=.35&&free[t]<need,
+    why:t==='res'?`${Math.round(press*100)}% of homes full`:t==='farm'||t==='civic'?'':`${Math.round(jobGap*100)}% of workers need jobs`};}
+  return out;
+}
 function zonedFloor(s,type,city){if(!city?.needsOn)return 0;const zoned=s.zoned?.[type]||0,built=type==='craft'?s.industry:s.commerce;return zoned>=6&&built*6<zoned&&built<Math.max(3,s.population/(type==='craft'?400:300)/K)?.6:0;}
 function monthGrowth(city,year,r,perks){
   let s=stats(city);
@@ -607,7 +637,8 @@ function yearTick(city,prevYear){
    if(doctrinesOn(city)){trackTiers(city);if(city.needsOn)updateUnrest(city,year,sNow,resolved,declines);}}
   // v1.5: the Market Hall restocks every decade.
   if(year<END_YEAR&&shopDue(city)){const r=restockShop(city,stats(city),0,{need:needCard(city)});city.deck=r.deck;city.events.push({year,type:'shop',text:'The Market Hall has new cards for sale.'});}
-  if(doctrinesOn(city)&&year%5===0)outgrowWalls(city,year);
+  // v3.4: walls come down only when the player decides (Works: boulevard, park or canal).
+  convertRezoned(city,year,rand(hash(city.seed,year,777)));
   if(year%5!==0&&year!==END_YEAR)return;
   localEvent(city,year);
   redevelopment(city,year,rand(hash(city.seed,year,12345)));

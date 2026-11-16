@@ -22,10 +22,11 @@ test('the founding town sits on country roads that lead off the map',()=>{
     assert.ok(c.roads.every(r=>!Number.isFinite(r.x)||terrain(type,r.x,r.y)==='land'||r.cls==='bridge'));
   }
 });
-test('an unzoned town keeps growing informally along its streets',()=>{
+// v3.4: building happens only on zoned land.
+test('nothing is built outside the zones',()=>{
   const c=run(town('plain',11),400);
-  assert.ok(c.buildings.some(b=>b.informal),'informal buildings should appear once districts fill');
-  assert.ok(c.buildings.filter(b=>b.informal).every(b=>zoneCell(c,Math.floor(b.x),Math.floor(b.y))==null||b.born<1700));
+  assert.ok(!c.buildings.some(b=>b.born>1300&&!b.special&&zoneCell(c,Math.floor(b.x),Math.floor(b.y))==null&&!b.informal),'every new building stands on zoned land');
+  assert.ok(!c.buildings.some(b=>b.informal&&b.born>1300));
 });
 test('streets grow toward newly zoned land and buildings follow',()=>{
   let c=run(town('plain',21),200);

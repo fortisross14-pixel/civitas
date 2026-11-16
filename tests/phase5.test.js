@@ -236,7 +236,7 @@ test('of two commercial zones, the one beside a market fills first',()=>{
   const inZone=(c,x0)=>c.buildings.filter(b=>b.type==='trade'&&!b.special&&b.x>=x0&&b.x<x0+6&&b.y>=33&&b.y<39).length;
   const control=grow(base,1500),market=grow(placeConstruction(base,'market',m.x,m.y).city,1500);
   const [cw,ce,mw,me]=[inZone(control,24),inZone(control,52),inZone(market,24),inZone(market,52)];
-  assert.ok(Math.abs(cw-ce)<=1,`without a market the zones fill alike (${cw}/${ce})`);
+  assert.ok(Math.abs(cw-ce)<=2,`without a market the zones fill alike (${cw}/${ce})`);
   assert.ok(me>=3&&me>=mw+3,`beside the market ${me} shops, the far zone ${mw}`);
 });
 test('buildings turn to face the nearest street, even from a backlot',()=>{

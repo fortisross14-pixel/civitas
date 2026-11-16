@@ -257,3 +257,10 @@
 .g-choices b .g-cost{margin-left:auto;font-style:normal;font-weight:600;font-size:13px;display:inline-flex;align-items:center;gap:3px;opacity:.85}
 .g-choices b{width:100%}
 .app .g3 .g-choices button:disabled{opacity:.5}
+/* v3.4 demand */
+.g-demand{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin:0 2px 8px}
+.g-demand span{display:flex;flex-direction:column;gap:3px;font-size:11px;color:var(--ink2,#6b5e4e)}
+.g-demand b{font-weight:700;color:var(--ink)}
+.g-demand i{display:block;height:5px;border-radius:3px;background:rgba(80,64,48,.15);overflow:hidden}
+.g-demand em{display:block;height:100%;background:#7d9a6a;border-radius:3px}
+.g-demand span.short em{background:#a2413a}.g-demand small{color:#a2413a;font-weight:700;font-size:10px}

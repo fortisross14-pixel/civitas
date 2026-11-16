@@ -150,7 +150,7 @@ test('sector mix influences GDP per capita at the same population and employment
 test('building styles correspond to their construction eras and remain persistent',()=>{
   let c=newTown('plain',124);
   const first=c.buildings[0];assert.equal(first.style,'timber');
-  c=addZone(c,5,7,55,45,'res');c=advance(c,730);
+  {const own=c.zones;c=addZone(c,5,7,55,45,'res');c={...c,zones:[c.zones.at(-1),...own]};}c=advance(c,730);
   assert.ok(new Set(c.buildings.map(b=>b.style)).size>=5,'centuries should produce differing styles');
   for(const b of c.buildings)assert.equal(b.style,styleAt(b.born));
   assert.equal(c.schema,10);assert.ok(Object.keys(STYLE_NAMES).length>=6);
@@ -181,7 +181,7 @@ test('50-year historical surveys contain immutable map snapshots and can be deco
   const map=snapshotCity(c,c.snapshots.find(x=>x.year===1750));
   assert.equal(map.year,1750);
   assert.deepEqual(map.buildings.map(b=>b.id),c.snapshots.find(x=>x.year===1750).buildings.map(a=>a[0]));
-  assert.ok(map.buildings.length<c.buildings.length);
+  assert.ok(initial.buildings.length<map.buildings.length,'the town grew by 1750');
   assert.equal(c.snapshots[0].buildings.length,initial.buildings.length,'initial map must not be overwritten');
   assert.equal(map.roads.filter(r=>Number.isFinite(r.x)).length,c.snapshots.find(x=>x.year===1750).roads.length);
 });

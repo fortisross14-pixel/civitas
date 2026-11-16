@@ -478,7 +478,7 @@ export function drawCity(ctx,city,width,height,opts={}){
     // v3.1: the organic map draws the land, streets, plots and houses; the grid stays underneath, unseen.
     if(opts.organic){const yr=opts.archiveYear||city.year;organicDraw(ctx,city,yr,'ground');const water=waterLayer(city.type);if(water)ctx.drawImage(water,0,0,W,H);
       if(layer==='zones')for(let y=0;y<H;y++)for(let x=0;x<W;x++){const type=zoneCell(city,x,y);if(type){ctx.fillStyle=ZONES[type].color+'55';ctx.fillRect(x,y,1,1);}}
-      organicDraw(ctx,city,yr,'features');if(opts.lens)organicLens(ctx,city,opts.lens);}
+      organicDraw(ctx,city,yr,'features');if(opts.lens==='traffic')trafficLens(ctx,city);else if(opts.lens)organicLens(ctx,city,opts.lens);}
     else{
     const fields=fieldsLayer(city.type,city.seed,fieldEpoch(opts.archiveYear||city.year||1300));if(fields){ctx.imageSmoothingEnabled=true;ctx.drawImage(fields,0,0,W,H);}
     // Zoning: a wash on the zoning layer, a whisper on the urban map.
@@ -688,6 +688,10 @@ export function drawCity(ctx,city,width,height,opts={}){
   if(!opts.archiveYear&&opts.markers!==false)drawMarkers(ctx,city,warp,ox,oy,scale,opts);
   if(opts.cartouche!==false)drawCartouche(ctx,city,width,height,opts);
 }
+// v3.4 the traffic lens: the game's traffic field, cell by cell (amber busy, red jammed).
+function trafficLens(ctx,city){const f=cityFields(city).traffic;if(!f)return;ctx.save();
+  for(let y=0;y<H;y++)for(let x=0;x<W;x++){const v=f[y*W+x];if(v<.15)continue;ctx.fillStyle=v>=1?`rgba(190,40,30,${Math.min(.7,.35+(v-1)*.3)})`:`rgba(220,150,40,${.12+v*.35})`;ctx.fillRect(x,y,1,1);}
+  ctx.restore();}
 // v1.6 markers, in screen space so they stay tappable at any zoom.
 export const MARKER_RADIUS=14;
 const NEED_GLYPH={services:'✚',market:'⚖',air:'❦'};

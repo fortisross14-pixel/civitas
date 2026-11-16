@@ -3,7 +3,7 @@
 // sensible: every five years builds the cheapest building that answers each
 //   need at the need's spot, answers history with the first response, and buys
 //   and plays the cheapest card it can comfortably afford.
-import {makeCity,seedTown,advance,selectTurningPoint,stats,placeConstruction,playCard,cityOrigin} from '../../src/sim.js';
+import {makeCity,seedTown,advance,selectTurningPoint,stats,placeConstruction,playCard,cityOrigin,demandOf,zoneLand,terrain,zoneCell,W,H} from '../../src/sim.js';
 import {needsOf,needAnswers} from '../../src/needs.js';
 import {omensOf,answerOmen,eventDefinition,eventScale} from '../../src/events.js';
 import {buyCard,deckOf,rerollShop,rerollPrice} from '../../src/cards.js';
@@ -106,8 +106,20 @@ function draftPick(strategy,c){
   const options=c.turning.pending.options,prefer=preferFor(strategy,c);
   return [...options].sort((a,b)=>(CARD_INDEX[b]?prefer(b):0)-(CARD_INDEX[a]?prefer(a):0))[0];
 }
+// v3.4: building happens only on zoned land. Every scripted player but the passive one
+// zones a block near town for each use the city is short of (as a player reads the demand).
+export function autoZone(c){
+  const d=demandOf(c),o=cityOrigin(c),size={res:[10,8],trade:[6,5],craft:[7,6],farm:[9,8],civic:[4,4]};let i=0;
+  for(const t of ['res','trade','craft','farm','civic']){if(!d[t].short)continue;const [w,h]=size[t];let best=null;
+    for(let R=3;R<60&&!best;R+=2)for(let k=0;k<16&&!best;k++){const a=k/16*Math.PI*2+(c.year+i*7)%7,x=Math.round(o.x+Math.cos(a)*R-w/2),y=Math.round(o.y+Math.sin(a)*R-h/2);
+      if(x<2||y<2||x+w>=W-2||y+h>=H-2)continue;let free=0;for(let yy=y;yy<y+h;yy++)for(let xx=x;xx<x+w;xx++)if(terrain(c.type,xx,yy)==='land'&&zoneCell(c,xx,yy)==null)free++;
+      if(free>=w*h*.75)best=[x,y];}
+    i++;if(best){const r=zoneLand(c,best[0],best[1],w,h,t);if(!r.error)c=r.city;}}
+  return c;
+}
 // One decision round for a scripted player (draft pick, then its turn).
 export function takeTurn(strategy,c){
+  if(strategy!=='passive')c=autoZone(c);
   // v3: a new Age offers charters; scripted players sign the first (the steady one).
   if(c.charterOffer)c={...signCharter(c,0).city,ageWelcome:null};
   const doctrinal=strategy.startsWith('focused:')||strategy==='spread'||strategy==='opportunist';

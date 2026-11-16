@@ -24,6 +24,12 @@ const GREEN={garden:6,boulevard:4,palace_muses:6};
 const HOME_PULL={chapel:[6,.7],monastery:[6,.6],shrine:[6,.6],school:[6,.5],clinic:[6,.45],hospital:[7,.5],garden:[6,.5],waterworks:[6,.4],town_hall:[5,.35],library:[6,.35],civic_center:[7,.4],market:[5,.3],granary:[5,.35]};
 const SHOP_PULL={market:[7,1],guildhall:[6,.7],station:[8,.8],transit_hub:[9,.9],port:[8,.8],town_hall:[5,.3]};
 export const WALL_PULL=.9;
+// v3.4 cars: the share of commuters who drive, by year (none before 1900). Stations and
+// transit hubs take some of them off the roads.
+export const carShare=year=>year<1900?0:year<1950?(year-1900)/50*.35:Math.min(.75,.35+(year-1950)/50*.4);
+const TRANSIT={station:.08,transit_hub:.14,metropolis_charter:.06};
+// Who can pay the land: these forms are built for the well-off.
+const WELL_OFF=new Set(['fine','garden','suburb']);
 export const pollutionStrength=year=>year<1750?.3:year<1950?1:.6;
 
 // Stamp a linear-falloff disc of `strength` and `radius` onto a field.
@@ -53,13 +59,15 @@ const policyKey=p=>Object.keys(p||{}).sort().join(',');
 // Upgrading the Town Center or raising a wall changes no building, so both are part of the cache key.
 const centerKey=city=>(city.center?`${city.center.x},${city.center.y},${city.center.level}`:'')+'|'+(city.walls||[]).map(w=>`${w.id}:${w.state}`).join(',');
 function computeSpatial(city,effects,policies){
-  const green=new Float32Array(CELLS),pollution=new Float32Array(CELLS),prestige=new Float32Array(CELLS),service=new Float32Array(CELLS),trade=new Float32Array(CELLS),homePull=new Float32Array(CELLS),shopPull=new Float32Array(CELLS);
+  const jobsF=new Float32Array(CELLS),homesF=new Float32Array(CELLS),officeF=new Float32Array(CELLS),green=new Float32Array(CELLS),pollution=new Float32Array(CELLS),prestige=new Float32Array(CELLS),service=new Float32Array(CELLS),trade=new Float32Array(CELLS),homePull=new Float32Array(CELLS),shopPull=new Float32Array(CELLS);
   const water=waterGrid(city.type),year=city.year||1300;
   const dirty=pollutionStrength(year)*Math.max(.2,1+(effects.pollution||0));
   const df=doctrineFlags(city),faithReach=1+(df.faithReach||0),prestigeReach=df.prestigeReach||1;
   for(const b of city.buildings){
     if(b.vacant)continue;const x=Math.floor(b.x),y=Math.floor(b.y);if(!within(x,y))continue;
     if(b.type==='craft')stamp(pollution,x,y,4,dirty*.55);
+    // Where the jobs and the homes are (for walking, driving and land value).
+    {const k=key(x,y);if(b.type==='res')homesF[k]+=(b.capacity||8*POP_SCALE)/POP_SCALE;else if(b.jobs){jobsF[k]+=b.jobs/POP_SCALE;if(b.form==='offices'||b.form==='commerce')officeF[k]+=b.jobs/POP_SCALE*.06;}}
     if(b.special){
       if(PRESTIGE[b.special]){stamp(prestige,x,y,6*prestigeReach,PRESTIGE[b.special]);if(df.artsGreen)stamp(green,x,y,5,1);}
       if(SERVICE[b.special])stamp(service,x,y,SERVICE[b.special]*(RELIGIOUS_KINDS.has(b.special)?faithReach:1),1.4);
@@ -85,25 +93,47 @@ function computeSpatial(city,effects,policies){
       if(insideWall(w,x+.5,y+.5)){const k=key(x,y);homePull[k]+=WALL_PULL;shopPull[k]+=WALL_PULL;}
   }
   for(const r of city.roads||[])if(r.cls==='main'&&Number.isFinite(r.x))trade[key(r.x,r.y)]+=.6;
+  // Sums over a neighbourhood (box sums: cheap on the 100 × 72 grid).
+  {const J=boxSum(jobsF,6),Hm=boxSum(homesF,6),O=boxSum(officeF,5);jobsF.set(J);homesF.set(Hm);officeF.set(O);}
+  // v3.4 land value: prestige, trade frontage and offices nearby, the well-off quarters themselves.
+  const value=new Float32Array(CELLS);for(let k=0;k<CELLS;k++)value[k]=prestige[k]*1.1+trade[k]*.35+Math.min(2.5,officeF[k])+homePull[k]*.25;
+  for(const b of city.buildings)if(WELL_OFF.has(b.form)){const x=Math.floor(b.x),y=Math.floor(b.y);if(within(x,y))value[key(x,y)]+=.6;}
+  // v3.4 traffic: workers who cannot walk to a job drive (from 1900), and the streets carry them.
+  // Narrow old streets carry little; main roads, rings and boulevards carry much.
+  let cars=carShare(year);for(const b of city.buildings)if(TRANSIT[b.special])cars-=TRANSIT[b.special];cars=Math.max(0,cars);
+  const traffic=new Float32Array(CELLS);let trips=0;
+  if(cars>0)for(const b of city.buildings){if(b.type!=='res'||b.vacant)continue;const x=Math.floor(b.x),y=Math.floor(b.y);if(!within(x,y))continue;const k=key(x,y),workers=(b.capacity||8*POP_SCALE)/POP_SCALE*.44;
+    const walk=Math.min(1,jobsF[k]/Math.max(1,homesF[k]*.44));const t=workers*(1-walk*.85)*cars;trips+=t;traffic[k]+=t*.2;}
+  if(cars>0)traffic.set(boxSum(traffic,3));
+  // Trips also crowd the streets where the jobs are.
+  if(trips>0){let J=0;for(let k=0;k<CELLS;k++)J+=jobsF[k];if(J>0)for(let k=0;k<CELLS;k++)traffic[k]+=jobsF[k]/J*trips*6;}
+  const cap=new Float32Array(CELLS);let capacity=0;
+  for(const r of city.roads||[]){if(!Number.isFinite(r.x))continue;const c=r.cls==='main'||r.cls==='ring'||r.pattern==='boulevard'?4:r.cls==='bridge'?3:(r.born||1300)<1700?.5:1.2;cap[key(r.x,r.y)]+=c;capacity+=c;}
+  const capF=boxSum(cap,3);
+  for(let k=0;k<CELLS;k++)traffic[k]=traffic[k]/Math.max(1.5,capF[k]*1.6);
+  const congestion=capacity?Math.min(2,trips/(capacity*1.1)):0;
   // Summary: shares of homes and jobs inside each field.
   const homeShield=policies.garden_city?.5:1;
-  let homes=0,polluted=0,covered=0,prestigious=0,tradeJobs=0,tradeServed=0,craftJobs=0,riverCraft=0;
+  let unaffordable=0,jammed=0,homes=0,polluted=0,covered=0,prestigious=0,tradeJobs=0,tradeServed=0,craftJobs=0,riverCraft=0;
   for(const b of city.buildings){
     if(b.vacant)continue;const k=key(Math.floor(b.x),Math.floor(b.y));
-    if(b.type==='res'){const c=b.capacity||8*POP_SCALE;homes+=c;if(pollution[k]*homeShield*(green[k]>=.3?.4:1)>=.8)polluted+=c;if(service[k]>=.35)covered+=c;if(prestige[k]>=.5)prestigious+=c;}
+    if(b.type==='res'){const c=b.capacity||8*POP_SCALE;homes+=c;if(pollution[k]*homeShield*(green[k]>=.3?.4:1)>=.8)polluted+=c;if(service[k]>=.35)covered+=c;if(prestige[k]>=.5)prestigious+=c;if(value[k]>=2.2&&!WELL_OFF.has(b.form))unaffordable+=c;if(traffic[k]>=1)jammed+=c;}
     else if(b.type==='trade'||b.type==='hotel'){const j=b.jobs||0;tradeJobs+=j;if(trade[k]>=.35)tradeServed+=j;}
     else if(b.type==='craft'){const j=b.jobs||0;craftJobs+=j;if(nearWater(water,Math.floor(b.x),Math.floor(b.y)))riverCraft+=j;}
   }
-  return {green,pollution,prestige,service,trade,homePull,shopPull,homeShield,
+  return {green,pollution,prestige,service,trade,homePull,shopPull,homeShield,value,traffic,carShare:cars,congestion,unaffordable:homes?unaffordable/homes:0,jammedShare:homes?jammed/homes:0,
     pollutedShare:homes?polluted/homes:0,coverage:homes?covered/homes:1,prestigeShare:homes?prestigious/homes:0,
     tradeAccess:tradeJobs?tradeServed/tradeJobs:0,riverIndustry:craftJobs?riverCraft/craftJobs:0};
 }
+function boxSum(a,r){const I=new Float64Array((W+1)*(H+1));for(let y=0;y<H;y++)for(let x=0;x<W;x++)I[(y+1)*(W+1)+x+1]=a[y*W+x]+I[y*(W+1)+x+1]+I[(y+1)*(W+1)+x]-I[y*(W+1)+x];
+  const o=new Float32Array(W*H);for(let y=0;y<H;y++)for(let x=0;x<W;x++){const x0=Math.max(0,x-r),y0=Math.max(0,y-r),x1=Math.min(W,x+r+1),y1=Math.min(H,y+r+1);o[y*W+x]=I[y1*(W+1)+x1]-I[y0*(W+1)+x1]-I[y1*(W+1)+x0]+I[y0*(W+1)+x0];}return o;}
 function nearWater(water,x,y){for(let dy=-2;dy<=2;dy++)for(let dx=-2;dx<=2;dx++){const nx=x+dx,ny=y+dy;if(within(nx,ny)&&water[key(nx,ny)])return true;}return false;}
 export {nearWater};
 // How each field changes the city, in one place so the UI can explain it.
 export function spatialEffects(sp,year){
   return {
-    prosperity:-sp.pollutedShare*12+(sp.coverage-.6)*15+sp.prestigeShare*5,
+    // v3.4: rents beyond ordinary families and jammed streets both cost prosperity.
+    prosperity:-sp.pollutedShare*12+(sp.coverage-.6)*15+sp.prestigeShare*5-(sp.unaffordable||0)*10-Math.max(0,(sp.congestion||0)-.5)*10-(sp.jammedShare||0)*6,
     tradeProductivity:1+.2*sp.tradeAccess,
     craftProductivity:year<1850?1+.15*sp.riverIndustry:1,
     tourism:1+sp.prestigeShare*.3
