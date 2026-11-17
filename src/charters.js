@@ -11,12 +11,12 @@ import {ERA_CARDS} from './turningPoints.js';
 import {cardDoctrines,doctrineState} from './doctrines.js';
 
 export const DIRECTIONS={
-  industry:{name:'Industry',glyph:'▥',color:'#9a6b4e',stat:'gdp',buffs:{industry:.2,trade:.05},buffLine:'Workshops and works +20%'},
-  trade:{name:'Trade',glyph:'▣',color:'#a07f3f',stat:'tradeJobs',buffs:{trade:.2,treasury:.06},buffLine:'Trade +20%, taxes +6%'},
-  arts:{name:'Culture',glyph:'✦',color:'#8e6896',stat:'culture',buffs:{arts:.25,tourismIncome:.06},buffLine:'Culture +25%, visitors +6%'},
-  faith:{name:'Faith',glyph:'✣',color:'#9a7d3e',stat:'faith',buffs:{faith:.25,prosperity:2},buffLine:'Faith +25%, prosperity +2'},
-  learning:{name:'Learning',glyph:'◆',color:'#557f95',stat:'learning',buffs:{education:.25,innovation:.05},buffLine:'Learning +25%, invention +5%'},
-  people:{name:'People',glyph:'◉',color:'#64875a',stat:'population',buffs:{housing:.1,migration:.08},buffLine:'Homes +10%, newcomers +8%'}
+  industry:{name:'Industry',glyph:'▥',color:'#9a6b4e',stat:'gdp',buffs:{industry:.2,trade:.05},buffLine:'Workshops and works +20%',how:'Zone workshops; play industry cards'},
+  trade:{name:'Trade',glyph:'▣',color:'#a07f3f',stat:'tradeJobs',buffs:{trade:.2,treasury:.06},buffLine:'Trade +20%, taxes +6%',how:'Zone shops; build markets; play trade cards'},
+  arts:{name:'Culture',glyph:'✦',color:'#8e6896',stat:'culture',buffs:{arts:.25,tourismIncome:.06},buffLine:'Culture +25%, visitors +6%',how:'Play culture cards: theatres, painters, festivals'},
+  faith:{name:'Faith',glyph:'✣',color:'#9a7d3e',stat:'faith',buffs:{faith:.25,prosperity:2},buffLine:'Faith +25%, prosperity +2',how:'Build chapels and churches; play faith cards'},
+  learning:{name:'Learning',glyph:'◆',color:'#557f95',stat:'learning',buffs:{education:.25,innovation:.05},buffLine:'Learning +25%, invention +5%',how:'Build schools; play learning cards'},
+  people:{name:'People',glyph:'◉',color:'#64875a',stat:'population',buffs:{housing:.1,migration:.08},buffLine:'Homes +10%, newcomers +8%',how:'Zone plenty of homes; keep people content'}
 };
 export const DIRECTION_IDS=Object.keys(DIRECTIONS);
 export const CHARTER_STATS={

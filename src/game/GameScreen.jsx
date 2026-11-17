@@ -30,6 +30,8 @@ import {HERITAGE,optionsFor,openSites} from '../heritage.js';
 import {FORMS,formsAt,resolveZone,GROUPS,LAWS,lawAt,formOf} from '../zoning.js';
 import {RARITY_LABEL} from '../cards.js';
 import './game.css';
+import './a11y.css';
+import {useDialogFocus} from './focus.js';
 
 const fmt=n=>{n=Math.round(Number(n)||0);const a=Math.abs(n);return a>=1e9?`${(n/1e9).toFixed(1)}B`:a>=1e6?`${(n/1e6).toFixed(a>=1e7?0:1)}M`:a>=1e4?`${Math.round(n/1000)}k`:n.toLocaleString('en-US');};
 const full=n=>Math.round(Number(n)||0).toLocaleString('en-US');
@@ -42,11 +44,12 @@ const cardLine=(card,city)=>{const s=cardSummary(card,city);if(s.building)return
 function Sheet({title,eyebrow,tabs,tab,onTab,onClose,children,tall=false}){
   const ref=useRef(null),start=useRef(null),[dy,setDy]=useState(0);
   useEffect(()=>{const k=e=>{if(e.key==='Escape')onClose();};document.addEventListener('keydown',k);return()=>document.removeEventListener('keydown',k);},[onClose]);
+  useDialogFocus(ref);
   const down=e=>{start.current=e.clientY;};
   const move=e=>{if(start.current==null)return;setDy(Math.max(0,e.clientY-start.current));};
   const up=()=>{if(start.current==null)return;start.current=null;if(dy>90)onClose();setDy(0);};
   return <div className="g-backdrop" onPointerDown={e=>{if(e.target===e.currentTarget)onClose();}}>
-    <section ref={ref} className={`g-sheet ${tall?'tall':''}`} role="dialog" aria-modal="true" aria-label={title} style={dy?{transform:`translateY(${dy}px)`,transition:'none'}:null}>
+    <section ref={ref} tabIndex={-1} className={`g-sheet ${tall?'tall':''}`} role="dialog" aria-modal="true" aria-label={title} style={dy?{transform:`translateY(${dy}px)`,transition:'none'}:null}>
       <div className="g-grab" onPointerDown={down} onPointerMove={move} onPointerUp={up} onPointerCancel={up} style={{touchAction:'none'}}><i/></div>
       <div className="g-sheetHead">
         <div>{eyebrow&&<small>{eyebrow}</small>}<h2>{title}</h2></div>
@@ -267,7 +270,7 @@ function DetailsSheet({city,s,tab,setTab,onClose,legacy,onGuide}){
 }
 
 // ───────────── Decisions that stop the clock ─────────────
-function Modal({children,label}){return <div className="g-modalBack"><section className="g-modal" role="dialog" aria-modal="true" aria-label={label}>{children}</section></div>;}
+function Modal({children,label}){const ref=useRef(null);useDialogFocus(ref);return <div className="g-modalBack"><section ref={ref} tabIndex={-1} className="g-modal" role="dialog" aria-modal="true" aria-label={label}>{children}</section></div>;}
 function CharterModal({city,onSign}){
   const age=city.ageWelcome&&AGES.find(a=>a.id===city.ageWelcome.id),offers=city.charterOffer||[];
   const ch=age?ageChanges(age):null;
@@ -279,7 +282,7 @@ function CharterModal({city,onSign}){
     <div className="g-charters">{offers.map((o,i)=>{const D=DIRECTIONS[o.direction];return <button key={i} className={`g-charter ${o.kind}`} style={D?{'--doc':D.color}:null} onClick={()=>onSign(i)}>
       <span className="g-charterTag">{D?<span className="g-glyph">{D.glyph}</span>:<Users size={13}/>}{D?D.name:o.tag}<em>{o.tag}</em></span>
       {D&&<small className="g-buff">{D.buffLine} · more {D.name.toLowerCase()} cards</small>}
-      <b>{charterLine(o)}</b><small>by {o.by}</small>
+      <b>{charterLine(o)}</b><small>by {o.by}{D?.how?` · ${D.how}`:''}</small>
       <span className="g-reward">{[o.reward.funds&&<span key="f"><Coins size={12}/>{fmt(o.reward.funds)}</span>,o.reward.card&&<span key="c">+ {o.reward.card} card</span>,o.reward.lp&&<span key="l">+{o.reward.lp} LP</span>]}</span>
       <ArrowRight className="g-go" size={18}/></button>;})}</div>
   </Modal>;
@@ -303,14 +306,29 @@ function EventModal({city,onChoose}){
 const GUIDE_KEY='civitas-v3-guide';
 const guideSeen=()=>{try{return localStorage.getItem(GUIDE_KEY)==='1';}catch{return true;}};
 function Guide({onClose}){
-  const rows=[[<LandPlot size={20}/>,'Zone','Drag land for homes, shops, workshops or farms. Streets and houses grow there by themselves.'],
-    [<Hammer size={20}/>,'Build','Buy cards in the Market. Building cards put a landmark where you tap; others change the whole city.'],
-    [<Landmark size={20}/>,'Govern','Districts ask for churches, markets or schools: answer before their bar fills. Set taxes, decide history.'],
-    [<Target size={20}/>,'Your charter','Each Age you sign one goal. Meet it for coins and cards; miss it and Unrest rises. At 100 the city falls.']];
+  const rows=[[<LandPlot size={20}/>,'Zone first','Nothing is built outside zones. Tap Zone, pick Homes, Shops, Work or Land and drag over the map. The bars show what the town is short of.'],
+    [<Hammer size={20}/>,'Build with cards','Buy cards in the Market. Building cards put a landmark where you tap; others change the whole city.'],
+    [<Landmark size={20}/>,'Govern','Districts ask for chapels, markets or schools: answer before their bar fills. Set taxes, pass laws, decide what the old city becomes.'],
+    [<Target size={20}/>,'Your direction','Each Age you choose a direction: its buffs, more of its cards, and a goal. Meet it for coins and a card.'],
+    [<Flame size={20}/>,'Keep people content','Unrest rises when prosperity is low or needs go unanswered. At 100 the city rises up: it carries on, poorer and smaller.']];
   return <Modal label="How to play"><small className="g-eyebrow">HOW TO PLAY</small><h2>Grow a city through seven centuries</h2>
     <ul className="g-guide">{rows.map(([i,t,d])=><li key={t}><span>{i}</span><div><b>{t}</b><small>{d}</small></div></li>)}</ul>
-    <p className="g-hint">Tap the speed bubble to pause or change speed. Every Age ends in the World Cities table.</p>
-    <button className="g-primary wide" onClick={()=>{try{localStorage.setItem(GUIDE_KEY,'1');}catch{}onClose();}}>Start <ArrowRight size={16}/></button></Modal>;
+    <p className="g-hint">Time stops while you read. Tap the speed bubble to pause or change speed; open Details to see this again.</p>
+    <button className="g-primary wide" autoFocus onClick={()=>{try{localStorage.setItem(GUIDE_KEY,'1');}catch{}onClose();}}>Start <ArrowRight size={16}/></button></Modal>;
+}
+
+// First steps: one next action at a time until the player has zoned, used a card and answered a need.
+const STEPS_KEY='civitas-first-steps';
+const stepsDone=()=>{try{return localStorage.getItem(STEPS_KEY)==='1';}catch{return true;}};
+function firstStep(city,base){
+  if((city.zones||[]).length<=base.zones)return {n:1,text:'Zone land for homes',go:'zone'};
+  const d=deckOf(city);if(!(d.played||0)&&!(d.bought||0))return {n:2,text:'Buy a card in the Market',go:'market'};
+  if(!needsOf(city).some(x=>x.served)&&!(city.events||[]).some(e=>e.type==='need_met'))return {n:3,text:'Answer a district’s need',go:'needs'};
+  return null;
+}
+function FirstSteps({step,onGo,onHide}){
+  return <div className="g-steps" role="status"><button onClick={()=>onGo(step.go)}><small>First steps · {step.n}/3</small><b>{step.text}</b><ArrowRight size={16}/></button>
+    <button className="g-stepsX" aria-label="Hide first steps" onClick={onHide}><X size={16}/></button></div>;
 }
 
 // ───────────── The screen ─────────────
@@ -323,6 +341,17 @@ export function GameScreen(c){
   const [toast,setToast]=useState(null),[guide,setGuide]=useState(false),[lens,setLens]=useState(null);
   const LENSES=[[null,'Plan'],['value','Land value'],['sol','Living'],...(city.year>=1900?[['traffic','Traffic']]:[])];
   useEffect(()=>{if(city.charter&&!city.scenario?.id&&!guideSeen())setGuide(true);},[!!city.charter]);
+  // Time stops while the guide is open, and picks up again at the same speed after.
+  const resume=useRef(false);
+  useEffect(()=>{if(guide&&c.simulating){resume.current=true;c.stopSimulation();}},[guide,c.simulating]);
+  // First steps (first city only): the next action, until done or hidden.
+  // Counted from the moment the town is founded (the founding zones its first streets).
+  const stepBase=useRef(null);if(stepBase.current===null&&city.center&&!city.awaitingCenter)stepBase.current={zones:(city.zones||[]).length};
+  const [stepsOff,setStepsOff]=useState(stepsDone);
+  const hideSteps=()=>{try{localStorage.setItem(STEPS_KEY,'1');}catch{}setStepsOff(true);};
+  const step=stepsOff||city.scenario?.id||!stepBase.current?null:firstStep(city,stepBase.current);
+  useEffect(()=>{if(!stepsOff&&stepBase.current&&!step)hideSteps();},[!!step]);
+  const closeGuide=()=>{setGuide(false);if(resume.current){resume.current=false;c.runClock(c.clockSpeed);}};
   useEffect(()=>{if(!c.message)return;setToast(c.message);const id=setTimeout(()=>setToast(null),4200);return()=>clearTimeout(id);},[c.message]);
   const tool=c.tool,placing=tool.startsWith('place:'),zoning=!!zone;
   // The brush: a drag or tap makes a pending shape; ✓ applies it.
@@ -359,7 +388,7 @@ export function GameScreen(c){
     {lens&&!placing&&!zoning&&<div className="g-lensKey">{lens==='traffic'?<><i style={{background:'rgba(220,150,40,.45)'}}/>busy<i style={{background:'rgba(190,40,30,.6)'}}/>jammed</>:lens==='value'?<><i style={{background:'rgb(226,214,186)'}}/>cheap<i style={{background:'rgb(192,64,36)'}}/>dear</>:<><i style={{background:'rgb(170,86,186)'}}/>poor<i style={{background:'rgb(104,192,100)'}}/>good</>}</div>}
     {!placing&&!zoning&&<div className="g-chips"><GoalChip city={city} s={s} onOpen={()=>open('details','mission')}/></div>}
 
-    {toast&&!placing&&!blocking&&!sheet&&!zoning&&<div className="g-toast" role="status" onClick={()=>setToast(null)}>{toast}</div>}
+    {toast&&!placing&&!blocking&&!sheet&&!zoning&&<div className={`g-toast${step&&!guide?' up':''}`} role="status" aria-live="polite" onClick={()=>setToast(null)}>{toast}</div>}
 
     {placing&&!ro&&<div className="g-modeBar top"><div><small>{tool==='place:center'?'FOUND THE TOWN':'PLACE'}</small><b>{placeName}</b><span>{tool==='place:center'?'Tap dry land where the town begins':tool==='place:bridge'?'Tap a riverbank':'Tap a free parcel, then confirm'}</span></div>{tool!=='place:center'&&<button className="g-close dark" aria-label="Close" onClick={()=>c.setTool('inspect')}><X size={18}/></button>}</div>}
     {placing&&!ro&&<div className="g-brush">{(()=>{const issue=pend&&!pend.rect&&!['center','bridge'].includes(pend.id)&&!pend.id.startsWith('urban:')?constructionSite(city,pend.id,pend.x,pend.y)?.error:null;
@@ -367,7 +396,7 @@ export function GameScreen(c){
       :<><span>Tap the map to choose the spot</span><button className="g-ghost" disabled={!c.undoCount} onClick={c.undo}><Undo2 size={16}/>Undo</button></>;})()}</div>}
 
     {zoning&&!ro?<div className="g-zoneBar">
-      <div className="g-zoneTop"><span>{pend?.rect?(()=>{const {cells,cost}=zoningCost(city,pend.rect.x,pend.rect.y,pend.rect.w,pend.rect.h);return ZONES[pend.type]||FORMS[pend.type]?`${zoneLabel(pend.type)} · ${cells?`${cells} parcels · ${full(cost)} coins`:'rezoning is free'}`:pend.type==='erase'?'Erase this zoning':'Demolish these buildings';})():FORMS[zone]?`${FORMS[zone].label}: ${FORMS[zone].note.toLowerCase()}`:`Drag on the map · two fingers to pan`}</span>
+      <div className="g-zoneTop"><span>{pend?.rect?(()=>{const {cells,cost}=zoningCost(city,pend.rect.x,pend.rect.y,pend.rect.w,pend.rect.h);return ZONES[pend.type]||FORMS[pend.type]?`${zoneLabel(pend.type)} · ${cells?`${cells} parcels · ${full(cost)} coins`:'rezoning is free'}`:pend.type==='erase'?'Erase this zoning':'Demolish these buildings';})():FORMS[zone]?<>{FORMS[zone].label}: {FORMS[zone].note.toLowerCase()}<small className="g-zoneHow">Drag on the map to paint it, then Confirm · two fingers to pan</small></>:`Drag on the map · two fingers to pan`}</span>
         <button className="g-close" aria-label="Close the brush" onClick={()=>setZone(null)}><X size={18}/></button></div>
       <DemandRow city={city}/>
       <div className="g-zoneTools">{zones.map(([k,v],i)=><Fragment key={k}>{(i===0||zones[i-1][1].group!==v.group)&&<span className="g-zgroup">{GROUPS.find(g=>g[0]===v.group)?.[1]}</span>}<button className={zone===k?'on':''} style={{'--z':v.color}} title={v.note} onClick={()=>{setZone(k);setPend(null);}}><i>{v.icon}</i><span>{v.short}</span></button></Fragment>)}
@@ -376,12 +405,12 @@ export function GameScreen(c){
       <div className="g-zoneEnd"><button className="g-ghost" disabled={!c.undoCount} onClick={c.undo}><Undo2 size={16}/>Undo</button>
         {pend?.rect?<><button className="g-ghost" onClick={()=>setPend(null)}><X size={16}/>Discard</button><button className="g-primary" disabled={(ZONES[pend.type]||FORMS[pend.type])&&zoningCost(city,pend.rect.x,pend.rect.y,pend.rect.w,pend.rect.h).cost>city.funds} onClick={confirm}><Check size={16}/>Confirm</button></>:null}</div>
     </div>
-    :!placing&&<nav className="g-dock" aria-label="Actions">
+    :!placing&&<>{step&&!ro&&!blocking&&!guide&&!sheet&&<FirstSteps step={step} onHide={hideSteps} onGo={g=>{if(g==='zone')setZone(formsAt(city.year)[0]);else if(g==='market')open('build','market');else open('govern','needs');}}/>}<nav className="g-dock" aria-label="Actions">
       <button disabled={ro||city.awaitingCenter} onClick={()=>{setSheet(null);setZone(formsAt(city.year)[0]);}}><LandPlot size={22}/><span>Zone</span>{zoneShort&&<b className="g-dot red"/>}</button>
       <button disabled={ro||city.awaitingCenter} onClick={()=>open('build')}><Hammer size={22}/><span>Build</span>{buildBadge&&<b className="g-dot"/>}</button>
       <button disabled={ro||city.awaitingCenter} onClick={()=>open('govern')}><Landmark size={22}/><span>Govern</span>{needsBadge&&<b className="g-dot red"/>}</button>
       <button onClick={()=>open('details')}><ScrollText size={22}/><span>Details</span></button>
-    </nav>}
+    </nav></>}
 
     {(b||c.drawnPick)&&!sheet&&!placing&&!zoning&&<Peek city={city} b={b} d={c.drawnPick} ro={ro} c={c}/>}
 
@@ -392,7 +421,7 @@ export function GameScreen(c){
     {sheet==='govern'&&<GovernSheet city={city} s={s} c={{...c,sites,onSite:st=>{setSheet(null);setSite(st);}}} tab={tab('govern')} setTab={setTab('govern')} onClose={()=>setSheet(null)}/>}
     {sheet==='details'&&<DetailsSheet city={city} s={s} tab={tab('details')} setTab={setTab('details')} onClose={()=>setSheet(null)} legacy={c.legacy} onGuide={()=>{setSheet(null);setGuide(true);}}/>}
 
-    {guide&&!city.charterOffer&&<Guide onClose={()=>setGuide(false)}/>}
+    {guide&&!city.charterOffer&&<Guide onClose={closeGuide}/>}
     {!c.simulating&&!ro&&(city.charterOffer?<CharterModal city={city} onSign={c.onSignCharter}/>
       :city.ageWelcome?<AgeOnly city={city} onContinue={c.onContinueAge}/>
       :city.turning?.pending?<CardEventModal city={city} onPick={c.pickCard}/>

@@ -1,0 +1,57 @@
+/* v4.1 (M5): touch, focus and motion. Tap targets reach 44 px (WCAG 2.5.5 / Apple HIG);
+   the look stays, the hit areas grow. Loaded after game.css and home.css. */
+
+/* Keyboard focus: always visible, never on mouse or touch taps. */
+.app :focus-visible{outline:3px solid #b8632d;outline-offset:2px;border-radius:10px}
+.app .g3 .g-dock button:focus-visible,.app .g3 .g-tabs button:focus-visible{outline-offset:-3px}
+
+/* Close buttons, tabs, segmented controls, small actions. */
+.app .g3 .g-close{width:44px;height:44px}
+.app .g3 .g-tabs button,.app .g3 .g-seg button{min-height:44px;padding-top:0;padding-bottom:0;display:flex;align-items:center;justify-content:center}
+.app .g3 .g-small{min-height:44px}
+.app .g3 .g-law button{min-height:44px}
+/* HUD pills: 40 px drawn, 44 px to the finger. */
+.app .g3 .g-goal,.app .g3 .g-lens{height:44px;border-radius:22px}
+.app .g3 .g-lens{top:calc(env(safe-area-inset-top) + 60px)}
+
+/* Home and the new-game sheet. */
+.app .h3 .h-geos button{min-height:44px!important}
+.app header .brand{min-height:44px}
+/* Info dots stay 24 px but answer a 44 px touch. */
+.app .info .infoButton{position:relative}
+.app .info .infoButton::before{content:'';position:absolute;inset:-10px}
+
+/* Zone bar group labels were 9 px. */
+.g-zgroup{font-size:11px!important;letter-spacing:.06em!important}
+.g-zoneHow{display:block;font-size:12px;font-weight:500;opacity:.75;margin-top:2px}
+
+/* Charter cards: the coloured lines failed contrast (2.6–2.9:1). Ink text, coloured mark. */
+.g-charter .g-buff{color:var(--ink,#2b241a)!important;opacity:.82}
+.g-charter .g-buff::before{content:'';display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--doc,#6b5e4e);margin-right:6px;vertical-align:1px}
+.g-charterTag em{opacity:1!important;font-size:12px!important}
+
+/* First steps: one next action, just above the dock. */
+.g-steps{position:absolute;left:12px;right:12px;bottom:calc(env(safe-area-inset-bottom) + 92px);display:flex;gap:6px;z-index:6;pointer-events:none;justify-content:center}
+.app .g3 .g-steps button{pointer-events:auto;display:flex;align-items:center;gap:10px;min-height:48px;padding:6px 14px;border-radius:16px;background:var(--ink,#2b241a);color:#fff8ea;box-shadow:var(--shadow);text-align:left}
+.g-steps button small{display:block;font-size:11px;letter-spacing:.08em;text-transform:uppercase;opacity:.8}
+.g-steps button b{display:block;font-size:15px}
+.app .g3 .g-steps .g-stepsX{width:48px;padding:0;justify-content:center;background:var(--paper,#f6efdd);color:var(--ink,#2b241a)}
+
+/* Reduced motion: no animations or slides. */
+@media (prefers-reduced-motion: reduce){
+  .app *,.app *::before,.app *::after{animation-duration:.001ms!important;animation-iteration-count:1!important;transition-duration:.001ms!important;scroll-behavior:auto!important}
+}
+.app .h3 .h-x,.app .h3 .h-del{width:44px!important;height:44px!important}
+.g-toast.up{bottom:calc(env(safe-area-inset-bottom) + 152px)}
+.app .g3 .g-steps .g-stepsX{flex:none;min-width:48px}
+/* Narrow phones (iPhone SE, 375 px): the HUD keeps its three numbers in view. */
+@media (max-width:400px){
+  .g-hud{gap:8px;padding:0 10px}
+  .g-hud span b{font-size:15px}
+  .app .g3 .g-speedBubble{min-width:56px;padding:0 10px}
+  .g-top{gap:6px;padding-left:8px;padding-right:8px}
+}
+/* The goal pill leaves room for the lens button on the right. */
+@media (max-width:620px){.g-chips{padding-right:104px}.app .g3 .g-goal{max-width:100%}}
+@media (max-width:400px){.g-goal em{display:none}.g-goal i{width:36px}.g-goal span{flex:none}}
+.g-steps button small{white-space:nowrap}.app .g3 .g-steps button{flex:0 1 auto;min-width:0}

@@ -1,10 +1,12 @@
 // CIVITAS v3 — the home screen: Continue first, then a new Chronicle,
 // Scenarios, World Cities, the Legacy and your cities. Founding options open
 // in a sheet so the page stays short.
-import React,{useState} from 'react';
+import React,{useRef,useState} from 'react';
 import {Play,Plus,Target,Globe2,Coins,BookOpen,Trash2,X,ChevronRight,Star,Download,Upload} from 'lucide-react';
 import {SCENARIOS} from '../scenarios.js';
 import './home.css';
+import './a11y.css';
+import {useDialogFocus,useEscape} from './focus.js';
 
 const fmt=n=>Math.round(Number(n)||0).toLocaleString('en-US');
 const GEOS=[['river','Winding river'],['coast','Coastal bay'],['estuary','Tidal estuary'],['lake','Lakeside basin'],['plain','Open plain']];
@@ -28,12 +30,15 @@ export function Home({legacy,saves,populations,ready,onContinue,onDelete,onStart
     {saves.length>0&&<section className="h-saves"><div className="h-savesHead"><h2>Your cities</h2><span><button aria-label="Export backup" onClick={onExport}><Download size={16}/></button><button aria-label="Import backup" onClick={onImport}><Upload size={16}/></button></span></div>
       {saves.slice(0,8).map(c=><div key={c.id} className="h-save"><button className="h-saveOpen" onClick={()=>onContinue(c.id)}><b>{c.name}</b><small>{c.year} · {fmt(populations.get(c.id))} people · {c.finished?(c.ruined?'Ruined':'Complete'):'In progress'}</small></button><button className="h-del" aria-label={`Delete ${c.name}`} onClick={()=>onDelete(c.id)}><Trash2 size={15}/></button></div>)}
     </section>}
-    {founding&&<div className="h-back" onPointerDown={e=>{if(e.target===e.currentTarget)setFounding(false);}}><section className="h-sheet" role="dialog" aria-modal="true" aria-label="New Chronicle">
+    {founding&&<FoundSheet onClose={()=>setFounding(false)}>
       <div className="h-sheetHead"><h2>New Chronicle</h2><button className="h-x" aria-label="Close" onClick={()=>setFounding(false)}><X size={20}/></button></div>
       <label className="h-field"><span>City name</span><input value={name} onChange={e=>setName(e.target.value)} maxLength={40}/></label>
       <div className="h-field"><span>Geography</span><div className="h-geos">{GEOS.map(([id,l])=><button key={id} className={geo===id?'on':''} onClick={()=>setGeo(id)}>{l}</button>)}</div></div>
       {setup}
       <button className="h-go" disabled={!ready} onClick={()=>{setFounding(false);onStart();}}><Play size={18} fill="currentColor"/> Found the town</button>
-    </section></div>}
+    </FoundSheet>}
   </main>;
 }
+// The new-game sheet: takes the focus, keeps Tab inside, Escape closes it.
+function FoundSheet({onClose,children}){const ref=useRef(null);useDialogFocus(ref);useEscape(onClose);
+  return <div className="h-back" onPointerDown={e=>{if(e.target===e.currentTarget)onClose();}}><section ref={ref} tabIndex={-1} className="h-sheet" role="dialog" aria-modal="true" aria-label="New Chronicle">{children}</section></div>;}
