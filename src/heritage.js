@@ -83,7 +83,11 @@ export function isOpen(city,site){
   if(def.needs==='ripe'&&!site.ripe)return false;
   return true;
 }
-export const optionsFor=(city,site)=>HERITAGE[site.kind]?.options(city.year)||[];
+// v4.0 (M4): prices follow the city's income (last year's), so a big modern city still
+// weighs a decision: ×1 up to 250 coins a year, rising with income, at most ×8.
+export function costScale(city){const b=city.budget?.last||city.budget?.current;const inc=b?Object.values(b.income||{}).reduce((a,v)=>a+(Number(v)||0),0):0;return Math.max(1,Math.min(8,inc/250));}
+const nice=v=>{const a=Math.abs(v),p=a>=5000?500:a>=1000?100:10;return Math.sign(v)*Math.round(a/p)*p;};
+export const optionsFor=(city,site)=>{const k=costScale(city);return (HERITAGE[site.kind]?.options(city.year)||[]).map(o=>o.cost?{...o,cost:nice(o.cost*k)}:o);};
 // At most MAX_OPEN questions at a time, one per kind first, the oldest first: the map stays readable.
 export const MAX_OPEN=4;
 export function openSites(city,mapSites=[]){

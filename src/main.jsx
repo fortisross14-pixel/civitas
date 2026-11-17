@@ -162,7 +162,7 @@ function CardOption({cardId,city,onChoose}){
    <span className="cardbottom"><span>{c.kind.replace('_',' ').toUpperCase()}</span><span>Choose <ChevronRight size={14}/></span></span>
  </button>;
 }
-const CAPTIONED=new Set(['history','fire','flood','epidemic','landmark','works','crisis','boom','decline','omen']);
+const CAPTIONED=new Set(['history','fire','flood','epidemic','landmark','works','crisis','uprising','unrest','boom','decline','omen']);
 function captionText(e,city){let body=String(e.text||'').replace(/ at parcel [\d, ]+/,'').match(/^[^.!?—]*/)[0].trim();if(e.type==='history')body=body.charAt(0).toLowerCase()+body.slice(1);return `${MONTHS[city.month||0]} ${e.year}: ${body}`;}
 function EventModal({city,onChoose}){
  const ev=city?.event;const def=eventDefinition(ev?.id);if(!ev||!def)return null;
@@ -321,7 +321,7 @@ function App(){
     const now=performance.now();run.acc+=Math.min(.5,(now-run.last)/1000)*run.rate*paceFactor(run.current,run.rate,deciding.current);run.last=now;
     const months=Math.min(4,Math.floor(run.acc));run.acc-=months;
     if(months>0){const countBefore=run.current.events.length;run.current=advanceMonths(run.current,months);
-     const events=run.current.events.slice(countBefore).filter(e=>['fire','flood','epidemic','boom','works','crisis','vacancy','abandonment','shop','need','decline','omen','history','need_met'].includes(e.type));if(events.length){const event=events.at(-1);setMessage(`${event.year} · ${event.text}`);}
+     const events=run.current.events.slice(countBefore).filter(e=>['fire','flood','epidemic','boom','works','crisis','uprising','unrest','vacancy','abandonment','shop','need','decline','omen','history','need_met'].includes(e.type));if(events.length){const event=events.at(-1);setMessage(`${event.year} · ${event.text}`);}
      setPreview(run.current);}
     if(run.current.ageWelcome){persist(run.current);simulation.current=null;setPreview(null);setSimulating(false);resumeAfterEvent.current=true;setMessage(`${run.current.year}: a new Age begins.`);}
     else if(run.current.event){persist(run.current);simulation.current=null;setPreview(null);setSimulating(false);resumeAfterEvent.current=true;setMessage(`${MONTHS[run.current.month]} ${run.current.year}: ${run.current.event.title}.`);}

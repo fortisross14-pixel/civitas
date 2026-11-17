@@ -47,7 +47,7 @@ export function FoundingSetup({legacy,setup,setSetup}){
 export function UnrestMeter({city}){
   const u=city?.unrest||0;if(u<=0||city.finished)return null;
   const level=u>=80?'danger':u>=50?'warn':'calm';
-  return <div className={`unrestMeter ${level}`} role="meter" aria-valuemin={0} aria-valuemax={RUIN_AT} aria-valuenow={Math.round(u)} aria-label="Unrest" title={`Unrest ${Math.round(u)}/${RUIN_AT}. It rises while prosperity is below ${unrestLine(city)}, and with unanswered history and declining districts. At ${RUIN_AT} the city falls into Ruin.`}>
+  return <div className={`unrestMeter ${level}`} role="meter" aria-valuemin={0} aria-valuemax={RUIN_AT} aria-valuenow={Math.round(u)} aria-label="Unrest" title={`Unrest ${Math.round(u)}/${RUIN_AT}. It rises while prosperity is below ${unrestLine(city)}, and with unanswered history and declining districts. At ${RUIN_AT} the city rises up: people leave and the treasury is looted.`}>
     <Flame size={13}/><span>Unrest</span><i style={{width:`${Math.min(100,u/RUIN_AT*100)}%`}}/><b>{Math.round(u)}</b></div>;
 }
 

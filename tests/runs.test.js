@@ -165,11 +165,12 @@ test('R exit 5: a meaningful choice at least every 90 seconds at normal speed',(
   const gaps=decisions.slice(1).map((y,i)=>y-decisions[i]).concat(c.year-decisions.at(-1));
   assert.ok(Math.max(...gaps)*secondsPerYear<=90,`longest gap ${Math.max(...gaps)} years`);
 });
-test('R exit 6: the passive player survives Hardship 0 and is ruined by Hardship 5',()=>{
+test('R exit 6 (M4): no game over: a neglected city under Hardship 5 rises up, and still reaches 2030',()=>{
   for(const seed of [7,11,3]){
-    assert.ok(!runStrategy('passive',seed,2030,'river',{hardship:0}).city.ruined,`H0 seed ${seed}`);
+    const easy=runStrategy('passive',seed,2030,'river',{hardship:0}).city;assert.ok(!easy.uprisings,`H0 seed ${seed}: no uprising`);
     const r=runStrategy('passive',seed,2030,'river',{hardship:5}).city;
-    assert.ok(r.ruined&&r.finished&&(r.unrest>=RUIN_AT),`H5 seed ${seed}`);
+    assert.ok(r.uprisings>=1,`H5 seed ${seed}: it rises up`);assert.ok(!r.ruined&&r.year>=2030&&r.finished,`H5 seed ${seed}: play goes on to 2030 (${r.year})`);
+    assert.ok(r.unrest<RUIN_AT&&r.events.some(e=>e.type==='uprising'));
   }
 });
 test('R exit 8: a run lasts 15–22 minutes at normal speed',()=>{

@@ -18,6 +18,10 @@ export const TAX_RATE={none:0,low:.6,average:1,high:1.45};
 export const TAX_DEMAND={none:1.35,low:1.15,average:1,high:.72};
 const RES_PROSPERITY={none:4,low:2,average:0,high:-5};
 const BUSINESS_PROSPERITY={none:0,low:0,average:0,high:-1};
+// v4.0 (M4): since v3.6 a building holds real numbers of people, a tenth to a third of the
+// old figures. Each resident pays (and costs) in proportion, so a city's budget is what the
+// v1–v3 balance had: prices of buildings, cards and decisions keep their meaning.
+export const perHead=year=>1/densityRatio(year);
 export const DEFAULT_TAXES={res:'average',trade:'average',craft:'average'};
 
 export function taxesOf(city){
@@ -37,7 +41,7 @@ export function annualRevenue(city,s,perks={}){
   // v1.2: per-resident taxes are ~47% higher than v1.0 because the city now pays
   // for public services and institutions. Half the per-resident part is paid by
   // employers in proportion to their jobs, so business taxes matter from 1300.
-  const household=s.population*.055/5/POP_SCALE,business=(s.population*.055+s.gdp*.0000012)/5/POP_SCALE;
+  const ph=perHead(city.year),household=s.population*ph*.055/5/POP_SCALE,business=(s.population*ph*.055+s.gdp*.0000012)/5/POP_SCALE;
   const res=household*TAX_RATE[t.res]*boost,trade=business*tradeShare*TAX_RATE[t.trade]*boost,craft=business*craftShare*TAX_RATE[t.craft]*boost,other=(business*otherShare+1.2)*boost;
   return {res,trade,craft,other,total:res+trade+craft+other};
 }
@@ -57,7 +61,7 @@ export function annualExpenses(city,s){
   const dr=Math.min(1,densityRatio(city.year)*1.6),maintenance=(parcels*.12*dr+streets*.035*Math.min(1,dr*2)+idle*(city.year>=1800?.006:.0015))/5;
   const walls=(city.walls||[]).reduce((a,w)=>a+w.r*(w.state==='wall'?.08:.05),0); // r = mean radius
   const policy=policyCosts(city);
-  const services=s.population/POP_SCALE*.015*SERVICE_SHARE(city.year)*(1+policy.service);
+  const services=s.population*perHead(city.year)/POP_SCALE*.015*SERVICE_SHARE(city.year)*(1+policy.service);
   let institutions=0;
   for(const b of city.buildings)if(b.special&&!b.vacant)institutions+=BASIC_COST[b.special]?BASIC_COST[b.special]*.012:.8*eraCost(city.year);
   const policies=policy.cost*eraCost(city.year);

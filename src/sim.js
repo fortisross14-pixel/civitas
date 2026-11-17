@@ -908,7 +908,10 @@ function trackTiers(city){const counts=doctrineState(city).counts||{},peak={...(
 // district; it eases when the city is content. Each Hardship level makes
 // neglect weigh 40% more and Unrest ease more slowly. At 100 the city falls
 // into Ruin and the run ends. The first UNREST_GRACE years after founding are free.
-export const UNREST_LINE=40,UNREST_PER_HARDSHIP=2,UNREST_RATE=.6,UNREST_UNANSWERED=8,UNREST_DECLINE=4,UNREST_EASE=3,UNREST_GRACE=20,RUIN_AT=100;
+// v4.0 (M4): no game over. At 100 the city rises up: people leave, the treasury is looted,
+// the poorest streets are abandoned and the city is unhappy for a while, but play goes on
+// (Unrest drops back to UPRISING_AFTER, so there is time to put things right).
+export const UNREST_LINE=40,UNREST_PER_HARDSHIP=2,UNREST_RATE=.6,UNREST_UNANSWERED=8,UNREST_DECLINE=4,UNREST_EASE=3,UNREST_GRACE=20,RUIN_AT=100,UPRISING_AFTER=55;
 export function unrestLine(city){return UNREST_LINE+UNREST_PER_HARDSHIP*hardshipOf(city);}
 function updateUnrest(city,year,s,resolved,declines){
   const founded=city.history?.[0]?.year??FIRST_YEAR;if(year-founded<UNREST_GRACE||city.awaitingCenter)return;
@@ -917,8 +920,20 @@ function updateUnrest(city,year,s,resolved,declines){
   const gain=(Math.max(0,line-(s.prosperity||0))*UNREST_RATE+(UNREST_UNANSWERED*unanswered+UNREST_DECLINE*declines.length)*neglect)*perkMult(city,'unrestMult');
   const after=Math.max(0,Math.min(RUIN_AT,gain>0?before+gain:before-UNREST_EASE/(1+.5*h)));
   city.unrest=Math.round(after*10)/10;
-  for(const mark of [50,80])if(before<mark&&after>=mark)city.events.push({year,type:'unrest',text:`Unrest ${mark>=80?'is close to boiling over':'is rising'} (${Math.round(after)}/100). Raise prosperity above ${line}, answer history and serve needs, or the city falls into Ruin.`});
-  if(after>=RUIN_AT){city.ruined=year;city.events.push({year,type:'ruin',text:'The city falls into Ruin. Its people scatter and the Chronicle closes early.'});}
+  for(const mark of [50,80])if(before<mark&&after>=mark)city.events.push({year,type:'unrest',text:`Unrest ${mark>=80?'is close to boiling over':'is rising'} (${Math.round(after)}/100). Raise prosperity above ${line}, answer history and serve needs, or the city will rise up.`});
+  if(after>=RUIN_AT)uprising(city,year);
+}
+function uprising(city,year){
+  const n=(city.uprisings||0)+1,r=rand(hash(city.seed,year,6151)),left=Math.round((Number(city.residents)||0)*.14);
+  city.uprisings=n;city.lastUprising=year;city.residents=Math.max(40*K,(Number(city.residents)||0)-left);
+  const looted=Math.round((city.funds||0)*.35);city.funds=Math.max(0,(city.funds||0)-looted);
+  // A share of ordinary buildings (never protected ones or landmarks) is abandoned.
+  const pool=city.buildings.filter(b=>!b.special&&!b.protected);const gone=new Set();const k=Math.round(pool.length*.06);
+  for(let i=0;i<k&&pool.length;i++)gone.add(pool.splice(Math.floor(r()*pool.length),1)[0].id);
+  if(gone.size)city.buildings=city.buildings.filter(b=>!gone.has(b.id));
+  city.effectsTimed=[...(city.effectsTimed||[]),{until:year+15,effects:{prosperity:-6,migration:-.06},source:'uprising'}];
+  city.unrest=UPRISING_AFTER;
+  city.events.push({year,type:'uprising',text:`The city rises up${n>1?` (uprising ${n})`:''}: ${left.toLocaleString("en-US")} people leave, ${looted.toLocaleString('en-US')} coins are looted and ${gone.size} buildings stand abandoned. The city goes on, poorer and angrier: lift prosperity above ${unrestLine(city)} and answer its needs.`});
 }
 function openTurningPoint(city){
   const index=currentTurningIndex(city)+(city.turning?.skipped||0);
@@ -951,7 +966,6 @@ function runMonths(city,months){
       if(next.ageWelcome&&chartersOn(next)&&!next.charterOffer)offerCharters(next);
       if(next.scenario&&!next.scenario.done){scenarioYear(next,prevYear,()=>stats(next),rand(hash(next.seed,prevYear,7717)));if(next.scenario.done){finishCity(next);break;}}
       if(next.year>=END_YEAR){finishCity(next);break;}
-      if(next.ruined){next.finished=true;break;}
       const milestone=nextMilestoneOf(next);
       if(milestone!==undefined&&next.year>=milestone){monthTick(next);openTurningPoint(next);break;}
       if(next.event){monthTick(next);break;}
