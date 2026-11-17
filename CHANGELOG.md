@@ -14,7 +14,7 @@ The six milestones that close the game (M1–M6).
 
 **The first hour (M5).** A current guide that stops the clock; first steps (zone homes, buy a card, answer a need); charters say how to reach their goal. 44 px touch targets, visible keyboard focus, focus kept in dialogs, the map pans with arrow keys, reduced motion respected, the HUD fits a 375 px phone.
 
-**Release (M6).** The game screen's Home button works again; a crash shows Reload and Download a backup; the map is about 40% faster on a slow phone; offline play checked; saves from earlier versions open and play.
+**Release (M6).** The game screen's Home button works again; a crash shows Reload and Download a backup; the street surface is rebuilt less often while time runs; offline play checked; saves from earlier versions open and play.
 
 ## v3.1 — The organic map in the game
 
