@@ -1,5 +1,21 @@
 # CIVITAS changelog
 
+## v4.1 — Release
+
+The six milestones that close the game (M1–M6).
+
+**The map and the game agree (M1).** The drawn town follows the population; land value, living standards and traffic come from one source and show as lenses; tap any drawn house for what it is; a city's map is saved with it, so it opens fast.
+
+**The core (M2).** Cards and the Market, taxes, laws, the old city's decisions, luck events and scenarios. Each Age you choose a *direction* (Industry, Trade, Culture, Faith, Learning, People): its buffs, more of its cards in the Market, and a growth goal with a reward. Doctrine powers and Turning Points are gone.
+
+**A modern map built from zones (M3).** Nothing is built outside zones. Each Age has its own uses, grouped as Homes, Commercial, Industry and Land: medieval houses and guilds; Renaissance palazzi and arcades; Enlightenment new towns and manufactories; modern grids, a linear city, garden suburbs, heavy industry and mines; contemporary towers, mid-rise slabs, suburbs, offices, malls, retail parks, tech parks and plantations. Planned districts are laid out in the zone you paint. At a new Age each quarter moves to the nearest new use and is *protected*; tap it to *renew* (rebuilt alike, of the Age) or *revamp* (replaced by the new use over the years). Railways run from stations; cutting avenues through the old town draws a tree-lined cross of avenues.
+
+**Balance and pacing (M4).** No game over: at 100 unrest the city rises up, loses people, coins and buildings, and carries on. Runs take 30–45 minutes; each Age keeps its own pace. The budget is tight but positive again after the move to real densities; cards cost three years of income; decision prices follow the city's income.
+
+**The first hour (M5).** A current guide that stops the clock; first steps (zone homes, buy a card, answer a need); charters say how to reach their goal. 44 px touch targets, visible keyboard focus, focus kept in dialogs, the map pans with arrow keys, reduced motion respected, the HUD fits a 375 px phone.
+
+**Release (M6).** The game screen's Home button works again; a crash shows Reload and Download a backup; the map is about 40% faster on a slow phone; offline play checked; saves from earlier versions open and play.
+
 ## v3.1 — The organic map in the game
 
 The game map is now drawn by the organic engine from `prototypes/ages.html` (`src/organic/`). The economy still runs on the grid underneath; the new map is grown from what the player does and from the city's own record:
