@@ -22,6 +22,8 @@ const BUSINESS_PROSPERITY={none:0,low:0,average:0,high:-1};
 // old figures. Each resident pays (and costs) in proportion, so a city's budget is what the
 // v1–v3 balance had: prices of buildings, cards and decisions keep their meaning.
 export const perHead=year=>1/densityRatio(year);
+// Taxes per head are set a little below that, so the books stay tight (income ~1.3–1.5× costs).
+const TAX_HEAD=.66;
 export const DEFAULT_TAXES={res:'average',trade:'average',craft:'average'};
 
 export function taxesOf(city){
@@ -41,7 +43,7 @@ export function annualRevenue(city,s,perks={}){
   // v1.2: per-resident taxes are ~47% higher than v1.0 because the city now pays
   // for public services and institutions. Half the per-resident part is paid by
   // employers in proportion to their jobs, so business taxes matter from 1300.
-  const ph=perHead(city.year),household=s.population*ph*.055/5/POP_SCALE,business=(s.population*ph*.055+s.gdp*.0000012)/5/POP_SCALE;
+  const ph=perHead(city.year)*TAX_HEAD,household=s.population*ph*.055/5/POP_SCALE,business=(s.population*ph*.055+s.gdp*.0000012)/5/POP_SCALE;
   const res=household*TAX_RATE[t.res]*boost,trade=business*tradeShare*TAX_RATE[t.trade]*boost,craft=business*craftShare*TAX_RATE[t.craft]*boost,other=(business*otherShare+1.2)*boost;
   return {res,trade,craft,other,total:res+trade+craft+other};
 }
@@ -57,8 +59,8 @@ const BASIC_COST={market:130,chapel:160,granary:145,town_hall:290,school:240,gui
 export function annualExpenses(city,s){
   const parcels=city.buildings.length,streets=city.roads.length;
   const zoned=Object.values(s.zoned||{}).reduce((a,v)=>a+v,0),idle=Math.max(0,zoned-parcels-streets);
-  // v3.6: buildings are smaller (real densities), so each costs less to keep.
-  const dr=Math.min(1,densityRatio(city.year)*1.6),maintenance=(parcels*.12*dr+streets*.035*Math.min(1,dr*2)+idle*(city.year>=1800?.006:.0015))/5;
+  // v4.0: residents pay per head again (perHead), so each building costs what it did before v3.6.
+  const dr=1,maintenance=(parcels*.12*dr+streets*.035*Math.min(1,dr*2)+idle*(city.year>=1800?.006:.0015))/5;
   const walls=(city.walls||[]).reduce((a,w)=>a+w.r*(w.state==='wall'?.08:.05),0); // r = mean radius
   const policy=policyCosts(city);
   const services=s.population*perHead(city.year)/POP_SCALE*.015*SERVICE_SHARE(city.year)*(1+policy.service);

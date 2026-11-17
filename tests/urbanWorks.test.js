@@ -12,12 +12,12 @@ const base=(()=>{let c;return()=>c||(c=runStrategy('sensible',7,1700).city);})()
 const give=(c,id)=>{const d=deckOf(c);return {city:{...c,deck:{...d,hand:[...d.hand,{uid:d.nextUid,cardId:id,paid:0}],nextUid:d.nextUid+1}},uid:d.nextUid};};
 const west=c=>{const o=cityOrigin(c);return {x:o.x-18,y:o.y+4};};
 
-test('one or two urban works for every age, sold only in their years',()=>{
+test('one or two urban works for every age (kept for cards already held)',()=>{
   const ages=[[1300,1499],[1500,1699],[1700,1849],[1850,1949],[1950,2030]];
   for(const [a,b] of ages)assert.ok(URBAN_CARDS.some(c=>c.minYear<=b&&c.maxYear>=a),`${a}–${b}`);
   const c=base();
-  assert.ok(shopEligible(CARD_INDEX.urb_new_town,c),'New Town on sale in 1700');
-  assert.ok(!shopEligible(CARD_INDEX.urb_boulevard,c),'boulevards wait for 1850');
+  // v4.0: no longer sold (the zone forms cover them); cards already held still play.
+  assert.ok(!shopEligible(CARD_INDEX.urb_new_town,c)&&!shopEligible(CARD_INDEX.urb_boulevard,c),'urban works are not sold any more');
 });
 test('a work must be placed: playing it without a spot is refused',()=>{
   const {city,uid}=give(base(),'urb_new_town');
@@ -43,9 +43,11 @@ test('a grand boulevard cuts a straight main avenue across the town and clears w
   assert.ok(new Set(av.map(rd=>rd.y)).size===1||new Set(av.map(rd=>rd.x)).size===1,'straight');
   for(const id of plan.clear)assert.ok(!r.city.buildings.some(b=>b.id===id),'cleared');
 });
-test('every work plans something on open land, and refuses water',{todo:'M3: urban works fold into the zone forms'},()=>{
+test('every work plans something on open land, and refuses water',()=>{
   const c=base(),p=west(c);
-  for(const card of URBAN_CARDS){const plan=urbanPlan(c,card.id,card.urban==='grand_boulevard'?cityOrigin(c).x:p.x,card.urban==='grand_boulevard'?cityOrigin(c).y:p.y);assert.ok(!plan.error,`${card.id}: ${plan.error}`);assert.ok(plan.streets.length>=5,card.id);}
+  // Open land for each work: west of town, further out until the plan fits (the town grows).
+  const spot=card=>{if(card.urban==='grand_boulevard')return cityOrigin(c);for(let d=0;d<30;d+=2){const q={x:p.x-d,y:p.y};if(!urbanPlan(c,card.id,q.x,q.y).error)return q;}return p;};
+  for(const card of URBAN_CARDS){const q=spot(card),plan=urbanPlan(c,card.id,q.x,q.y);assert.ok(!plan.error,`${card.id}: ${plan.error}`);assert.ok(plan.streets.length>=5,card.id);}
   const o=cityOrigin(c);let wx=null;for(let x=o.x;x<100;x++){const t=urbanPlan(c,'urb_new_town',x,o.y);if(t.error==='Choose dry land'){wx=x;break;}}
   assert.ok(wx!==null,'the river is refused');
 });

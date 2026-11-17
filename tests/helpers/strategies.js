@@ -121,7 +121,8 @@ export function autoZone(c){
 export function takeTurn(strategy,c){
   if(strategy!=='passive')c=autoZone(c);
   // v3: a new Age offers charters; scripted players sign the first (the steady one).
-  if(c.charterOffer)c={...signCharter(c,0).city,ageWelcome:null};
+  // v3: a new Age offers charters; scripted players sign the first (the steady one), a focused one its own direction.
+  if(c.charterOffer){const own=strategy.startsWith('focused:')?c.charterOffer.findIndex(o=>o.direction===strategy.slice(8)):-1;c={...signCharter(c,Math.max(0,own)).city,ageWelcome:null};}
   const doctrinal=strategy.startsWith('focused:')||strategy==='spread'||strategy==='opportunist';
   if(c.turning?.pending)c=selectTurningPoint(c,doctrinal?draftPick(strategy,c):c.turning.pending.options[0]);
   if(strategy==='sensible')c=sensibleTurn(c);

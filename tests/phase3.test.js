@@ -49,16 +49,6 @@ test('districts form between main roads and keep their names',()=>{
   const details=districtDetails(later,cityOrigin(later));
   assert.ok(details.list.every(d=>d.count>=10&&d.centroid&&d.dominant));
 });
-test('the city character follows what it builds and steers its Turning Points',{todo:'M2: Turning Points are removed'},()=>{
-  const industrial=campaign(410,'compact','industry',false),cultural=campaign(410,'compact','culture',false);
-  assert.equal(industrial.city.character.lead,'industry');
-  assert.ok(cultural.city.character.shares.culture>industrial.city.character.shares.culture);
-  // Same town, same Turning Point: an industrial character draws more industry cards.
-  const base=run(town('plain',30),200);
-  const count=(character)=>{let n=0;for(let i=0;i<40;i++)for(const id of generateOffers({...base,character},i%20,i))if(CARD_INDEX[id]?.domain==='industry')n++;return n;};
-  const lean=count({shares:{industry:.6,trade:.1,culture:.1,faith:.1,learning:.1}}),other=count({shares:{industry:0,trade:.6,culture:.2,faith:.1,learning:.1}});
-  assert.ok(lean>other,`industry offers ${lean} vs ${other}`);
-});
 test('policies are bound to their era and geography, apply their effects and can be undone',()=>{
   const c=town('plain',3);
   assert.match(policyIssue(c,'tolerance'),/1500/);

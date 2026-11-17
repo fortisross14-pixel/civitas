@@ -11,7 +11,7 @@ import {cardType,cardDoctrines,decreeSlots,DOCTRINE_IDS} from '../src/doctrines.
 import {deckOf,handLimit,rerollPrice,shopEligible,cardPrice} from '../src/cards.js';
 import {advance,stats,makeCity,seedTown,unrestLine,RUIN_AT,normalizeCity} from '../src/sim.js';
 import {trialDefinition,maybeTrial,omensOf,answerOmen,TRIAL_LEAD} from '../src/events.js';
-import {isQuiet,runMinutes,NORMAL_SPEED} from '../src/pacing.js';
+import {isQuiet,runMinutes,NORMAL_SPEED,agePace} from '../src/pacing.js';
 import {newCity,runStrategy,takeTurn} from './helpers/strategies.js';
 
 const mastered=()=>({...emptyLegacy(),mastery:Object.fromEntries(DOCTRINE_IDS.map(d=>[d,2]))});
@@ -161,9 +161,10 @@ const paced=(()=>{let cache=null;return()=>{if(cache)return cache;
     if(c.year%5===0||c.turning?.pending)c=takeTurn('opportunist',c);}
   return cache={c,quiet:quiet/years,years,decisions};};})();
 test('R exit 5: a meaningful choice at least every 90 seconds at normal speed',()=>{
-  const {decisions,c}=paced(),secondsPerYear=12/NORMAL_SPEED;
-  const gaps=decisions.slice(1).map((y,i)=>y-decisions[i]).concat(c.year-decisions.at(-1));
-  assert.ok(Math.max(...gaps)*secondsPerYear<=90,`longest gap ${Math.max(...gaps)} years`);
+  // Seconds between decisions at 1×, each year at its Age's pace (M4).
+  const {decisions,c}=paced(),sec=(a,b)=>{let t=0;for(let y=a;y<b;y++)t+=12/(NORMAL_SPEED*agePace(y));return t;};
+  const gaps=decisions.slice(1).map((y,i)=>sec(decisions[i],y)).concat(sec(decisions.at(-1),c.year));
+  assert.ok(Math.max(...gaps)<=90,`longest gap ${Math.round(Math.max(...gaps))} s`);
 });
 test('R exit 6 (M4): no game over: a neglected city under Hardship 5 rises up, and still reaches 2030',()=>{
   for(const seed of [7,11,3]){
@@ -173,9 +174,9 @@ test('R exit 6 (M4): no game over: a neglected city under Hardship 5 rises up, a
     assert.ok(r.unrest<RUIN_AT&&r.events.some(e=>e.type==='uprising'));
   }
 });
-test('R exit 8: a run lasts 15–22 minutes at normal speed',()=>{
+test('R exit 8 (M4): a run takes 19–27 minutes on the clock at normal speed (30–45 with decisions)',()=>{
   const {quiet,years}=paced(),m=runMinutes(NORMAL_SPEED,quiet,years);
-  assert.ok(m>=15&&m<=22,`${m.toFixed(1)} minutes (quiet share ${quiet.toFixed(2)})`);
+  assert.ok(m>=19&&m<=27,`${m.toFixed(1)} minutes (quiet share ${quiet.toFixed(2)})`);
 });
 test('every card in the doctrine pool has a known domain (the UI colours cards by it)',async()=>{
   const {DOMAINS}=await import('../src/turningPoints.js');

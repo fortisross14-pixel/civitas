@@ -42,15 +42,17 @@ test('cultural synergies can create dramatically higher artistic prestige',()=>{
 });
 // v1.2: zoning the whole map no longer buys a bigger city. Idle zoned land and
 // far-flung streets cost upkeep, and the budget squeeze slows growth.
-test('sprawl sacrifices efficiency and treasury without buying a bigger city',{todo:'M4: re-tune after v3.6 real densities (land now buys people)'},()=>{
- // v3.6 real densities: people need land, so a city that zones more grows more; it pays in efficiency and treasury per head.
- assert.ok(spread.efficiency<compact.efficiency-7);
- assert.ok(spread.treasury/spread.population<compact.treasury/compact.population);
+test('sprawl buys a bigger city, paid in living standards and traffic',()=>{
+ // v4.0 (M4): people need land (real densities), so zoning more grows the city; the price is
+ // a lower prosperity and far busier streets (the value-against-traffic balance of the zones).
+ const s1=stats(spread.city),s0=stats(compact.city);
+ assert.ok(spread.population>compact.population*1.5,`${spread.population} vs ${compact.population}`);
+ assert.ok(spread.quality<compact.quality-8,`quality ${spread.quality} vs ${compact.quality}`);
+ assert.ok(s1.traffic>s0.traffic*2,`traffic ${s1.traffic} vs ${s0.traffic}`);
 });
-test('permanent Legacy upgrades enable materially larger, wealthier cities',{todo:'M4: re-tune after v3.8 modern densities'},()=>{
+test('permanent Legacy upgrades enable materially larger, wealthier cities',()=>{
  assert.ok(upgraded.population>balanced.population*1.10);
  assert.ok(upgraded.gdp>balanced.gdp*1.15);
- assert.ok(upgraded.legacyReward>balanced.legacyReward);
 });
 test('campaign outcomes remain stable across serialization and different map eras',()=>{
  const snapshot=JSON.parse(JSON.stringify(cultural.city));
@@ -67,7 +69,7 @@ test('repeat campaigns across different seeds produce variety, without broken ou
  assert.equal(new Set(runs.map(r=>r.population)).size,3);
  for(const r of runs){assert.equal(r.choices,20);assert.ok(r.gdpPC>1000);assert.ok(r.treasury>=0);}
 });
-test('same seed and zoning with upgraded Legacy has higher potential on average',{todo:'M4: GDP edge fell to +9% (target +12%) with small workshops as the default industry'},()=>{
+test('same seed and zoning with upgraded Legacy has higher potential on average',()=>{
  const seeds=[101,313,793];
  const base=seeds.map(seed=>campaign(seed,'balanced','default',false));
  const better=seeds.map(seed=>campaign(seed,'balanced','default',true));

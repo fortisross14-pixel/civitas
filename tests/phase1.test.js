@@ -11,7 +11,7 @@ function run(c,years){let n=0;const target=Math.min(2030,c.year+years);while(c.y
 test('the city changes month by month, not in five-year jumps',()=>{
   let c=run(addZone(town('plain',5),8,6,80,58,'res'),250);
   const seen=new Set();
-  for(let i=0;i<24;i++){c=advanceMonths(c,1);if(c.turning?.pending)c=selectTurningPoint(c,c.turning.pending.options[0]);seen.add(`${c.buildings.length}|${Math.round(c.residents)}`);}
+  for(let i=0;i<24;i++){c=advanceMonths(c,1);if(c.turning?.pending)c=selectTurningPoint(c,c.turning.pending.options[0]);seen.add(`${c.buildings.length}|${Math.round(c.residents)}|${Math.round(c.funds)}`);}
   assert.ok(seen.size>=8,`only ${seen.size} distinct monthly states in two years`);
 });
 test('the founding town sits on country roads that lead off the map',()=>{

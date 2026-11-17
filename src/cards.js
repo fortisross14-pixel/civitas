@@ -53,7 +53,8 @@ export function handLimit(city){const lvl=city?.center?.level||1;return 5+(lvl>=
 export function priceUnit(city,s){
   const floor=40*eraCost(city.year);
   if(!s)return floor;
-  return Math.max(floor,5*annualRevenue(city,s).total);
+  // v4.0 (M4): three years of income (was five) now that residents pay real taxes per head.
+  return Math.max(floor,3*annualRevenue(city,s).total);
 }
 export const cardPrice=(card,unit,city=null)=>{
   // v1.8: Trade 2 makes the Market Hall 10% cheaper; Learning 8 halves Learning cards.
@@ -88,6 +89,9 @@ export function playedCopies(city,cardId){return (city.turning?.choices||[]).fil
 export function shopEligible(card,city){
   if(!card||card.kind==='figure')return false;
   if(card.eraOnly&&!doctrinesOn(city))return false;
+  // v4.0 (M4): urban works are folded into the zone forms (New Town, garden suburb, industry...)
+  // and the ring road public work; cards already in a hand still play.
+  if(card.urban)return false;
   // v2.1: Rare and Epic cards come only from card events in doctrine cities.
   if(doctrinesOn(city)&&!STORE_RARITIES.includes(card.rarity))return false;
   if(card.requiresMegacity&&!city.legacyBonuses?.megacityCharter)return false;

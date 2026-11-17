@@ -601,7 +601,8 @@ function settlePopulation(city,s,perks,fraction){
   const cityPull=old*(year>=1800?.035:.05)*plannedGrowth*vacancies*jobAccess*(.50+Math.min(2.2,developmentOf(city).attraction/50))*(1+(perks.migration||0)+landmarkMigration+faithPull+merchantPull)*taxDemand(city,'res')*clamp((s.prosperity-30)/35,.25,1.35)*(1-(Number(city.shortfall)||0)*.5);
   // Misery drives people away: poor prosperity or cut services.
   const misery=Math.max(0,38-s.prosperity)/100;
-  const employmentExodus=old*joblessness*(year<1750?.0015:.006)+old*misery*.04;
+  // v4.0: mass unemployment (over ~43%) empties a city within a generation.
+  const employmentExodus=old*joblessness*(year<1750?.0015:.006)+old*misery*.04+old*Math.max(0,joblessness-.25)*.15;
   city.residents=clamp(old+(spontaneous+housingMigration+workMigration+cityPull-employmentExodus)*fraction,40*K,Math.max(40*K,s.capacity*1.55));
 }
 // Shrinking demand empties buildings a quarter of the excess at a time; a

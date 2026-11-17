@@ -43,11 +43,12 @@ test('abolishing taxes empties the treasury, cuts services and drives people awa
   assert.ok(b.events.some(e=>e.type==='crisis'));
   assert.ok(stats(b).prosperity<stats(a).prosperity+4,'tax-free euphoria is eaten by the service cuts');
 });
-test('when jobs disappear, homes empty and are eventually abandoned',{todo:'M4: vacancy and exodus rates after v3.6 real densities'},()=>{
+test('when jobs disappear, homes empty and are eventually abandoned',()=>{
   let c=run(addZone(addZone(town('plain',17),20,14,24,20,'res'),46,40,14,10,'craft'),250);
   // Close every workplace in the city.
   const razed=demolishArea(c,0,0,100,72,{streets:false}).city;
-  const keepHomes={...razed,buildings:[...razed.buildings,...c.buildings.filter(b=>b.type==='res'&&!razed.buildings.some(x=>x.id===b.id))]};
+  // v4.0: building follows zones, so the work zones go too (or the works are rebuilt on them).
+  const keepHomes={...razed,zones:c.zones.filter(z=>z.type==='res'),buildings:[...razed.buildings,...c.buildings.filter(b=>b.type==='res'&&!razed.buildings.some(x=>x.id===b.id))]};
   let later=run({...keepHomes,taxes:{res:'high',trade:'high',craft:'high'}},40,0,false);
   assert.ok(later.buildings.some(b=>b.vacant)||later.sites.some(s=>s.reason==='Abandoned'),'some homes should stand empty');
   later=run(later,30,0,false);

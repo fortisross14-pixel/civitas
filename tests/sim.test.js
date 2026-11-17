@@ -148,13 +148,13 @@ test('sector mix influences GDP per capita at the same population and employment
 });
 
 
-test('building styles correspond to their construction eras and remain persistent',{todo:'M4: redevelopment pace after v3.6 real densities'},()=>{
+test('building styles correspond to their construction eras and remain persistent',()=>{
   let c=newTown('plain',124);
   const first=c.buildings[0];assert.equal(first.style,'timber');
   {const own=c.zones;c=addZone(c,5,7,55,45,'res');c={...c,zones:[c.zones.at(-1),...own]};}c=advance(c,730);
   assert.ok(new Set(c.buildings.map(b=>b.style)).size>=5,'centuries should produce differing styles');
   for(const b of c.buildings)assert.equal(b.style,styleAt(b.born));
-  assert.equal(c.schema,10);assert.ok(Object.keys(STYLE_NAMES).length>=6);
+  assert.equal(c.schema,11);assert.ok(Object.keys(STYLE_NAMES).length>=6);
 });
 
 test('preservation protects the original building across centuries and survives save migration',()=>{
