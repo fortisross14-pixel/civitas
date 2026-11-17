@@ -470,3 +470,7 @@ header::after{content:'';position:absolute;right:0;bottom:-1px;left:0;border-bot
   .center{background:#d2c7ad}.mapwrap{margin:7px 7px 0}.mapwrap::after{border-width:3px}.maplegend{left:10px;top:10px}.mapzoom{right:10px;bottom:10px}.bottom{padding:7px 10px}
   .inspector{box-shadow:-8px 0 22px rgba(45,36,23,.25)}
 }
+.crash{min-height:100dvh;display:grid;place-content:center;gap:14px;padding:24px;max-width:520px;margin:0 auto;background:#f3ecda;color:#2b241a;font-family:Georgia,serif}
+.crash h1{margin:0;font-size:28px}.crash p{margin:0;font-size:16px;line-height:1.45}
+.crash div{display:flex;gap:10px;flex-wrap:wrap}.crash button{min-height:48px;padding:0 18px;border-radius:14px;border:0;background:#2b241a;color:#fff8ea;font:700 15px Georgia,serif}
+.crash button+button{background:#e3d8bd;color:#2b241a}.crash small{opacity:.6;font-size:12px}

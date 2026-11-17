@@ -49,7 +49,8 @@ export function freezeSpatial(city,value){frozen.set(city.buildings,value);}
 export function thawSpatial(city){frozen.delete(city.buildings);}
 export function spatial(city,effects={},policies={}){
   const ice=frozen.get(city.buildings);if(ice)return ice;
-  const stampMonth=(city.year||0)*12+(city.month||0),hit=cache.get(city.buildings);
+  // v4.1 (M6): fields are recomputed once a quarter (monthly cost most of a frame at MAX).
+  const stampMonth=(city.year||0)*4+Math.floor((city.month||0)/3),hit=cache.get(city.buildings);
   if(hit&&hit.len===city.buildings.length&&hit.roads===city.roads.length&&hit.month===stampMonth&&hit.policyKey===policyKey(policies)&&hit.center===centerKey(city))return hit.value;
   const value=computeSpatial(city,effects,policies);
   cache.set(city.buildings,{len:city.buildings.length,month:stampMonth,roads:city.roads.length,policyKey:policyKey(policies),center:centerKey(city),value});

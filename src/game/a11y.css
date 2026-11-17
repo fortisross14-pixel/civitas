@@ -55,3 +55,8 @@
 @media (max-width:620px){.g-chips{padding-right:104px}.app .g3 .g-goal{max-width:100%}}
 @media (max-width:400px){.g-goal em{display:none}.g-goal i{width:36px}.g-goal span{flex:none}}
 .g-steps button small{white-space:nowrap}.app .g3 .g-steps button{flex:0 1 auto;min-width:0}
+/* The button reset (all:unset) made top-bar buttons inherit pointer-events:none from .g-top,
+   so the Home button could not be tapped. */
+.app .g3 .g-top>*,.app .g3 .g-chips>*,.app .g3 .g-steps button{pointer-events:auto}
+/* The Legacy milestone toast sat on the dock for 8 s; in the game it shows under the HUD. */
+.app.inGame .milestoneToast{bottom:auto;top:calc(env(safe-area-inset-top) + 116px)}

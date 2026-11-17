@@ -449,6 +449,17 @@ function App(){
  {milestoneToast&&<div className="milestoneToast" role="status"><Medal size={22}/><div><b>{milestoneToast.name}</b><span>+{milestoneToast.points} Legacy Points</span></div><button onClick={()=>{setMilestoneToast(null);openAuxiliary('market','achievements');}}>View</button><button aria-label="Dismiss milestone" onClick={()=>setMilestoneToast(null)}>×</button></div>}
  </div>;
 }
-createRoot(document.getElementById('root')).render(<App/>);
+// v4.1 (M6): if the screen ever breaks, say so plainly; the cities are safe on this device.
+class Crash extends React.Component{
+  constructor(p){super(p);this.state={error:null};}
+  static getDerivedStateFromError(error){return {error};}
+  componentDidCatch(error,info){try{console.error('CIVITAS crashed',error,info?.componentStack);}catch{}}
+  async backup(){try{const [cities,legacy]=await Promise.all([readAtlas(),readLegacy()]);downloadBackup(cities||[],legacy||null);}catch{}}
+  render(){if(!this.state.error)return this.props.children;
+    return <div className="crash" role="alert"><h1>Something went wrong</h1><p>Your cities are saved on this device. Reload to carry on; if it happens again, download a backup first.</p>
+      <div><button onClick={()=>location.reload()}>Reload</button><button onClick={()=>this.backup()}>Download a backup</button></div>
+      <small>{String(this.state.error?.message||this.state.error).slice(0,200)}</small></div>;}
+}
+createRoot(document.getElementById('root')).render(<Crash><App/></Crash>);
 // PWA: offline play and home-screen install (production builds only).
 if(import.meta.env.PROD&&'serviceWorker' in navigator)window.addEventListener('load',()=>{navigator.serviceWorker.register(`${import.meta.env.BASE_URL}sw.js`,{scope:import.meta.env.BASE_URL}).catch(()=>{});});

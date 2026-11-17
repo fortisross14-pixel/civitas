@@ -935,7 +935,11 @@ let pave=null,paveKey='';
 function chamfer(D){for(let j=0;j<RH;j++)for(let i=0;i<RW;i++){const k=j*RW+i;let v=D[k];if(i>0)v=Math.min(v,D[k-1]+1);if(j>0){v=Math.min(v,D[k-RW]+1);if(i>0)v=Math.min(v,D[k-RW-1]+1.414);if(i<RW-1)v=Math.min(v,D[k-RW+1]+1.414);}D[k]=v;}
   for(let j=RH-1;j>=0;j--)for(let i=RW-1;i>=0;i--){const k=j*RW+i;let v=D[k];if(i<RW-1)v=Math.min(v,D[k+1]+1);if(j<RH-1){v=Math.min(v,D[k+RW]+1);if(i<RW-1)v=Math.min(v,D[k+RW+1]+1.414);if(i>0)v=Math.min(v,D[k+RW-1]+1.414);}D[k]=v;}}
 let WATERC=null;
-function paving(year,live){if(typeof document==='undefined')return null;const key=year+'|'+live.length;if(pave&&paveKey===key)return pave;paveKey=key;
+let paveAt=-1e9,paveYear=-1;
+function paving(year,live){if(typeof document==='undefined')return null;const key=year+'|'+live.length;if(pave&&paveKey===key)return pave;
+  // v4.1 (M6): while the clock runs, the surface is rebuilt at most every 0.7 s (it changes little between); every 1.2 s.
+  const now=typeof performance!=='undefined'?performance.now():0;if(pave&&now-paveAt<1200&&Math.abs(year-paveYear)<=2)return pave;
+  paveKey=key;paveAt=now;paveYear=year;
   if(!WATERC){WATERC=new Uint8Array(RW*RH);for(let j=0;j<RH;j++)for(let i=0;i<RW;i++)if(flood((i+.5)*RC,(j+.5)*RC))WATERC[j*RW+i]=1;}
   const N=RW*RH,D=new Float32Array(N).fill(1e6);
   // Low-density planned districts keep their streets as streets: their houses are not paved round.
@@ -948,7 +952,7 @@ function paving(year,live){if(typeof document==='undefined')return null;const ke
     while(h<t){const k=Q[h++],i=k%RW,j=(k/RW)|0;if(i===0||j===0||i===RW-1||j===RH-1)edge=true;for(const n of [i>0?k-1:-1,i<RW-1?k+1:-1,j>0?k-RW:-1,j<RH-1?k+RW:-1]){if(n<0||lab[n]||D2[n]>=R||WATERC[n])continue;lab[n]=id;Q[t++]=n;}}
     if(!edge&&t<700)for(let q=0;q<t;q++)D2[Q[q]]=R+1;}}
   // f > 0 inside the paving; bilinear up-sampling of f, then a hard edge, gives a smooth outline.
-  const S=3,cw=RW*S,ch=RH*S,f=k=>WATERC[k]?-2:D2[k]-R;
+  const S=2,cw=RW*S,ch=RH*S,f=k=>WATERC[k]?-2:D2[k]-R;
   const c=document.createElement('canvas');c.width=cw;c.height=ch;const gg=c.getContext('2d'),img=gg.createImageData(cw,ch),d=img.data;
   const pc=[239,230,207];
   for(let py=0;py<ch;py++){const fy=py/S-.5,j=Math.max(0,Math.min(RH-2,Math.floor(fy))),ty=Math.max(0,Math.min(1,fy-j));
